@@ -1,5 +1,5 @@
 
-using CoffeeBeanery.GraphQL.Configuration;
+// using CoffeeBeanery.GraphQL.Configuration;
 
 namespace Domain.Model;
 
@@ -9,7 +9,7 @@ public class Wrapper
     
     public Guid? CustomerCustomerEdgeKey { get; set; }
     
-    [LinkBusinessKey("CustomerCustomerEdge","CustomerCustomerEdgeId")]
+    // [LinkBusinessKey("CustomerCustomerEdge","CustomerCustomerEdgeId")]
     public List<CustomerCustomerEdge>? CustomerCustomerEdge { get; set; }
 
     public Model Model { get; set; }

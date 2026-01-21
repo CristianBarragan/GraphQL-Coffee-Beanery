@@ -16,11 +16,11 @@
         <PackageReference Include="AWSSDK.SecurityToken" Version="4.0.1.7" />
         <PackageReference Include="Dapper.Contrib" Version="2.0.78" />
         <PackageReference Include="FasterKv.Cache.Core" Version="1.0.2" />
-        <PackageReference Include="HotChocolate" Version="13.9.6" />
-        <PackageReference Include="HotChocolate.AspNetCore" Version="13.9.6" />
-        <PackageReference Include="HotChocolate.Data" Version="13.9.6" />
-        <PackageReference Include="HotChocolate.Types" Version="13.9.6" />
-        <PackageReference Include="HotChocolate.Types.Analyzers" Version="13.9.6" />
+        <PackageReference Include="HotChocolate" Version="15.1.12" />
+        <PackageReference Include="HotChocolate.AspNetCore" Version="15.1.12" />
+        <PackageReference Include="HotChocolate.Data" Version="15.1.12" />
+        <PackageReference Include="HotChocolate.Types" Version="15.1.12" />
+        <PackageReference Include="HotChocolate.Types.Analyzers" Version="15.1.12" />
         <PackageReference Include="Microsoft.Data.SqlClient" Version="6.1.0" />
         <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.7">
             <PrivateAssets>all</PrivateAssets>
@@ -34,7 +34,13 @@
         <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.7" />
         <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
         <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.4" />
-        <PackageReference Include="Z.Dapper.Plus" Version="8.0.1" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="3.11.0" />
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="4.14.0" />
+        <PackageReference Include="Microsoft.CodeAnalysis.Common" Version="4.14.0" />
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0" />
     </ItemGroup>
 
     <ItemGroup>

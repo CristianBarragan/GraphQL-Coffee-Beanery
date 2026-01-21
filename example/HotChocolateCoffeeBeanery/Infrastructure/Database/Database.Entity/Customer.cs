@@ -1,4 +1,4 @@
-﻿using CoffeeBeanery.GraphQL.Configuration;
+﻿// using CoffeeBeanery.GraphQL.Configuration;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -11,7 +11,7 @@ public class Customer : Process
         Schema = Entity.Schema.Banking;
     }
     
-    [UpsertKey("Customer","Banking")]
+    // [UpsertKey("Banking")]
     public Guid CustomerKey { get; set; }
 
     public string? FirstName { get; set; }

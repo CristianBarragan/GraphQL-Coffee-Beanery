@@ -4,7 +4,7 @@ namespace Domain.Model;
 public class Transaction
 {
 
-    public Guid? TransactionKey { get; set; }
+    public Guid TransactionKey { get; set; }
 
     public decimal? Amount { get; set; }
 

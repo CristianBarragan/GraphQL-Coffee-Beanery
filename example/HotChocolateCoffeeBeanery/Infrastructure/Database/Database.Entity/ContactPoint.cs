@@ -1,4 +1,6 @@
-﻿using CoffeeBeanery.GraphQL.Configuration;
+﻿// using CoffeeBeanery.GraphQL.Configuration;
+
+// using CoffeeBeanery.GraphQL.Configuration;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -11,16 +13,16 @@ public class ContactPoint : Process
         Schema = Entity.Schema.Banking;
     }
     
-    [UpsertKey("ContactPoint","Banking")]
+    // [UpsertKey("Banking")]
     public Guid ContactPointKey { get; set; }
 
     public ContactPointType? ContactPointType { get; set; }
 
     public string? ContactPointValue { get; set; }
     
-    [LinkKey("Customer", "CustomerKey")]
-    [LinkIdKey("Customer", "Id")]
-    [JoinKey("ContactPoint","CustomerId")]
+    // [LinkKey("Customer", "CustomerKey")]
+    // [LinkIdKey("Customer", "Id")]
+    // [JoinKey("ContactPoint","CustomerId")]
     public Guid? CustomerKey { get; set; }
 
     public int? CustomerId { get; set; }

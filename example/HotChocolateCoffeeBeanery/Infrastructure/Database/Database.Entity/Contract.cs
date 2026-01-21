@@ -1,4 +1,4 @@
-﻿using CoffeeBeanery.GraphQL.Configuration;
+﻿// using CoffeeBeanery.GraphQL.Configuration;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -11,24 +11,24 @@ public class Contract : Process
         Schema = Entity.Schema.Lending;
     }
     
-    [UpsertKey("Contract","Lending")]
+    // [UpsertKey("Lending")]
     public Guid ContractKey { get; set; }
 
     public ContractType? ContractType { get; set; }
 
     public decimal? Amount { get; set; }
     
-    [LinkKey("Account", "Id")]
-    [JoinKey("Contract","AccountId")]
+    // [LinkKey("Account", "Id")]
+    // [JoinKey("Contract","AccountId")]
     public Guid? AccountKey { get; set; }
     
     public int? AccountId { get; set; }
 
     public Account? Account { get; set; }
     
-    [LinkKey("CustomerBankingRelationship", "CustomerBankingRelationshipKey")]
-    [LinkIdKey("CustomerBankingRelationship", "Id")]
-    [JoinKey("Contract","CustomerBankingRelationshipId")]
+    // [LinkKey("CustomerBankingRelationship", "CustomerBankingRelationshipKey")]
+    // [LinkIdKey("CustomerBankingRelationship", "Id")]
+    // [JoinKey("Contract","CustomerBankingRelationshipId")]
     public Guid? CustomerBankingRelationshipKey { get; set; }
 
     public CustomerBankingRelationship? CustomerBankingRelationship { get; set; }

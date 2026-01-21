@@ -1,4 +1,4 @@
-﻿using CoffeeBeanery.GraphQL.Configuration;
+﻿// using CoffeeBeanery.GraphQL.Configuration;
 
 namespace Domain.Model;
 
@@ -10,9 +10,9 @@ public class Account
 
     public string? AccountName { get; set; }
     
-    [LinkBusinessKey("Transaction","TransactionId")]
+    // [LinkBusinessKey("Transaction","TransactionId")]
     public Transaction? Transaction { get; set; }
     
-    [LinkBusinessKey("Contract","ContractId")]
+    // [LinkBusinessKey("Contract","ContractId")]
     public Contract? Contract { get; set; }
 }

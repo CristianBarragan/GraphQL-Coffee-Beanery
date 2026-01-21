@@ -19,6 +19,7 @@
 
     <ItemGroup>
       <ProjectReference Include="..\..\..\Domain\CoffeeBeanery\CoffeeBeanery.csproj" />
+      <ProjectReference Include="..\Database.Graph\Database.Graph.csproj" />
     </ItemGroup>
 
 </Project>

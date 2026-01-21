@@ -15,6 +15,7 @@
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
         <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.4" />
+        <PackageReference Include="Microsoft.CodeAnalysis.Common" Version="4.14.0" />
     </ItemGroup>
 
     <ItemGroup>

@@ -1,78 +1,110 @@
-﻿using CoffeeBeanery.CQRS;
-using CoffeeBeanery.GraphQL.Helper;
-using CoffeeBeanery.GraphQL.Model;
-using Microsoft.Extensions.Logging;
-using Npgsql;
-using FASTER.core;
+﻿using CoffeeBeanery.GraphQL.Core.Compiler;
+using CoffeeBeanery.GraphQL.Core.Mapping;
+using CoffeeBeanery.GraphQL.Core.Sql;
 using HotChocolate.Execution.Processing;
+using Npgsql;
 
-namespace CoffeeBeanery.Service;
-
-public interface IProcessService<M, N, S>
-    where M : class where N : class where S : class
+namespace CoffeeBeanery.Service
 {
-    Task<(List<M> list, int? startCursor, int? endCursor, int? totalCount, int? totalPageRecords)> QueryProcessAsync<M>(
-        string cacheKey, ISelection graphQlSelection, string rootName, string wrapperName, CancellationToken cancellationToken)
-        where M : class;
-
-    Task<(List<M> list, int? startCursor, int? endCursor, int? totalCount, int? totalPageRecords)>
-        UpsertProcessAsync<M>(
-            string cacheKey, ISelection graphQlSelection, string rootName, string wrapperName, CancellationToken cancellationToken)
-        where M : class;
-}
-
-public class ProcessService<M, D, S>
-    : IProcessService<M, D, S>
-    where M : class where D : class where S : class
-{
-    private readonly ILogger<ProcessService<M, D, S>> _logger;
-    private readonly IQueryDispatcher _queryDispatcher;
-    private readonly IEntityTreeMap<D, S> _entityTreeMap;
-    private readonly IModelTreeMap<D, S> _modelTreeMap;
-    private IFasterKV<string, string> _cache;
-
-    public ProcessService(ILogger<ProcessService<M, D, S>> logger, IQueryDispatcher queryDispatcher,
-        IEntityTreeMap<D, S> entityTreeMap, IModelTreeMap<D, S> modelTreeMap, IFasterKV<string, string> cache)
+    public interface IProcessService<M>
     {
-        _logger = logger;
-        _queryDispatcher = queryDispatcher;
-        _entityTreeMap = entityTreeMap;
-        _modelTreeMap = modelTreeMap;
-        _cache = cache;
+        Task<QueryResult> QueryProcessAsync(string cacheKey, ISelection selection, string modelName, string wrapperName, CancellationToken cancellationToken);
+        
+        Task<QueryResult> MutationProcessAsync(string cacheKey, ISelection selection, string modelName, string wrapperName, CancellationToken cancellationToken);
     }
-
-    public virtual async Task<(List<M> list, int? startCursor, int? endCursor, int? totalCount, int? totalPageRecords)>
-        QueryProcessAsync<M>(
-            string cacheKey, ISelection graphQlSelection, string rootName, string wrapperName, CancellationToken cancellationToken)
+    
+    public class ProcessService<M> : IProcessService<M>
         where M : class
     {
-        return await ExecuteStatementAsync<M>(cacheKey, graphQlSelection, rootName, wrapperName, cancellationToken);
-    }
+        private readonly ILogger _logger;
+        private readonly NpgsqlConnection _dbConnection;
+        private readonly IDynamicQueryHandler _queryHandler;
 
-    private async Task<(List<M> list, int? startCursor, int? endCursor, int? totalCount, int? totalPageRecords)>
-        ExecuteStatementAsync<M>(string cacheKey, ISelection graphQlSelection, string rootName, string wrapperName,
-            CancellationToken cancellationToken)
-    {
-        if (string.IsNullOrEmpty(graphQlSelection.ToString()))
+        public ProcessService(
+            ILoggerFactory loggerFactory,
+            NpgsqlConnection dbConnection,
+            IDynamicQueryHandler queryHandler)
         {
-            return default;
+            _logger = loggerFactory.CreateLogger<ProcessService<M>>();
+            _dbConnection = dbConnection;
+            _queryHandler = queryHandler;
         }
 
-        var sqlStructure = new SqlStructure();
-        sqlStructure = SqlNodeResolverHelper.HandleGraphQL(graphQlSelection, _entityTreeMap, _modelTreeMap,
-            rootName, wrapperName, _cache, cacheKey);
-        //Permissions )
+        public async Task<QueryResult> QueryProcessAsync(
+            string cacheKey, ISelection selection, string modelName, string wrapperName, CancellationToken cancellationToken)
+        {
+            var ctx = new SqlCompilationContext();
 
-        return await _queryDispatcher
-            .DispatchAsync<SqlStructure, (List<M> Process, int? startCursor, int? endCursor, int?
-                totalCount, int? totalPageRecords)>(sqlStructure, cancellationToken);
-    }
+            var resolved = SqlNodeResolver.ResolveFromSelection<M>(selection, wrapperName, false);
 
-    public virtual async Task<(List<M> list, int? startCursor, int? endCursor, int? totalCount, int? totalPageRecords)>
-        UpsertProcessAsync<M>(string cacheKey, ISelection graphQlSelection, string rootName, string wrapperName,
+            SqlWhereBuilder.BuildWhere<M>(ctx, selection, resolved.select, wrapperName);
+            SqlOrderByBuilder.BuildOrderBy(ctx, selection, resolved.select, wrapperName);
+            var pagination = SqlPaginationBuilder.BuildPagination(ctx, selection);
+
+            var rootNode = new NodeTree { Name = wrapperName };
+
+            var sqlQuery = SqlSelectGenerator.BuildSelect(ctx, resolved.select, rootNode);
+
+            var parameters = new ProcessQueryParameters
+            {
+                SqlStructure = new SqlStructure
+                {
+                    Sql = sqlQuery.Query
+                },
+                Pagination = pagination,
+                SplitOnDapper = sqlQuery.SplitOnDapper
+            };
+
+            var (models, startCursor, endCursor, totalCount, totalPageRecords) =
+                await _queryHandler.ExecuteAsync(parameters, cancellationToken);
+
+            return new QueryResult
+            {
+                Models = models,
+                StartCursor = startCursor,
+                EndCursor = endCursor,
+                TotalCount = totalCount ?? 0,
+                TotalPageRecords = totalPageRecords ?? 0
+            };
+        }
+
+        public async Task<QueryResult> MutationProcessAsync(
+            string cacheKey, ISelection selection, string modelName, string wrapperName,
             CancellationToken cancellationToken)
-        where M : class
-    {
-        return await ExecuteStatementAsync<M>(cacheKey, graphQlSelection, rootName, wrapperName, cancellationToken);
+        {
+            var ctx = new SqlCompilationContext();
+
+            var resolved = SqlNodeResolver.ResolveFromSelection<M>(selection, wrapperName, true);
+
+            var rootNode = new NodeTree { Name = wrapperName };
+
+            var sqlMutation = SqlMutationGenerator.BuildMutation(ctx, resolved.mutation, rootNode);
+
+            // build select part to return inserted values
+            var sqlQuery = SqlSelectGenerator.BuildSelect(ctx, resolved.select, rootNode);
+
+            var pagination = SqlPaginationBuilder.BuildPagination(ctx, selection);
+
+            var parameters = new ProcessQueryParameters
+            {
+                SqlStructure = new SqlStructure
+                {
+                    Sql = $"{sqlMutation};{sqlQuery}"
+                },
+                Pagination = pagination
+            };
+
+            var (models, startCursor, endCursor, totalCount, totalPageRecords) =
+                await _queryHandler.ExecuteAsync(parameters, cancellationToken);
+
+            return new QueryResult
+            {
+                Models = models,
+                StartCursor = startCursor,
+                EndCursor = endCursor,
+                TotalCount = totalCount ?? 0,
+                TotalPageRecords = totalPageRecords ?? 0
+            };
+        }
     }
 }

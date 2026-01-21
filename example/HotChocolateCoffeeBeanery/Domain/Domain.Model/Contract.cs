@@ -1,5 +1,5 @@
 ﻿
-using CoffeeBeanery.GraphQL.Configuration;
+// using CoffeeBeanery.GraphQL.Configuration;
 
 namespace Domain.Model;
 
@@ -15,7 +15,7 @@ public class Contract
     
     public Guid? CustomerBankingRelationshipKey { get; set; }
 
-    [LinkBusinessKey("Transaction","TransactionId")]
+    // [LinkBusinessKey("Transaction","TransactionId")]
     public List<Transaction>? Transaction { get; set; }
 }
 
