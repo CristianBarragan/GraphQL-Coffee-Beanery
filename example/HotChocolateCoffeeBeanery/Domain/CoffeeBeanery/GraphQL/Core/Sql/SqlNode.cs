@@ -1,32 +1,44 @@
-﻿using System.Collections.Generic;
-
-namespace CoffeeBeanery.GraphQL.Core.Sql
+﻿namespace CoffeeBeanery.GraphQL.Core.Sql
 {
     public enum SqlNodeType
     {
-        Select,
+        Node,
         Edge,
-        Mutation
-    }
-
-    public sealed class LinkKey
-    {
-        public string From { get; set; } = "";
-        public string To { get; set; } = "";
-        public string FromId { get; set; } = "";
-        public string ToId { get; set; } = "";
+        Query,
+        Mutation,
+        Graph
     }
 
     public sealed class SqlNode
     {
-        public string EntityName { get; set; } = "";
-        public string ColumnName { get; set; } = "";
+        public string Entity { get; set; } = "";
         public string Schema { get; set; } = "public";
+        public string Table { get; set; } = "";
+        public string Column { get; set; } = "";
+        public string Value { get; set; } = "";
+        public List<string> UpsertKeys { get; set; } = new();
+        public List<LinkKey> LinkKeys { get; set; } = new();
+        public string Graph { get; set; } = "";
+        public bool IsColumnGraph { get; set; } = false;
 
-        public Type EntityType { get; set; } = default!;
 
         public SqlNodeType SqlNodeType { get; set; }
-        public List<LinkKey> LinkKeys { get; set; } = new();
-    }
 
+        // Used for joins
+        public string JoinTable { get; set; } = "";
+        public string JoinColumnFrom { get; set; } = "";
+        public string JoinColumnTo { get; set; } = "";
+
+        // For edges
+        public string Relationship { get; set; } = "";
+        public string RelationshipKey { get; set; } = "";
+
+        // For enum mapping
+        public Dictionary<string, string> FromEnumeration { get; set; } = new();
+        public Dictionary<string, string> ToEnumeration { get; set; } = new();
+
+        public bool IsGraph => SqlNodeType == SqlNodeType.Graph;
+        public bool IsEdge => SqlNodeType == SqlNodeType.Edge;
+
+    }
 }

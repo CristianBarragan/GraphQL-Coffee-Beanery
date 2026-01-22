@@ -28,7 +28,7 @@ namespace CoffeeBeanery.Service
         public async Task<(List<M> models, int? startCursor, int? endCursor, int? totalCount, int? totalPageRecords)> 
             ExecuteAsync(ProcessQueryParameters parameters, CancellationToken cancellationToken)
         {
-            if (string.IsNullOrWhiteSpace(parameters.SqlStructure.Sql))
+            if (string.IsNullOrWhiteSpace(parameters.SqlStructure.SqlQuery))
                 return (new List<M>(), null, null, null, null);
             // Ensure SplitOnDapper is not null, if so return empty result
             if (parameters.SplitOnDapper == null || parameters.SplitOnDapper.Count == 0)
@@ -58,7 +58,7 @@ namespace CoffeeBeanery.Service
             {
                 // Execute the query using Dapper
                 var result = await connection.QueryAsync<(int? startCursor, int? endCursor, int? totalCount, int? totalPageRecords)>(
-                    parameters.SqlStructure.Sql,
+                    $"{parameters.SqlStructure.SqlUpsert};{parameters.SqlStructure.SqlQuery}",
                     splitOnTypes.ToArray(),
                     map =>
                     {

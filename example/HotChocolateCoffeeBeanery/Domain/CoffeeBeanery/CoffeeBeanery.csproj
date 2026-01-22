@@ -47,7 +47,6 @@
     </ItemGroup>
 
     <ItemGroup>
-      <Folder Include="GraphQL\Core\Extension\" />
       <Folder Include="GraphQL\Execution\" />
     </ItemGroup>
 
@@ -55,24 +54,32 @@
       <Compile Remove="GraphQL\CoreLegacy\**" />
       <Compile Remove="GraphQL\CoreNew\**" />
       <Compile Remove="GraphQL\CorePrevious\**" />
+      <Compile Remove="GraphQL\CorePrev1\**" />
+      <Compile Remove="GraphQL\CoreBk\**" />
     </ItemGroup>
 
     <ItemGroup>
       <EmbeddedResource Remove="GraphQL\CoreLegacy\**" />
       <EmbeddedResource Remove="GraphQL\CoreNew\**" />
       <EmbeddedResource Remove="GraphQL\CorePrevious\**" />
+      <EmbeddedResource Remove="GraphQL\CorePrev1\**" />
+      <EmbeddedResource Remove="GraphQL\CoreBk\**" />
     </ItemGroup>
 
     <ItemGroup>
       <Content Remove="GraphQL\CoreLegacy\**" />
       <Content Remove="GraphQL\CoreNew\**" />
       <Content Remove="GraphQL\CorePrevious\**" />
+      <Content Remove="GraphQL\CorePrev1\**" />
+      <Content Remove="GraphQL\CoreBk\**" />
     </ItemGroup>
 
     <ItemGroup>
       <None Remove="GraphQL\CoreLegacy\**" />
       <None Remove="GraphQL\CoreNew\**" />
       <None Remove="GraphQL\CorePrevious\**" />
+      <None Remove="GraphQL\CorePrev1\**" />
+      <None Remove="GraphQL\CoreBk\**" />
     </ItemGroup>
     
 </Project>

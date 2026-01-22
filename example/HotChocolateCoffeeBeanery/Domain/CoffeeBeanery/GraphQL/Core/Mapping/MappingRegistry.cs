@@ -1,21 +1,21 @@
-﻿using System.Collections.Generic;
+﻿using CoffeeBeanery.GraphQL.Core.Mapping;
 
-namespace CoffeeBeanery.GraphQL.Core.Mapping
+public static class MappingRegistry
 {
-    public static class MappingRegistry
+    public static Dictionary<string, EntityMap> Registry { get; } = new();
+
+    public static void Register(string modelName, EntityMap map)
     {
-        private static readonly List<MappingDefinition> _definitions = new();
+        Registry[modelName] = map;
+    }
 
-        public static IReadOnlyList<MappingDefinition> All => _definitions;
-
-        public static void Register(MappingDefinition definition)
-        {
-            _definitions.Add(definition);
-        }
-        
-        public static IReadOnlyList<object> GetAll()
-        {
-            return _definitions;
-        }
+    public static EntityMap Get(string modelName)
+    {
+        return Registry[modelName];
+    }
+    
+    public static IReadOnlyDictionary<string, EntityMap> GetAll()
+    {
+        return Registry;
     }
 }

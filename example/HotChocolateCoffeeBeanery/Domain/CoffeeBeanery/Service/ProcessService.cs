@@ -1,5 +1,5 @@
-﻿using CoffeeBeanery.GraphQL.Core.Compiler;
-using CoffeeBeanery.GraphQL.Core.Mapping;
+﻿using CoffeeBeanery.GraphQL.Core.GraphQL;
+using CoffeeBeanery.GraphQL.Core.Runtime;
 using CoffeeBeanery.GraphQL.Core.Sql;
 using HotChocolate.Execution.Processing;
 using Npgsql;
@@ -35,24 +35,24 @@ namespace CoffeeBeanery.Service
         {
             var ctx = new SqlCompilationContext();
 
-            var resolved = SqlNodeResolver.ResolveFromSelection<M>(selection, wrapperName, false);
+            var rootNode = new NodeTree { Name = modelName };
 
-            SqlWhereBuilder.BuildWhere<M>(ctx, selection, resolved.select, wrapperName);
-            SqlOrderByBuilder.BuildOrderBy(ctx, selection, resolved.select, wrapperName);
-            var pagination = SqlPaginationBuilder.BuildPagination(ctx, selection);
-
-            var rootNode = new NodeTree { Name = wrapperName };
-
-            var sqlQuery = SqlSelectGenerator.BuildSelect(ctx, resolved.select, rootNode);
+            // Compile SQL using your current compiler
+            var sqlStructure = SqlCompiler.Compile(
+                selection,
+                rootNode,
+                SqlNodeRegistry.EdgeNodes,
+                SqlNodeRegistry.NodeNodes,
+                SqlNodeRegistry.MutationNodes
+            );
 
             var parameters = new ProcessQueryParameters
             {
                 SqlStructure = new SqlStructure
                 {
-                    Sql = sqlQuery.Query
+                    SqlQuery = $"{sqlStructure.SqlUpsert};{sqlStructure.SqlQuery}"
                 },
-                Pagination = pagination,
-                SplitOnDapper = sqlQuery.SplitOnDapper
+                Pagination = ctx.Pagination
             };
 
             var (models, startCursor, endCursor, totalCount, totalPageRecords) =
@@ -69,29 +69,43 @@ namespace CoffeeBeanery.Service
         }
 
         public async Task<QueryResult> MutationProcessAsync(
-            string cacheKey, ISelection selection, string modelName, string wrapperName,
+            string cacheKey, ISelection selection, string rootName, string wrapperName,
             CancellationToken cancellationToken)
         {
             var ctx = new SqlCompilationContext();
 
-            var resolved = SqlNodeResolver.ResolveFromSelection<M>(selection, wrapperName, true);
+            var rootTree = NodeTreeBuilder.Build(rootName, SqlNodeRegistry.EntityTrees);
 
-            var rootNode = new NodeTree { Name = wrapperName };
+            var statementNodes = new Dictionary<string, SqlNode>();
+            
+            SqlNodeResolver.GetMutations(SqlNodeRegistry.EntityTrees, selection.SyntaxNode, SqlNodeRegistry.NodeNodes, SqlNodeRegistry.NodeNodes, statementNodes,
+                rootTree, string.Empty, rootTree, new List<string>(), new List<string>(), new List<string>());
 
-            var sqlMutation = SqlMutationGenerator.BuildMutation(ctx, resolved.mutation, rootNode);
-
-            // build select part to return inserted values
-            var sqlQuery = SqlSelectGenerator.BuildSelect(ctx, resolved.select, rootNode);
-
-            var pagination = SqlPaginationBuilder.BuildPagination(ctx, selection);
+            var mutationStructure = SqlMutationCompiler.Compile(
+                selection,
+                rootTree,
+                SqlNodeRegistry.EdgeNodes,
+                SqlNodeRegistry.NodeNodes,
+                SqlNodeRegistry.MutationNodes
+            );
+            
+            // Compile SQL using your current compiler
+            var sqlStructure = SqlCompiler.Compile(
+                selection,
+                rootTree,
+                SqlNodeRegistry.EdgeNodes,
+                SqlNodeRegistry.NodeNodes,
+                SqlNodeRegistry.MutationNodes
+            );
 
             var parameters = new ProcessQueryParameters
             {
                 SqlStructure = new SqlStructure
                 {
-                    Sql = $"{sqlMutation};{sqlQuery}"
+                    SqlQuery = sqlStructure.SqlQuery,
+                    SqlUpsert = mutationStructure.SqlUpsert
                 },
-                Pagination = pagination
+                Pagination = ctx.Pagination
             };
 
             var (models, startCursor, endCursor, totalCount, totalPageRecords) =
@@ -106,5 +120,6 @@ namespace CoffeeBeanery.Service
                 TotalPageRecords = totalPageRecords ?? 0
             };
         }
+
     }
 }

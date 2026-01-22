@@ -6,7 +6,7 @@ using Domain.Model;
 
 namespace Domain.Shared.Mapping
 {
-    public static class MappingRegistration
+    public class MappingRegistration : IMappingRegistration
     {
         public enum Schema
         {
@@ -15,218 +15,229 @@ namespace Domain.Shared.Mapping
             Account
         }
 
-        public static void Register()
+        public void Register()
         {
             //-----------------------------------------
             // CUSTOMER
             //-----------------------------------------
-            MappingRegistry.Register(
-                MappingBuilder<Customer>.Create(m =>
+            var cust = new EntityMap
+            {
+                Schema = Schema.Banking.ToString()
+            };
+
+            cust.UpsertKeys.Add(
+                new UpsertKey(nameof(DataEntity.Customer),
+                              nameof(DataEntity.Customer.CustomerKey)));
+
+            cust.FieldMaps.Add(new FieldMap
+            {
+                SourceName = nameof(Customer.CustomerKey),
+                DestinationEntity = nameof(DataEntity.Customer),
+                DestinationName = nameof(DataEntity.Customer.CustomerKey)
+            });
+
+            cust.FieldMaps.Add(new FieldMap
+            {
+                SourceName = nameof(Customer.FirstNaming),
+                DestinationEntity = nameof(DataEntity.Customer),
+                DestinationName = nameof(DataEntity.Customer.FirstName)
+            });
+
+            cust.FieldMaps.Add(new FieldMap
+            {
+                SourceName = nameof(Customer.LastNaming),
+                DestinationEntity = nameof(DataEntity.Customer),
+                DestinationName = nameof(DataEntity.Customer.LastName)
+            });
+
+            cust.FieldMaps.Add(new FieldMap
+            {
+                SourceName = nameof(Customer.FullNaming),
+                DestinationEntity = nameof(DataEntity.Customer),
+                DestinationName = nameof(DataEntity.Customer.FullName)
+            });
+
+            // Enum maps
+            var custEnums = EnumMapFactory.Create(
+                new Dictionary<CustomerType, DataEntity.CustomerType>
                 {
-                    var cust = new EntityMap<Customer, DataEntity.Customer>();
-                    cust.Schema = Schema.Banking.ToString();
-                    cust.UpsertKeys.Add(
-                        new UpsertKey(nameof(DataEntity.Customer),
-                                      nameof(DataEntity.Customer.CustomerKey)));
+                    { CustomerType.Person, DataEntity.CustomerType.Person },
+                    { CustomerType.Organisation, DataEntity.CustomerType.Organisation }
+                },
+                new Dictionary<DataEntity.CustomerType, CustomerType>
+                {
+                    { DataEntity.CustomerType.Person, CustomerType.Person },
+                    { DataEntity.CustomerType.Organisation, CustomerType.Organisation }
+                });
 
-                    cust.FieldMaps.Add(new FieldMap<Customer, DataEntity.Customer>
-                    {
-                        Source = c => c.CustomerKey,
-                        Destination = e => e.CustomerKey
-                    });
+            cust.FromEnum = custEnums.from;
+            cust.ToEnum = custEnums.to;
 
-                    cust.FieldMaps.Add(new FieldMap<Customer, DataEntity.Customer>
-                    {
-                        Source = c => c.FirstNaming,
-                        Destination = e => e.FirstName
-                    });
+            MappingRegistry.Register(nameof(Customer), cust);
 
-                    cust.FieldMaps.Add(new FieldMap<Customer, DataEntity.Customer>
-                    {
-                        Source = c => c.LastNaming,
-                        Destination = e => e.LastName
-                    });
-
-                    cust.FieldMaps.Add(new FieldMap<Customer, DataEntity.Customer>
-                    {
-                        Source = c => c.FullNaming,
-                        Destination = e => e.FullName
-                    });
-
-                    cust.EnumMaps.Add(EnumMapFactory.Create(
-                        new Dictionary<CustomerType, DataEntity.CustomerType>
-                        {
-                            { CustomerType.Person, DataEntity.CustomerType.Person },
-                            { CustomerType.Organisation, DataEntity.CustomerType.Organisation }
-                        },
-                        new Dictionary<DataEntity.CustomerType, CustomerType>
-                        {
-                            { DataEntity.CustomerType.Person, CustomerType.Person },
-                            { DataEntity.CustomerType.Organisation, CustomerType.Organisation }
-                        }));
-
-                    m.AddEntityMap(cust);
-                }).Build());
 
             //-----------------------------------------
             // CONTACTPOINT
             //-----------------------------------------
-            MappingRegistry.Register(
-                MappingBuilder<ContactPoint>.Create(m =>
+            var cp = new EntityMap
+            {
+                Schema = Schema.Banking.ToString()
+            };
+
+            cp.UpsertKeys.Add(
+                new UpsertKey(nameof(DataEntity.ContactPoint),
+                              nameof(DataEntity.ContactPoint.ContactPointKey)));
+
+            cp.FieldMaps.Add(new FieldMap
+            {
+                SourceName = nameof(ContactPoint.ContactPointKey),
+                DestinationEntity = nameof(DataEntity.ContactPoint),
+                DestinationName = nameof(DataEntity.ContactPoint.ContactPointKey)
+            });
+
+            cp.FieldMaps.Add(new FieldMap
+            {
+                SourceName = nameof(ContactPoint.ContactPointValue),
+                DestinationEntity = nameof(DataEntity.ContactPoint),
+                DestinationName = nameof(DataEntity.ContactPoint.ContactPointValue)
+            });
+
+            cp.FieldMaps.Add(new FieldMap
+            {
+                SourceName = nameof(ContactPoint.CustomerKey),
+                DestinationEntity = nameof(DataEntity.ContactPoint),
+                DestinationName = nameof(DataEntity.ContactPoint.CustomerKey)
+            });
+
+            var cpEnums = EnumMapFactory.Create(
+                new Dictionary<ContactPointType, DataEntity.ContactPointType>
                 {
-                    var cp = new EntityMap<ContactPoint, DataEntity.ContactPoint>();
-                    cp.Schema = Schema.Banking.ToString();
-                    cp.UpsertKeys.Add(
-                        new UpsertKey(nameof(DataEntity.ContactPoint),
-                                      nameof(DataEntity.ContactPoint.ContactPointKey)));
+                    { ContactPointType.Mobile, DataEntity.ContactPointType.Mobile },
+                    { ContactPointType.Landline, DataEntity.ContactPointType.Landline },
+                    { ContactPointType.Email, DataEntity.ContactPointType.Email }
+                },
+                new Dictionary<DataEntity.ContactPointType, ContactPointType>
+                {
+                    { DataEntity.ContactPointType.Mobile, ContactPointType.Mobile },
+                    { DataEntity.ContactPointType.Landline, ContactPointType.Landline },
+                    { DataEntity.ContactPointType.Email, ContactPointType.Email }
+                });
 
-                    cp.FieldMaps.Add(new FieldMap<ContactPoint, DataEntity.ContactPoint>
-                    {
-                        Source = x => x.ContactPointKey,
-                        Destination = e => e.ContactPointKey
-                    });
+            cp.FromEnum = cpEnums.from;
+            cp.ToEnum = cpEnums.to;
 
-                    cp.FieldMaps.Add(new FieldMap<ContactPoint, DataEntity.ContactPoint>
-                    {
-                        Source = x => x.ContactPointValue,
-                        Destination = e => e.ContactPointValue
-                    });
+            MappingRegistry.Register(nameof(ContactPoint), cp);
 
-                    cp.FieldMaps.Add(new FieldMap<ContactPoint, DataEntity.ContactPoint>
-                    {
-                        Source = x => x.CustomerKey,
-                        Destination = e => e.CustomerKey
-                    });
-
-                    cp.EnumMaps.Add(EnumMapFactory.Create(
-                        new Dictionary<ContactPointType, DataEntity.ContactPointType>
-                        {
-                            { ContactPointType.Mobile, DataEntity.ContactPointType.Mobile },
-                            { ContactPointType.Landline, DataEntity.ContactPointType.Landline },
-                            { ContactPointType.Email, DataEntity.ContactPointType.Email }
-                        },
-                        new Dictionary<DataEntity.ContactPointType, ContactPointType>
-                        {
-                            { DataEntity.ContactPointType.Mobile, ContactPointType.Mobile },
-                            { DataEntity.ContactPointType.Landline, ContactPointType.Landline },
-                            { DataEntity.ContactPointType.Email, ContactPointType.Email }
-                        }));
-
-                    cp.LinkMaps.Add(new LinkMap<ContactPoint, DataEntity.ContactPoint>
-                    {
-                        SourceKey = x => x.CustomerKey,
-                        EntityKey = e => e.CustomerKey
-                    });
-
-                    m.AddEntityMap(cp);
-                }).Build());
 
             //-----------------------------------------
             // ACCOUNT
             //-----------------------------------------
-            MappingRegistry.Register(
-                MappingBuilder<Account>.Create(m =>
-                {
-                    var acct = new EntityMap<Account, DataEntity.Account>();
-                    acct.Schema = Schema.Account.ToString();
-                    acct.UpsertKeys.Add(
-                        new UpsertKey(nameof(DataEntity.Account),
-                                      nameof(DataEntity.Account.AccountKey)));
+            var acct = new EntityMap
+            {
+                Schema = Schema.Account.ToString()
+            };
 
-                    acct.FieldMaps.Add(new FieldMap<Account, DataEntity.Account>
-                    {
-                        Source = x => x.AccountKey,
-                        Destination = e => e.AccountKey
-                    });
+            acct.UpsertKeys.Add(
+                new UpsertKey(nameof(DataEntity.Account),
+                              nameof(DataEntity.Account.AccountKey)));
 
-                    acct.FieldMaps.Add(new FieldMap<Account, DataEntity.Account>
-                    {
-                        Source = x => x.AccountNumber,
-                        Destination = e => e.AccountNumber
-                    });
+            acct.FieldMaps.Add(new FieldMap
+            {
+                SourceName = nameof(Account.AccountKey),
+                DestinationEntity = nameof(DataEntity.Account),
+                DestinationName = nameof(DataEntity.Account.AccountKey)
+            });
 
-                    acct.FieldMaps.Add(new FieldMap<Account, DataEntity.Account>
-                    {
-                        Source = x => x.AccountName,
-                        Destination = e => e.AccountName
-                    });
+            acct.FieldMaps.Add(new FieldMap
+            {
+                SourceName = nameof(Account.AccountNumber),
+                DestinationEntity = nameof(DataEntity.Account),
+                DestinationName = nameof(DataEntity.Account.AccountNumber)
+            });
 
-                    m.AddEntityMap(acct);
-                }).Build());
+            acct.FieldMaps.Add(new FieldMap
+            {
+                SourceName = nameof(Account.AccountName),
+                DestinationEntity = nameof(DataEntity.Account),
+                DestinationName = nameof(DataEntity.Account.AccountName)
+            });
+
+            MappingRegistry.Register(nameof(Account), acct);
+
 
             //-----------------------------------------
             // CONTRACT
             //-----------------------------------------
-            MappingRegistry.Register(
-                MappingBuilder<Contract>.Create(m =>
+            var ct = new EntityMap
+            {
+                Schema = Schema.Lending.ToString()
+            };
+
+            ct.UpsertKeys.Add(
+                new UpsertKey(nameof(DataEntity.Contract),
+                              nameof(DataEntity.Contract.ContractKey)));
+
+            ct.FieldMaps.Add(new FieldMap
+            {
+                SourceName = nameof(Contract.ContractKey),
+                DestinationEntity = nameof(DataEntity.Contract),
+                DestinationName = nameof(DataEntity.Contract.ContractKey)
+            });
+
+            ct.FieldMaps.Add(new FieldMap
+            {
+                SourceName = nameof(Contract.Amount),
+                DestinationEntity = nameof(DataEntity.Contract),
+                DestinationName = nameof(DataEntity.Contract.Amount)
+            });
+
+            var ctEnums = EnumMapFactory.Create(
+                new Dictionary<ContractType, DataEntity.ContractType>
                 {
-                    var ct = new EntityMap<Contract, DataEntity.Contract>();
-                    ct.Schema = Schema.Lending.ToString();
-                    ct.UpsertKeys.Add(
-                        new UpsertKey(nameof(DataEntity.Contract),
-                                      nameof(DataEntity.Contract.ContractKey)));
+                    { ContractType.CreditCard, DataEntity.ContractType.CreditCard },
+                    { ContractType.Mortgage, DataEntity.ContractType.Mortgage },
+                    { ContractType.PersonalLoan, DataEntity.ContractType.PersonalLoan }
+                },
+                new Dictionary<DataEntity.ContractType, ContractType>
+                {
+                    { DataEntity.ContractType.CreditCard, ContractType.CreditCard },
+                    { DataEntity.ContractType.Mortgage, ContractType.Mortgage },
+                    { DataEntity.ContractType.PersonalLoan, ContractType.PersonalLoan }
+                });
 
-                    ct.FieldMaps.Add(new FieldMap<Contract, DataEntity.Contract>
-                    {
-                        Source = x => x.ContractKey,
-                        Destination = e => e.ContractKey
-                    });
+            ct.FromEnum = ctEnums.from;
+            ct.ToEnum = ctEnums.to;
 
-                    ct.FieldMaps.Add(new FieldMap<Contract, DataEntity.Contract>
-                    {
-                        Source = x => x.Amount,
-                        Destination = e => e.Amount
-                    });
+            MappingRegistry.Register(nameof(Contract), ct);
 
-                    ct.EnumMaps.Add(EnumMapFactory.Create(
-                        new Dictionary<ContractType, DataEntity.ContractType>
-                        {
-                            { ContractType.CreditCard, DataEntity.ContractType.CreditCard },
-                            { ContractType.Mortgage, DataEntity.ContractType.Mortgage },
-                            { ContractType.PersonalLoan, DataEntity.ContractType.PersonalLoan }
-                        },
-                        new Dictionary<DataEntity.ContractType, ContractType>
-                        {
-                            { DataEntity.ContractType.CreditCard, ContractType.CreditCard },
-                            { DataEntity.ContractType.Mortgage, ContractType.Mortgage },
-                            { DataEntity.ContractType.PersonalLoan, ContractType.PersonalLoan }
-                        }));
-
-                    m.AddEntityMap(ct);
-                }).Build());
 
             //-----------------------------------------
             // CUSTOMERBANKINGRELATIONSHIP
             //-----------------------------------------
-            MappingRegistry.Register(
-                MappingBuilder<CustomerBankingRelationship>.Create(m =>
-                {
-                    var cbr = new EntityMap<CustomerBankingRelationship, DataEntity.CustomerBankingRelationship>();
-                    cbr.Schema = Schema.Banking.ToString();
-                    cbr.UpsertKeys.Add(
-                        new UpsertKey(nameof(DataEntity.CustomerBankingRelationship),
-                                      nameof(DataEntity.CustomerBankingRelationship.CustomerBankingRelationshipKey)));
+            var cbr = new EntityMap
+            {
+                Schema = Schema.Banking.ToString()
+            };
 
-                    cbr.FieldMaps.Add(new FieldMap<CustomerBankingRelationship, DataEntity.CustomerBankingRelationship>
-                    {
-                        Source = x => x.CustomerBankingRelationshipKey,
-                        Destination = e => e.CustomerBankingRelationshipKey
-                    });
+            cbr.UpsertKeys.Add(
+                new UpsertKey(nameof(DataEntity.CustomerBankingRelationship),
+                              nameof(DataEntity.CustomerBankingRelationship.CustomerBankingRelationshipKey)));
 
-                    cbr.FieldMaps.Add(new FieldMap<CustomerBankingRelationship, DataEntity.CustomerBankingRelationship>
-                    {
-                        Source = x => x.CustomerKey,
-                        Destination = e => e.CustomerKey
-                    });
+            cbr.FieldMaps.Add(new FieldMap
+            {
+                SourceName = nameof(CustomerBankingRelationship.CustomerBankingRelationshipKey),
+                DestinationEntity = nameof(DataEntity.CustomerBankingRelationship),
+                DestinationName = nameof(DataEntity.CustomerBankingRelationship.CustomerBankingRelationshipKey)
+            });
 
-                    cbr.LinkMaps.Add(new LinkMap<CustomerBankingRelationship, DataEntity.CustomerBankingRelationship>
-                    {
-                        SourceKey = x => x.CustomerKey,
-                        EntityKey = e => e.CustomerKey
-                    });
+            cbr.FieldMaps.Add(new FieldMap
+            {
+                SourceName = nameof(CustomerBankingRelationship.CustomerKey),
+                DestinationEntity = nameof(DataEntity.CustomerBankingRelationship),
+                DestinationName = nameof(DataEntity.CustomerBankingRelationship.CustomerKey)
+            });
 
-                    m.AddEntityMap(cbr);
-                }).Build());
+            MappingRegistry.Register(nameof(CustomerBankingRelationship), cbr);
         }
     }
 }

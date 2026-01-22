@@ -3,9 +3,11 @@ using System.Linq.Expressions;
 
 namespace CoffeeBeanery.GraphQL.Core.Mapping
 {
-    public sealed class FieldMap<TModel, TEntity>
+    public sealed class FieldMap
     {
-        public Expression<Func<TModel, object>> Source { get; init; }
-        public Expression<Func<TEntity, object>> Destination { get; init; }
+        public string SourceName { get; set; } = "";
+        public string DestinationEntity { get; set; } = "";
+        public string DestinationName { get; set; } = "";
     }
+
 }

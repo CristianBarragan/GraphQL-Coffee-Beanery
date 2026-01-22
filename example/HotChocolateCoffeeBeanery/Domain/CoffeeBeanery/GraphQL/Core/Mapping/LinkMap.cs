@@ -3,9 +3,9 @@ using System.Linq.Expressions;
 
 namespace CoffeeBeanery.GraphQL.Core.Mapping
 {
-    public sealed class LinkMap<TModel, TEntity>
+    public sealed class LinkMap
     {
-        public Expression<Func<TModel, object>> SourceKey { get; set; } = default!;
-        public Expression<Func<TEntity, object>> EntityKey { get; set; } = default!;
+        public string SourceKey { get; set; }
+        public string EntityKey { get; set; }
     }
 }

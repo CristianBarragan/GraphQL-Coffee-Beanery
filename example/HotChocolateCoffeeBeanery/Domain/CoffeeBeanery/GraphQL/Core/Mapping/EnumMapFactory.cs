@@ -1,18 +1,24 @@
-﻿using System;
-using System.Collections.Generic;
-using CoffeeBeanery.GraphQL.Core.Mapping;
+﻿using System.Collections.Generic;
 
 namespace CoffeeBeanery.GraphQL.Core.Mapping
 {
     public static class EnumMapFactory
     {
-        public static EnumMapWrapper<TModelEnum, TEntityEnum> Create<TModelEnum, TEntityEnum>(
-            Dictionary<TModelEnum, TEntityEnum> toEntity,
-            Dictionary<TEntityEnum, TModelEnum> toModel)
-            where TModelEnum : struct, Enum
-            where TEntityEnum : struct, Enum
+        public static (Dictionary<string,string> from, Dictionary<string,string> to) Create<TModelEnum, TEntityEnum>(
+            Dictionary<TModelEnum, TEntityEnum> from,
+            Dictionary<TEntityEnum, TModelEnum> to)
         {
-            return new EnumMapWrapper<TModelEnum, TEntityEnum>(toEntity, toModel);
+            var fromDict = new Dictionary<string, string>();
+            var toDict = new Dictionary<string, string>();
+
+            foreach (var kv in from)
+                fromDict.Add(kv.Key.ToString(), kv.Value.ToString());
+
+            foreach (var kv in to)
+                toDict.Add(kv.Key.ToString(), kv.Value.ToString());
+
+            return (fromDict, toDict);
         }
     }
+
 }

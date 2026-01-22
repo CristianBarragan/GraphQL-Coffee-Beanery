@@ -76,8 +76,7 @@ public class Program
 
         
         GraphWarmup.Init(
-            typeof(Domain.Model.Customer).Assembly,
-            typeof(Database.Entity.Customer).Assembly
+            typeof(Domain.Model.Customer).Assembly
         );
         //
         //

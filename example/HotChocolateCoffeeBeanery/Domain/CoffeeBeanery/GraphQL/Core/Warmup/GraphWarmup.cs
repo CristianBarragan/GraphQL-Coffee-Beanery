@@ -1,15 +1,21 @@
 ﻿using System.Reflection;
-using CoffeeBeanery.GraphQL.Core.Compiler;
+using CoffeeBeanery.GraphQL.Core.Mapping;
 
 namespace CoffeeBeanery.GraphQL.Core.Warmup
 {
     public static class GraphWarmup
     {
-        public static void Init(Assembly modelAssembly, Assembly entityAssembly)
+        public static void Init(Assembly modelAssembly)
         {
-            MappingScanner.ScanAndRegister(modelAssembly, entityAssembly);
-            // Invokes mapping registration + SQL node infrastructure
-            // SqlNodeBuilder.BuildFromModel<Customer>(modelAssembly, entityAssembly);
+            foreach (var type in modelAssembly.GetTypes())
+            {
+                if (typeof(IMappingRegistration).IsAssignableFrom(type) && !type.IsAbstract)
+                {
+                    var instance = (IMappingRegistration)Activator.CreateInstance(type);
+                    instance.Register();
+                }
+            }
+
         }
     }
 }
