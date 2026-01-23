@@ -7,7 +7,7 @@
 
 namespace Domain.Model;
 
-public class CustomerCustomerEdge : GraphProcess
+public class CustomerCustomerEdge : IGraphProcess
 {
     // [GraphKey("CustomerCustomerRelationshipEdge")]
     // [LinkBusinessKey("CustomerCustomerRelationship","CustomerCustomerRelationshipId")]
@@ -30,4 +30,10 @@ public class CustomerCustomerEdge : GraphProcess
     // [GraphKey("CustomerCustomerRelationshipEdge")]
     // [LinkBusinessKey("Customer","CustomerCustomerRelationshipType")]
     public CustomerCustomerRelationshipType? CustomerCustomerRelationshipType { get; set; }
+    
+    public LevelDirection? LevelDirection { get; set; }
+    
+    public int? LevelDepth { get; set; }
+    
+    public GraphType? GraphType { get; set; }
 }

@@ -7,19 +7,19 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
 {
     internal static class SqlQueryCompiler
     {
-        public static SqlStructure Compile<D, S>(
-            SqlCompilationContext ctx,
+        public static SqlStructure Compile(
             ISelection rootSelection,
             NodeTree rootTree,
-            Dictionary<string, SqlNode> nodeDict,
             Dictionary<string, SqlNode> edgeDict,
-            Dictionary<string, SqlNode> mutationDict)
+            Dictionary<string, SqlNode> nodeDict)
         {
+            var ctx = new SqlCompilationContext();
+
             SqlWhereCompiler.Compile(ctx, rootSelection, rootTree, nodeDict);
             SqlOrderCompiler.Compile(ctx, rootSelection, rootTree, nodeDict);
             SqlPagingCompiler.Compile(ctx, rootSelection);
 
-            SqlTreeWalker.Walk(rootTree, mutationDict, edgeDict, nodeDict, ctx);
+            SqlTreeWalker.WalkQueryNode(rootTree, edgeDict, nodeDict, ctx);
 
             ctx.SelectSql = SqlSelectBuilder.Build(ctx, rootTree, nodeDict, edgeDict);
 

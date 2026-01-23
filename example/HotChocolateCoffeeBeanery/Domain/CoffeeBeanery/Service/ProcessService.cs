@@ -31,19 +31,30 @@ namespace CoffeeBeanery.Service
         }
 
         public async Task<QueryResult> QueryProcessAsync(
-            string cacheKey, ISelection selection, string modelName, string wrapperName, CancellationToken cancellationToken)
+            string cacheKey, ISelection selection, string rootName, string wrapperName, CancellationToken cancellationToken)
         {
             var ctx = new SqlCompilationContext();
 
-            var rootNode = new NodeTree { Name = modelName };
-
+            var rootTree = SqlNodeRegistry.EntityTrees[rootName];
+            
+            var edgeStatementNodes = new Dictionary<string, SqlNode>();
+            
+            var nodeStatementNodes = new Dictionary<string, SqlNode>();
+            
+            SqlNodeResolver.GetFields(SqlNodeRegistry.ModelTrees, selection.SyntaxNode, SqlNodeRegistry.EntityNodeNodes, 
+                SqlNodeRegistry.ModelNodeNodes, edgeStatementNodes, rootTree, new NodeTree(), new List<string>(),
+                SqlNodeRegistry.ModelTrees.Keys.ToList(), rootName, SqlNodeRegistry.EntityTrees.Keys.ToList(), true);
+            
+            SqlNodeResolver.GetFields(SqlNodeRegistry.ModelTrees, selection.SyntaxNode, SqlNodeRegistry.EntityNodeNodes, 
+                SqlNodeRegistry.ModelNodeNodes, nodeStatementNodes, rootTree, new NodeTree(), new List<string>(),
+                SqlNodeRegistry.ModelTrees.Keys.ToList(), rootName, SqlNodeRegistry.EntityTrees.Keys.ToList(), false);
+            
             // Compile SQL using your current compiler
-            var sqlStructure = SqlCompiler.Compile(
+            var sqlStructure = SqlQueryCompiler.Compile(
                 selection,
-                rootNode,
-                SqlNodeRegistry.EdgeNodes,
-                SqlNodeRegistry.NodeNodes,
-                SqlNodeRegistry.MutationNodes
+                rootTree,
+                edgeStatementNodes,
+                nodeStatementNodes
             );
 
             var parameters = new ProcessQueryParameters
@@ -74,28 +85,36 @@ namespace CoffeeBeanery.Service
         {
             var ctx = new SqlCompilationContext();
 
-            var rootTree = NodeTreeBuilder.Build(rootName, SqlNodeRegistry.EntityTrees);
+            var rootTree = SqlNodeRegistry.EntityTrees[rootName];
 
-            var statementNodes = new Dictionary<string, SqlNode>();
+            var mutationStatementNodes = new Dictionary<string, SqlNode>();
             
-            SqlNodeResolver.GetMutations(SqlNodeRegistry.EntityTrees, selection.SyntaxNode, SqlNodeRegistry.NodeNodes, SqlNodeRegistry.NodeNodes, statementNodes,
-                rootTree, string.Empty, rootTree, new List<string>(), new List<string>(), new List<string>());
+            SqlNodeResolver.GetMutations(SqlNodeRegistry.ModelTrees, selection.SyntaxNode, SqlNodeRegistry.EntityNodeNodes, SqlNodeRegistry.ModelNodeNodes, mutationStatementNodes,
+                rootTree, string.Empty, rootTree, SqlNodeRegistry.ModelTrees.Keys.ToList(), new List<string>());
 
             var mutationStructure = SqlMutationCompiler.Compile(
-                selection,
                 rootTree,
-                SqlNodeRegistry.EdgeNodes,
-                SqlNodeRegistry.NodeNodes,
-                SqlNodeRegistry.MutationNodes
+                mutationStatementNodes
             );
             
+            var edgeStatementNodes = new Dictionary<string, SqlNode>();
+            
+            var nodeStatementNodes = new Dictionary<string, SqlNode>();
+            
+            SqlNodeResolver.GetFields(SqlNodeRegistry.ModelTrees, selection.SyntaxNode, SqlNodeRegistry.EntityNodeNodes, 
+                SqlNodeRegistry.ModelNodeNodes, edgeStatementNodes, rootTree, new NodeTree(), new List<string>(),
+                SqlNodeRegistry.ModelTrees.Keys.ToList(), rootName, SqlNodeRegistry.EntityTrees.Keys.ToList(), true);
+            
+            SqlNodeResolver.GetFields(SqlNodeRegistry.ModelTrees, selection.SyntaxNode, SqlNodeRegistry.EntityNodeNodes, 
+                SqlNodeRegistry.ModelNodeNodes, nodeStatementNodes, rootTree, new NodeTree(), new List<string>(),
+                SqlNodeRegistry.ModelTrees.Keys.ToList(), rootName, SqlNodeRegistry.EntityTrees.Keys.ToList(), false);
+            
             // Compile SQL using your current compiler
-            var sqlStructure = SqlCompiler.Compile(
+            var sqlStructure = SqlQueryCompiler.Compile(
                 selection,
                 rootTree,
-                SqlNodeRegistry.EdgeNodes,
-                SqlNodeRegistry.NodeNodes,
-                SqlNodeRegistry.MutationNodes
+                edgeStatementNodes,
+                nodeStatementNodes
             );
 
             var parameters = new ProcessQueryParameters

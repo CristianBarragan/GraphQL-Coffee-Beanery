@@ -1,6 +1,6 @@
 ﻿namespace Domain.Model;
 
-public class GraphProcess
+public interface IGraphProcess
 {
     public LevelDirection? LevelDirection { get; set; }
 

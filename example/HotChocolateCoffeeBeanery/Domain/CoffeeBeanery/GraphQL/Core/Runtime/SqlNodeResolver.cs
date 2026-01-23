@@ -7,44 +7,44 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
 {
     public static class SqlNodeResolver
     {
-        public static (Dictionary<string, SqlNode> select,
-                       Dictionary<string, SqlNode> edge,
-                       Dictionary<string, SqlNode> mutation)
-            ResolveFromSelection<M>(ISyntaxNode selection, string wrapperName, bool isMutation)
-        {
-            // these dictionaries must already be filled by SqlNodeBuilder
-            var nodeDict = SqlNodeRegistry.NodeNodes;
-            var edgeDict = SqlNodeRegistry.EdgeNodes;
-            var mutationDict = SqlNodeRegistry.MutationNodes;
-
-            // extract all models and entities from tree registry
-            var modelTrees = SqlNodeRegistry.ModelTrees;
-            var entityTrees = SqlNodeRegistry.EntityTrees;
-
-            var rootTree = entityTrees[wrapperName];
-            var visitedModels = new List<string>();
-            var visitedEntities = new List<string>();
-
-            // populate select + mutation
-            if (selection != null)
-            {
-                // query / mutation root is selection itself
-                GetFields(entityTrees, selection, nodeDict, nodeDict,
-                    mutationDict, rootTree, rootTree, visitedModels,
-                    modelTrees.Keys.ToList(), wrapperName,
-                    entityTrees.Keys.ToList(), false);
-
-                if (isMutation)
-                {
-                    GetMutations(entityTrees, selection, nodeDict, nodeDict,
-                        mutationDict, rootTree, "", new NodeTree(),
-                        modelTrees.Keys.ToList(), entityTrees.Keys.ToList(),
-                        visitedModels);
-                }
-            }
-
-            return (nodeDict, edgeDict, mutationDict);
-        }
+        // public static (Dictionary<string, SqlNode> node,
+        //                Dictionary<string, SqlNode> edge)
+        //     ResolveFromSelection<M>(ISyntaxNode selection, string wrapperName)
+        // {
+        //     // these dictionaries must already be filled by SqlNodeBuilder
+        //     var sqlStatementNodeNodes = new Dictionary<string, SqlNode>();
+        //     var sqlStatementEdgeNodes = new Dictionary<string, SqlNode>();
+        //
+        //     // extract all models and entities from tree registry
+        //     var modelTrees = SqlNodeRegistry.ModelTrees;
+        //     var entityTrees = SqlNodeRegistry.EntityTrees;
+        //
+        //     var rootTree = entityTrees[wrapperName];
+        //     var visitedModels = new List<string>();
+        //     var visitedEntities = new List<string>();
+        //
+        //     // populate select nodes
+        //     if (selection != null)
+        //     {
+        //         // query / mutation root is selection itself
+        //         GetFields(entityTrees, selection, SqlNodeRegistry.EntityNodeNodes, SqlNodeRegistry.ModelNodeNodes,
+        //             sqlStatementNodeNodes, rootTree, rootTree, visitedModels,
+        //             modelTrees.Keys.ToList(), wrapperName,
+        //             entityTrees.Keys.ToList(), false);
+        //     }
+        //     
+        //     // populate select edges
+        //     if (selection != null)
+        //     {
+        //         // query / mutation root is selection itself
+        //         GetFields(entityTrees, selection, SqlNodeRegistry.EntityEdgeNodes, SqlNodeRegistry.ModelEdgeNodes,
+        //             sqlStatementEdgeNodes, rootTree, rootTree, visitedModels,
+        //             modelTrees.Keys.ToList(), wrapperName,
+        //             entityTrees.Keys.ToList(), false);
+        //     }
+        //
+        //     return (sqlStatementNodeNodes, sqlStatementEdgeNodes);
+        // }
 
 
         // ----------------------------------------------------------
@@ -60,7 +60,6 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
             string previousNode,
             NodeTree parentTree,
             List<string> models,
-            List<string> entities,
             List<string> visitedModels)
         {
             if (node != null && node.GetNodes()?.Count() == 0)
@@ -134,7 +133,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
 
                 GetMutations(trees, childNode, linkEntityDictionaryTree, linkModelDictionaryTree,
                     sqlStatementNodes, currentTree, node.ToString(),
-                    parentTree, models, entities, visitedModels);
+                    parentTree, models, visitedModels);
             }
         }
 

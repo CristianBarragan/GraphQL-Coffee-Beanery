@@ -1,10 +1,12 @@
+using System.Reflection;
 using Amazon;
 using Amazon.RDS.Util;
 using Api.Banking.Mutation;
 using Api.Banking.Query;
-using CoffeeBeanery.GraphQL.Core.Warmup;
+using CoffeeBeanery.GraphQL.Core.Sql;
 using Domain.Model;
 using Domain.Shared.Extension;
+using Domain.Shared.Mapping;
 using DataEntity = Database.Entity;
 using HotChocolate.AspNetCore;
 using HotChocolate.Types.Pagination;
@@ -75,9 +77,9 @@ public class Program
         // executor.ExecuteMap(model, entity);
 
         
-        GraphWarmup.Init(
-            typeof(Domain.Model.Customer).Assembly
-        );
+        GraphWarmup.Init(typeof(MappingRegistration).Assembly);
+        SqlNodeBuilder.BuildFromMappings();
+
         //
         //
         // MappingSetup.RegisterAll();
