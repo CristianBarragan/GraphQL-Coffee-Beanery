@@ -11,6 +11,8 @@ public class Contract : Process
         Schema = Entity.Schema.Lending;
     }
     
+    public int? Id { get; set; }
+    
     // [UpsertKey("Lending")]
     public Guid ContractKey { get; set; }
 

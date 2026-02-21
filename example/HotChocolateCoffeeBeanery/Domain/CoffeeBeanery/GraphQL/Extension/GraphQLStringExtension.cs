@@ -12,6 +12,6 @@ namespace CoffeeBeanery.GraphQL.Helper
             => string.IsNullOrEmpty(s) ? s : char.ToUpper(s[0]) + s[1..];
 
         public static string Sanitize(this string s)
-            => s.Replace("\"", "").Replace("'", "");
+            => s.Replace("\"", "").Replace("'", "").Trim();
     }
 }

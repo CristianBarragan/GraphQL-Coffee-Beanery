@@ -9,6 +9,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
     {
         public static void WalkQueryNode(
             NodeTree root,
+            Dictionary<string, NodeTree> nodeEntities,
             Dictionary<string, SqlNode> edgeDict,
             Dictionary<string, SqlNode> nodeDict,
             SqlCompilationContext ctx)
@@ -17,21 +18,24 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
             AddNodeQueryColumns(root, nodeDict, ctx);
 
             // traverse
-            TraverseQueryNode(root, nodeDict, edgeDict, ctx);
+            TraverseQueryNode(root, nodeEntities, nodeDict, edgeDict, ctx);
         }
 
         private static void TraverseQueryNode(
             NodeTree node,
+            Dictionary<string, NodeTree> nodeEntities,
             Dictionary<string, SqlNode> nodeDict,
             Dictionary<string, SqlNode> edgeDict,
             SqlCompilationContext ctx)
         {
-            foreach (var child in node.Children)
+            foreach (var childName in node.Children)
             {
+                var child = nodeEntities[childName];
+                
                 // Edge join (INNER)
                 if (edgeDict.TryGetValue($"{node.Name}~{child.Name}", out var edge))
                 {
-                    ctx.SelectSqlFields.Add($"{edge.Relationship}.\"{edge.JoinColumnTo}\" AS \"{child.Name}_{edge.JoinColumnTo}\"");
+                    ctx.SelectSqlFields.Add($"{edge.RelationshipKey}.\"{edge.JoinColumnTo}\" AS \"{child.Name}_{edge.JoinColumnTo}\"");
                     ctx.SelectSqlFields.Add($"{node.Name}.\"{edge.JoinColumnFrom}\" AS \"{node.Name}_{edge.JoinColumnFrom}\"");
                 }
 
@@ -50,7 +54,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
 
                 AddNodeQueryColumns(child, nodeDict, ctx);
 
-                TraverseQueryNode(child, nodeDict, edgeDict, ctx);
+                TraverseQueryNode(child, nodeEntities, nodeDict, edgeDict, ctx);
             }
         }
 
@@ -67,6 +71,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
         
         public static void WalkMutationNode(
             NodeTree root,
+            Dictionary<string, NodeTree> nodeEntities,
             Dictionary<string, SqlNode> mutationDict,
             SqlCompilationContext ctx)
         {
@@ -74,16 +79,18 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
             AddMutationColumns(root, mutationDict, ctx);
 
             // traverse
-            TraverseMutationNode(root, mutationDict, ctx);
+            TraverseMutationNode(root, nodeEntities, mutationDict, ctx);
         }
 
         private static void TraverseMutationNode(
             NodeTree node,
+            Dictionary<string, NodeTree> nodeEntities,
             Dictionary<string, SqlNode> WalkMutation,
             SqlCompilationContext ctx)
         {
-            foreach (var child in node.Children)
+            foreach (var childName in node.Children)
             {
+                var child = nodeEntities[childName];
                 // // Edge join (INNER)
                 // if (edgeDict.TryGetValue($"{node.Name}~{child.Name}", out var edge))
                 // {
@@ -108,7 +115,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
 
                 AddMutationColumns(child, WalkMutation, ctx);
 
-                TraverseMutationNode(child, WalkMutation, ctx);
+                TraverseMutationNode(child, nodeEntities, WalkMutation, ctx);
             }
         }
 

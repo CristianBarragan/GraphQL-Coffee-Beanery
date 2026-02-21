@@ -11,17 +11,21 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
             ISelection rootSelection,
             NodeTree rootTree,
             Dictionary<string, SqlNode> edgeDict,
-            Dictionary<string, SqlNode> nodeDict)
+            Dictionary<string, SqlNode> nodeDict,
+            string wrapperEntityName,
+            Dictionary<string, string> sqlWhereStatement)
         {
             var ctx = new SqlCompilationContext();
 
-            SqlWhereCompiler.Compile(ctx, rootSelection, rootTree, nodeDict);
+            if (sqlWhereStatement.Count == 0)
+            {
+                SqlWhereCompiler.Compile(ctx, rootSelection, rootTree, wrapperEntityName, sqlWhereStatement);    
+            }
+            
             SqlOrderCompiler.Compile(ctx, rootSelection, rootTree, nodeDict);
             SqlPagingCompiler.Compile(ctx, rootSelection);
 
-            SqlTreeWalker.WalkQueryNode(rootTree, edgeDict, nodeDict, ctx);
-
-            ctx.SelectSql = SqlSelectBuilder.Build(ctx, rootTree, nodeDict, edgeDict);
+            ctx.SelectSql = SqlSelectBuilder.Build(rootTree, nodeDict, edgeDict, wrapperEntityName, sqlWhereStatement);
 
             return new SqlStructure
             {

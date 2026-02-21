@@ -1,0 +1,542 @@
+﻿using CoffeeBeanery.GraphQL.Core.Mapping;
+using CoffeeBeanery.GraphQL.Core.Sql;
+using Domain.Model;
+using DataEntity = Database.Entity;
+using DataGraph = Database.Graph;
+using System;
+using System.Collections.Generic;
+
+namespace Domain.Shared.Mapping
+{
+    public class ModelMappingRegistration : IMappingRegistration
+    {
+        public void Register()
+                 {
+                     //-----------------------------------------
+                     // CUSTOMER
+                     //-----------------------------------------
+                     var cust = new NodeMap
+                     {
+                         Schema = nameof(DataEntity.Schema.Banking)
+                     };
+
+                     cust.IsEntity = true;
+                     cust.IsModel = true;
+                     
+                     cust.Children.Add(nameof(DataEntity.ContactPoint));
+                     cust.Children.Add(nameof(DataEntity.CustomerBankingRelationship));
+         
+                     cust.UpsertKeys.Add(new UpsertKey(nameof(DataEntity.Customer), nameof(DataEntity.Customer.CustomerKey)));
+         
+                     cust.FieldMaps.Add(new FieldMap
+                     {
+                         SourceName = nameof(DataEntity.Customer.Id),
+                         DestinationEntity = nameof(DataEntity.Customer),
+                         DestinationName = nameof(DataEntity.Customer.Id)
+                     });
+                     
+                     cust.FieldMaps.Add(new FieldMap
+                     {
+                         SourceName = nameof(Customer.CustomerKey),
+                         DestinationEntity = nameof(DataEntity.Customer),
+                         DestinationName = nameof(DataEntity.Customer.CustomerKey)
+                     });
+         
+                     cust.FieldMaps.Add(new FieldMap
+                     {
+                         SourceName = nameof(Customer.FirstNaming),
+                         DestinationEntity = nameof(DataEntity.Customer),
+                         DestinationName = nameof(DataEntity.Customer.FirstName)
+                     });
+         
+                     cust.FieldMaps.Add(new FieldMap
+                     {
+                         SourceName = nameof(Customer.LastNaming),
+                         DestinationEntity = nameof(DataEntity.Customer),
+                         DestinationName = nameof(DataEntity.Customer.LastName)
+                     });
+         
+                     cust.FieldMaps.Add(new FieldMap
+                     {
+                         SourceName = nameof(Customer.FullNaming),
+                         DestinationEntity = nameof(DataEntity.Customer),
+                         DestinationName = nameof(DataEntity.Customer.FullName)
+                     });
+         
+                     // Enum mapping for CustomerType
+                     var custEnums = EnumMapFactory.Create(
+                         new Dictionary<CustomerType, DataEntity.CustomerType>
+                         {
+                             { CustomerType.Person, DataEntity.CustomerType.Person },
+                             { CustomerType.Organisation, DataEntity.CustomerType.Organisation }
+                         },
+                         new Dictionary<DataEntity.CustomerType, CustomerType>
+                         {
+                             { DataEntity.CustomerType.Person, CustomerType.Person },
+                             { DataEntity.CustomerType.Organisation, CustomerType.Organisation }
+                         });
+         
+                     cust.FromEnum = custEnums.from;
+                     cust.ToEnum = custEnums.to;
+         
+                     MappingRegistry.Register(nameof(Customer), cust);
+         
+                     //-----------------------------------------
+                     // CONTACTPOINT
+                     //-----------------------------------------
+                     var cp = new NodeMap
+                     {
+                         Schema = nameof(DataEntity.Schema.Banking)
+                     };
+
+                     cp.IsEntity = true;
+                     cp.IsModel = true;
+         
+                     cp.UpsertKeys.Add(new UpsertKey(nameof(DataEntity.ContactPoint),
+                         nameof(DataEntity.ContactPoint.ContactPointKey)));
+         
+                     cust.FieldMaps.Add(new FieldMap
+                     {
+                         SourceName = nameof(DataEntity.ContactPoint.Id),
+                         DestinationEntity = nameof(DataEntity.ContactPoint),
+                         DestinationName = nameof(DataEntity.ContactPoint.Id)
+                     });
+         
+                     cp.FieldMaps.Add(new FieldMap
+                     {
+                         SourceName = nameof(ContactPoint.ContactPointKey),
+                         DestinationEntity = nameof(DataEntity.ContactPoint),
+                         DestinationName = nameof(DataEntity.ContactPoint.ContactPointKey)
+                     });
+         
+                     cp.FieldMaps.Add(new FieldMap
+                     {
+                         SourceName = nameof(ContactPoint.ContactPointValue),
+                         DestinationEntity = nameof(DataEntity.ContactPoint),
+                         DestinationName = nameof(DataEntity.ContactPoint.ContactPointValue)
+                     });
+         
+                     cp.FieldMaps.Add(new FieldMap
+                     {
+                         SourceName = nameof(ContactPoint.CustomerKey),
+                         DestinationEntity = nameof(DataEntity.ContactPoint),
+                         DestinationName = nameof(DataEntity.ContactPoint.CustomerKey)
+                     });
+         
+                     // Enum mapping for ContactPointType
+                     var cpEnums = EnumMapFactory.Create(
+                         new Dictionary<ContactPointType, DataEntity.ContactPointType>
+                         {
+                             { ContactPointType.Mobile, DataEntity.ContactPointType.Mobile },
+                             { ContactPointType.Landline, DataEntity.ContactPointType.Landline },
+                             { ContactPointType.Email, DataEntity.ContactPointType.Email }
+                         },
+                         new Dictionary<DataEntity.ContactPointType, ContactPointType>
+                         {
+                             { DataEntity.ContactPointType.Mobile, ContactPointType.Mobile },
+                             { DataEntity.ContactPointType.Landline, ContactPointType.Landline },
+                             { DataEntity.ContactPointType.Email, ContactPointType.Email }
+                         });
+         
+                     cp.FromEnum = cpEnums.from;
+                     cp.ToEnum = cpEnums.to;
+         
+                     MappingRegistry.Register(nameof(ContactPoint), cp);
+         
+                     //-----------------------------------------
+                     // CONTRACT
+                     //-----------------------------------------
+                     var contract = new NodeMap
+                     {
+                         Schema = nameof(DataEntity.Schema.Lending)
+                     };
+
+                     contract.IsEntity = true;
+                     
+                     contract.Children.Add(nameof(DataEntity.Account));
+                     contract.Children.Add(nameof(DataEntity.Transaction));
+         
+                     contract.UpsertKeys.Add(new UpsertKey(nameof(DataEntity.Contract),
+                         nameof(DataEntity.Contract.ContractKey)));
+         
+                     cust.FieldMaps.Add(new FieldMap
+                     {
+                         SourceName = nameof(DataEntity.Contract.Id),
+                         DestinationEntity = nameof(DataEntity.Contract),
+                         DestinationName = nameof(DataEntity.Contract.Id)
+                     });
+         
+                     contract.FieldMaps.Add(new FieldMap
+                     {
+                         SourceName = nameof(Contract.ContractKey),
+                         DestinationEntity = nameof(DataEntity.Contract),
+                         DestinationName = nameof(DataEntity.Contract.ContractKey)
+                     });
+         
+                     contract.FieldMaps.Add(new FieldMap
+                     {
+                         SourceName = nameof(Contract.Amount),
+                         DestinationEntity = nameof(DataEntity.Contract),
+                         DestinationName = nameof(DataEntity.Contract.Amount)
+                     });
+         
+                     // Enum mapping for ContractType
+                     var contractEnums = EnumMapFactory.Create(
+                         new Dictionary<ContractType, DataEntity.ContractType>
+                         {
+                             { ContractType.CreditCard, DataEntity.ContractType.CreditCard },
+                             { ContractType.Mortgage, DataEntity.ContractType.Mortgage },
+                             { ContractType.PersonalLoan, DataEntity.ContractType.PersonalLoan }
+                         },
+                         new Dictionary<DataEntity.ContractType, ContractType>
+                         {
+                             { DataEntity.ContractType.CreditCard, ContractType.CreditCard },
+                             { DataEntity.ContractType.Mortgage, ContractType.Mortgage },
+                             { DataEntity.ContractType.PersonalLoan, ContractType.PersonalLoan }
+                         });
+         
+                     contract.FromEnum = contractEnums.from;
+                     contract.ToEnum = contractEnums.to;
+         
+                     MappingRegistry.Register(nameof(Contract), contract);
+         
+                     //-----------------------------------------
+                     // ACCOUNT
+                     //-----------------------------------------
+                     var acct = new NodeMap
+                     {
+                         Schema = nameof(DataEntity.Schema.Account)
+                     };
+
+                     acct.IsEntity = true;
+                     
+                     acct.Children.Add(nameof(DataEntity.Contract));
+                     acct.Children.Add(nameof(DataEntity.Transaction));
+         
+                     acct.UpsertKeys.Add(new UpsertKey(nameof(DataEntity.Account), nameof(DataEntity.Account.AccountKey)));
+         
+                     cust.FieldMaps.Add(new FieldMap
+                     {
+                         SourceName = nameof(DataEntity.Account.Id),
+                         DestinationEntity = nameof(DataEntity.Account),
+                         DestinationName = nameof(DataEntity.Account.Id)
+                     });
+         
+                     acct.FieldMaps.Add(new FieldMap
+                     {
+                         SourceName = nameof(Account.AccountKey),
+                         DestinationEntity = nameof(DataEntity.Account),
+                         DestinationName = nameof(DataEntity.Account.AccountKey)
+                     });
+         
+                     acct.FieldMaps.Add(new FieldMap
+                     {
+                         SourceName = nameof(Account.AccountNumber),
+                         DestinationEntity = nameof(DataEntity.Account),
+                         DestinationName = nameof(DataEntity.Account.AccountNumber)
+                     });
+         
+                     acct.FieldMaps.Add(new FieldMap
+                     {
+                         SourceName = nameof(Account.AccountName),
+                         DestinationEntity = nameof(DataEntity.Account),
+                         DestinationName = nameof(DataEntity.Account.AccountName)
+                     });
+         
+                     MappingRegistry.Register(nameof(Account), acct);
+         
+                     //-----------------------------------------
+                     // CUSTOMERBANKINGRELATIONSHIP
+                     //-----------------------------------------
+                     var cbr = new NodeMap
+                     {
+                         Schema = nameof(DataEntity.Schema.Banking)
+                     };
+
+                     cbr.IsEntity = true;
+                     
+                     cbr.Children.Add(nameof(DataEntity.Contract));
+         
+                     cbr.UpsertKeys.Add(new UpsertKey(nameof(DataEntity.CustomerBankingRelationship),
+                         nameof(DataEntity.CustomerBankingRelationship.CustomerBankingRelationshipKey)));
+         
+                     cust.FieldMaps.Add(new FieldMap
+                     {
+                         SourceName = nameof(DataEntity.CustomerBankingRelationship.Id),
+                         DestinationEntity = nameof(DataEntity.CustomerBankingRelationship),
+                         DestinationName = nameof(DataEntity.CustomerBankingRelationship.Id)
+                     });
+         
+                     cbr.FieldMaps.Add(new FieldMap
+                     {
+                         SourceName = nameof(CustomerBankingRelationship.CustomerBankingRelationshipKey),
+                         DestinationEntity = nameof(DataEntity.CustomerBankingRelationship),
+                         DestinationName = nameof(DataEntity.CustomerBankingRelationship.CustomerBankingRelationshipKey)
+                     });
+         
+                     cbr.FieldMaps.Add(new FieldMap
+                     {
+                         SourceName = nameof(CustomerBankingRelationship.CustomerKey),
+                         DestinationEntity = nameof(DataEntity.CustomerBankingRelationship),
+                         DestinationName = nameof(DataEntity.CustomerBankingRelationship.CustomerKey)
+                     });
+         
+                     MappingRegistry.Register(nameof(CustomerBankingRelationship), cbr);
+         
+                     //-----------------------------------------
+                     // CUSTOMERCUSTOMERRELATIONSHIP
+                     //-----------------------------------------
+                     var ccr = new NodeMap
+                     {
+                         Schema = nameof(DataEntity.Schema.Banking)
+                     };
+
+                     ccr.IsEntity = true;
+                     ccr.IsModel = true;
+                     
+                     ccr.Children.Add(nameof(DataEntity.Customer));
+         
+                     ccr.UpsertKeys.Add(new UpsertKey(nameof(DataEntity.CustomerCustomerRelationship),
+                         nameof(DataEntity.CustomerCustomerRelationship.CustomerCustomerRelationshipKey)));
+         
+                     cust.FieldMaps.Add(new FieldMap
+                     {
+                         SourceName = nameof(DataEntity.CustomerCustomerRelationship.Id),
+                         DestinationEntity = nameof(DataEntity.CustomerCustomerRelationship),
+                         DestinationName = nameof(DataEntity.CustomerCustomerRelationship.Id)
+                     });
+         
+                     ccr.FieldMaps.Add(new FieldMap
+                     {
+                         SourceName = nameof(CustomerCustomerRelationship.CustomerCustomerRelationshipKey),
+                         DestinationEntity = nameof(DataEntity.CustomerCustomerRelationship),
+                         DestinationName = nameof(DataEntity.CustomerCustomerRelationship.CustomerCustomerRelationshipKey)
+                     });
+         
+                     ccr.FieldMaps.Add(new FieldMap
+                     {
+                         SourceName = nameof(CustomerCustomerRelationship.CustomerCustomerRelationshipType),
+                         DestinationEntity = nameof(DataEntity.CustomerCustomerRelationship),
+                         DestinationName = nameof(DataEntity.CustomerCustomerRelationship.CustomerCustomerRelationshipType)
+                     });
+                     
+                     MappingRegistry.Register(nameof(CustomerCustomerRelationship), ccr);
+         
+                     //-----------------------------------------
+                     // TRANSACTION
+                     //-----------------------------------------
+                     var transaction = new NodeMap
+                     {
+                         Schema = nameof(DataEntity.Schema.Lending)
+                     };
+
+                     transaction.IsEntity = true;
+                     transaction.IsModel = true;
+         
+                     transaction.UpsertKeys.Add(new UpsertKey(nameof(DataEntity.Transaction),
+                         nameof(DataEntity.Transaction.TransactionKey)));
+         
+                     cust.FieldMaps.Add(new FieldMap
+                     {
+                         SourceName = nameof(DataEntity.Transaction.Id),
+                         DestinationEntity = nameof(DataEntity.Transaction),
+                         DestinationName = nameof(DataEntity.Transaction.Id)
+                     });
+         
+                     transaction.FieldMaps.Add(new FieldMap
+                     {
+                         SourceName = nameof(Transaction.TransactionKey),
+                         DestinationEntity = nameof(DataEntity.Transaction),
+                         DestinationName = nameof(DataEntity.Transaction.TransactionKey)
+                     });
+         
+                     transaction.FieldMaps.Add(new FieldMap
+                     {
+                         SourceName = nameof(Transaction.Amount),
+                         DestinationEntity = nameof(DataEntity.Transaction),
+                         DestinationName = nameof(DataEntity.Transaction.Amount)
+                     });
+         
+                     transaction.FieldMaps.Add(new FieldMap
+                     {
+                         SourceName = nameof(Transaction.Balance),
+                         DestinationEntity = nameof(DataEntity.Transaction),
+                         DestinationName = nameof(DataEntity.Transaction.Balance)
+                     });
+         
+                     MappingRegistry.Register(nameof(Transaction), transaction);
+         
+                     //-----------------------------------------
+                     // PRODUCT
+                     //-----------------------------------------
+                     var product = new NodeMap
+                     {
+                         Schema = nameof(DataEntity.Schema.Banking)
+                     };
+                     
+                     product.IsModel = true;
+                     
+                     product.Children.Add(nameof(Contract));
+                     product.Children.Add(nameof(CustomerBankingRelationship));
+                     product.Children.Add(nameof(Account));
+         
+                     product.UpsertKeys.Add(new UpsertKey(nameof(DataEntity.CustomerBankingRelationship),
+                         nameof(DataEntity.CustomerBankingRelationship.CustomerBankingRelationshipKey)));
+         
+                     cust.FieldMaps.Add(new FieldMap
+                     {
+                         SourceName = nameof(DataEntity.CustomerBankingRelationship.Id),
+                         DestinationEntity = nameof(DataEntity.CustomerBankingRelationship),
+                         DestinationName = nameof(DataEntity.CustomerBankingRelationship.Id)
+                     });
+         
+                     product.FieldMaps.Add(new FieldMap
+                     {
+                         SourceName = nameof(Product.CustomerBankingRelationshipKey),
+                         DestinationEntity = nameof(DataEntity.CustomerBankingRelationship),
+                         DestinationName = nameof(DataEntity.CustomerBankingRelationship.CustomerBankingRelationshipKey)
+                     });
+         
+                     product.FieldMaps.Add(new FieldMap
+                     {
+                         SourceName = nameof(Product.ContractKey),
+                         DestinationEntity = nameof(DataEntity.Contract),
+                         DestinationName = nameof(DataEntity.Contract.ContractKey)
+                     });
+         
+                     product.FieldMaps.Add(new FieldMap
+                     {
+                         SourceName = nameof(Product.CustomerKey),
+                         DestinationEntity = nameof(DataEntity.Customer),
+                         DestinationName = nameof(DataEntity.Customer.CustomerKey)
+                     });
+         
+                     product.FieldMaps.Add(new FieldMap
+                     {
+                         SourceName = nameof(Product.AccountKey),
+                         DestinationEntity = nameof(DataEntity.Account),
+                         DestinationName = nameof(DataEntity.Account.AccountKey)
+                     });
+         
+                     product.FieldMaps.Add(new FieldMap
+                     {
+                         SourceName = nameof(Product.AccountName),
+                         DestinationEntity = nameof(DataEntity.Account),
+                         DestinationName = nameof(DataEntity.Account.AccountName)
+                     });
+         
+                     product.FieldMaps.Add(new FieldMap
+                     {
+                         SourceName = nameof(Product.AccountNumber),
+                         DestinationEntity = nameof(DataEntity.Account),
+                         DestinationName = nameof(DataEntity.Account.AccountNumber)
+                     });
+         
+                     // Enum mapping for ProductType by value
+                     var productEnums = EnumMapFactory.Create(
+                         new Dictionary<ProductType, DataEntity.ContractType>
+                         {
+                             { ProductType.CreditCard, DataEntity.ContractType.CreditCard },
+                             { ProductType.Mortgage, DataEntity.ContractType.Mortgage },
+                             { ProductType.PersonalLoan, DataEntity.ContractType.PersonalLoan }
+                         },
+                         new Dictionary<DataEntity.ContractType, ProductType>
+                         {
+                             { DataEntity.ContractType.CreditCard, ProductType.CreditCard },
+                             { DataEntity.ContractType.Mortgage, ProductType.Mortgage },
+                             { DataEntity.ContractType.PersonalLoan, ProductType.PersonalLoan }
+                         });
+         
+                     product.FromEnum = productEnums.from;
+                     product.ToEnum = productEnums.to;
+         
+                     MappingRegistry.Register(nameof(Product), product);
+         
+                     //-----------------------------------------
+                     // CUSTOMER CUSTOMER EDGE
+                     //-----------------------------------------
+                     var customerCustomerEdge = new NodeMap
+                     {
+                         Schema = nameof(DataEntity.Schema.Banking),
+                         IsGraph = true
+                     };
+                     
+                     customerCustomerEdge.IsEntity = true;
+                     customerCustomerEdge.IsModel = true;
+                     
+                     customerCustomerEdge.Children.Add(nameof(DataEntity.CustomerCustomerRelationship));
+                     customerCustomerEdge.Children.Add(nameof(DataEntity.Customer));
+         
+                     customerCustomerEdge.UpsertKeys.Add(new UpsertKey(nameof(DataEntity.CustomerCustomerRelationship),
+                         nameof(DataEntity.CustomerCustomerRelationship.CustomerCustomerRelationshipKey)));
+         
+                     cust.FieldMaps.Add(new FieldMap
+                     {
+                         SourceName = nameof(DataEntity.CustomerBankingRelationship.Id),
+                         DestinationEntity = nameof(DataEntity.CustomerBankingRelationship),
+                         DestinationName = nameof(DataEntity.CustomerBankingRelationship.Id)
+                     });
+         
+                     customerCustomerEdge.FieldMaps.Add(new FieldMap
+                     {
+                         SourceName = nameof(CustomerCustomerEdge.OuterCustomerKey),
+                         DestinationEntity = nameof(DataEntity.CustomerCustomerRelationship),
+                         DestinationName = nameof(DataEntity.CustomerCustomerRelationship.OuterCustomerKey)
+                     });
+         
+                     customerCustomerEdge.FieldMaps.Add(new FieldMap
+                     {
+                         SourceName = nameof(CustomerCustomerEdge.InnerCustomerKey),
+                         DestinationEntity = nameof(DataEntity.CustomerCustomerRelationship),
+                         DestinationName = nameof(DataEntity.CustomerCustomerRelationship.InnerCustomerKey)
+                     });
+         
+                     customerCustomerEdge.FieldMaps.Add(new FieldMap
+                     {
+                         SourceName = nameof(CustomerCustomerEdge.CustomerCustomerRelationshipKey),
+                         DestinationEntity = nameof(DataEntity.CustomerCustomerRelationship),
+                         DestinationName = nameof(DataEntity.CustomerCustomerRelationship.CustomerCustomerRelationshipKey)
+                     });
+                     
+                     MappingRegistry.Register(nameof(CustomerCustomerEdge), customerCustomerEdge);
+                     
+                     //-----------------------------------------
+                     // CUSTOMER CUSTOMER RELATIONSHIP EDGE
+                     //-----------------------------------------
+                     var customerCustomerRelationshipEdge = new NodeMap
+                     {
+                         Schema = nameof(DataGraph.CustomerCustomerRelationshipEdge),
+                         IsGraph = true
+                     };
+         
+                     cust.FieldMaps.Add(new FieldMap
+                     {
+                         SourceName = nameof(DataEntity.CustomerCustomerRelationship.Id),
+                         DestinationEntity = nameof(DataEntity.CustomerCustomerRelationship),
+                         DestinationName = nameof(DataEntity.CustomerCustomerRelationship.Id)
+                     });
+         
+                     customerCustomerRelationshipEdge.FieldMaps.Add(new FieldMap
+                     {
+                         SourceName = nameof(CustomerCustomerEdge.OuterCustomerKey),
+                         DestinationEntity = nameof(DataGraph.CustomerCustomerRelationshipEdge),
+                         DestinationName = nameof(DataEntity.CustomerCustomerRelationship.OuterCustomerKey)
+                     });
+         
+                     customerCustomerRelationshipEdge.FieldMaps.Add(new FieldMap
+                     {
+                         SourceName = nameof(CustomerCustomerEdge.InnerCustomerKey),
+                         DestinationEntity = nameof(DataGraph.CustomerCustomerRelationshipEdge),
+                         DestinationName = nameof(DataEntity.CustomerCustomerRelationship.InnerCustomerKey)
+                     });
+         
+                     customerCustomerRelationshipEdge.FieldMaps.Add(new FieldMap
+                     {
+                         DestinationEntity = nameof(DataGraph.CustomerCustomerRelationshipEdge),
+                         DestinationName = nameof(DataGraph.CustomerCustomerRelationshipEdge.CustomerCustomerRelationshipId)
+                     });
+                     
+                     MappingRegistry.Register(nameof(DataGraph.CustomerCustomerRelationshipEdge), customerCustomerEdge);
+                 }
+    }
+}

@@ -4,8 +4,6 @@ namespace Database.Entity;
 
 public class Process
 {
-    public int? Id { get; set; }
-
     [NotMapped]
     public Schema? Schema { get; set; }
 

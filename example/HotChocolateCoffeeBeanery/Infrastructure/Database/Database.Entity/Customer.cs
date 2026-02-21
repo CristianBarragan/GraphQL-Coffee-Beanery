@@ -11,6 +11,8 @@ public class Customer : Process
         Schema = Entity.Schema.Banking;
     }
     
+    public int? Id { get; set; }
+    
     // [UpsertKey("Banking")]
     public Guid CustomerKey { get; set; }
 

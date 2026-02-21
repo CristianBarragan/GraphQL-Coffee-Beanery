@@ -1,7 +1,9 @@
 ﻿using CoffeeBeanery.CQRS;
+using CoffeeBeanery.GraphQL.Core.Sql;
 using CoffeeBeanery.Service;
 using Domain.Model;
 using Domain.Shared.Query;
+using FASTER.core;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
 
@@ -16,16 +18,42 @@ namespace Domain.Shared.Extension
             services.AddSingleton(sp =>
                 new NpgsqlConnection(postgresConnectionString));
 
-            services.AddScoped(typeof(IDynamicQueryHandler), typeof(DynamicQueryHandler));
-            services.AddScoped(typeof(IProcessService<>), typeof(ProcessService<>));
-            
-            // services.AddScoped(typeof(ProcessQuery<>));
-            services.AddScoped<DynamicQueryHandler>();
-            services.AddScoped<CustomerCustomerEdgeQueryHandler>();
+            services = AddCache(services);
 
-            // CQRS
+            services.AddScoped<IProcessService<dynamic>, ProcessService<dynamic>>();
+            services.AddScoped<IQuery<ProcessQueryParameters,
+                    (List<dynamic> list, int? startCursor, int? endCursor, int? totalCount, int?
+                    totalPageRecords)>,
+                ProcessQuery<dynamic>>();
+
+            services.AddScoped<IProcessService<Wrapper>, ProcessService<Wrapper>>();
+            services.AddScoped<IQuery<ProcessQueryParameters,
+                    (List<Wrapper> list, int? startCursor, int? endCursor, int? totalCount, int?
+                    totalPageRecords)>,
+                ProcessQuery<Wrapper>>();
+
+            services.AddScoped<IQuery<ProcessQueryParameters,
+                    (List<CustomerCustomerEdge> list, int? startCursor, int? endCursor, int? totalCount,
+                    int? totalPageRecords)>,
+                CustomerCustomerEdgeQueryHandler<CustomerCustomerEdge>>();
+
             services.AddScoped<IQueryDispatcher, QueryDispatcher>();
+            services.AddScoped<UnitOfWork, UnitOfWork>();
+            services.AddScoped<IUnitOfWorkContext, UnitOfWorkContext>();
 
+            return services;
+        }
+
+        private static IServiceCollection AddCache(this IServiceCollection services)
+        {
+            var store = new FasterKV<string, string>(128,
+                new LogSettings
+                {
+                    LogDevice = Devices.CreateLogDevice("C:/database"),
+                    ObjectLogDevice = new ManagedLocalStorageDevice("C:/database")
+                });
+            store.TakeHybridLogCheckpointAsync(CheckpointType.FoldOver);
+            services.AddSingleton<IFasterKV<string, string>>(store);
             return services;
         }
     }

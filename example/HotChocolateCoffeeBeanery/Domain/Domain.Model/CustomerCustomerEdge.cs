@@ -27,10 +27,6 @@ public class CustomerCustomerEdge : IGraphProcess
     
     public Customer? InnerCustomer { get; set; }
     
-    // [GraphKey("CustomerCustomerRelationshipEdge")]
-    // [LinkBusinessKey("Customer","CustomerCustomerRelationshipType")]
-    public CustomerCustomerRelationshipType? CustomerCustomerRelationshipType { get; set; }
-    
     public LevelDirection? LevelDirection { get; set; }
     
     public int? LevelDepth { get; set; }

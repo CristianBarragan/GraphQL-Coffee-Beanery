@@ -1,108 +1,89 @@
 ﻿using System.Data;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-using Dapper;
-using Microsoft.Extensions.Logging;
-using Npgsql;
 using CoffeeBeanery.CQRS;
-using System.Collections.Generic;
 using CoffeeBeanery.GraphQL.Core.Sql;
+using Dapper;
+using Npgsql;
 
-namespace CoffeeBeanery.Service
+namespace CoffeeBeanery.Service;
+
+public class ProcessQuery<M> : IQuery<ProcessQueryParameters,
+    (List<M> list, int? startCursor, int? endCursor, int? totalCount, int? totalPageRecords)>
+    where M : class
 {
-    public abstract class ProcessQuery<M>
-        where M : class
+    private readonly ILogger<ProcessQuery<M>> _logger;
+    private readonly NpgsqlConnection _dbConnection;
+    private List<M> _models;
+
+    public ProcessQuery(ILoggerFactory loggerFactory, NpgsqlConnection dbConnection)
     {
-        protected readonly ILogger _logger;
-        protected readonly NpgsqlConnection _dbConnection;
-        private List<M> _models;
+        _logger = loggerFactory.CreateLogger<ProcessQuery<M>>();
+        _dbConnection = dbConnection;
+        _models = new List<M>();
+    }
 
-        protected ProcessQuery(ILoggerFactory loggerFactory, NpgsqlConnection dbConnection)
+    public async Task<(List<M> list, int? startCursor, int? endCursor, int? totalCount, 
+            int? totalPageRecords)>
+        ExecuteAsync(ProcessQueryParameters parameters, CancellationToken cancellationToken)
+    {
+        
+        var splitOnTypes = parameters.SqlStructure.SplitOnDapper.Values.Distinct().ToList();
+        var splitOn = parameters.SqlStructure.SplitOnDapper
+            .Select(a => a.Key).ToList();
+        
+        if (parameters != null && parameters.Pagination.TotalRecordCount.RecordCount > 0 && parameters.Pagination.TotalPageRecords.PageRecords > 0)
         {
-            _logger = loggerFactory.CreateLogger(typeof(ProcessQuery<M>).FullName);
-            _dbConnection = dbConnection;
-            _models = new List<M>();
+            splitOnTypes.Add(typeof(TotalPageRecords));
+            splitOnTypes.Add(typeof(TotalRecordCount));
+            splitOn.Insert(0, "RowNumber");
         }
 
-        public async Task<(List<M> models, int? startCursor, int? endCursor, int? totalCount, int? totalPageRecords)> 
-            ExecuteAsync(ProcessQueryParameters parameters, CancellationToken cancellationToken)
+        var query = parameters.SqlStructure.SqlUpsert + " ; " + parameters.SqlStructure.SqlQuery;
+
+        await using var connection = _dbConnection;
+        await connection.OpenAsync(cancellationToken);
+        var dbTransaction = await connection.BeginTransactionAsync(cancellationToken);
+
+        try
         {
-            if (string.IsNullOrWhiteSpace(parameters.SqlStructure.SqlQuery))
-                return (new List<M>(), null, null, null, null);
-            // Ensure SplitOnDapper is not null, if so return empty result
-            if (parameters.SplitOnDapper == null || parameters.SplitOnDapper.Count == 0)
-            {
-                return (new List<M>(), 0, 0, 0, 0);
-            }
-
-            // Create dynamic splitOnTypes and splitOn for Dapper query
-            var splitOnTypes = parameters.SplitOnDapper.Values.Distinct().ToList();
-            var splitOn = parameters.SplitOnDapper.Values
-                .Select(a => nameof(a)).ToList();
-
-            // Handle pagination and total count fields in the query
-            if (parameters.Pagination.TotalRecordCount.RecordCount > 0 && parameters.Pagination.TotalPageRecords.PageRecords > 0)
-            {
-                splitOnTypes.Add(typeof(TotalPageRecords)); // Add the pagination type
-                splitOnTypes.Add(typeof(TotalRecordCount)); // Add the record count type
-                splitOn.Insert(0, "RowNumber"); // Ensure RowNumber is the first column in SplitOn
-            }
-
-            // Open connection and start a database transaction
-            await using var connection = _dbConnection;
-            await connection.OpenAsync(cancellationToken);
-            var dbTransaction = await connection.BeginTransactionAsync(cancellationToken);
-
-            try
-            {
-                // Execute the query using Dapper
-                var result = await connection.QueryAsync<(int? startCursor, int? endCursor, int? totalCount, int? totalPageRecords)>(
-                    $"{parameters.SqlStructure.SqlUpsert};{parameters.SqlStructure.SqlQuery}",
-                    splitOnTypes.ToArray(),
-                    map =>
+            var result =
+                await connection.QueryAsync<(int? startCursor, int? endCursor, int? totalCount, int? totalPageRecords)>(
+                    query, splitOnTypes.ToArray(), map =>
                     {
-                        // Map the Dapper results to models and return pagination info
-                        var mappingResult = MapToModel(_models, map);
-                        _models = mappingResult.models;
-                        return (mappingResult.startCursor, mappingResult.endCursor, mappingResult.totalCount, mappingResult.totalPageRecords);
-                    },
-                    splitOn: string.Join(",", splitOn),
-                    transaction: dbTransaction,
-                    commandType: CommandType.Text
-                );
+                        var set = MappingConfiguration(_models, parameters.SqlStructure, map);
+                        _models = set.models;
+                        return (set.startCursor, set.endCursor, set.totalCount, set.totalPageRecords);
+                    }, splitOn: string.Join(",", splitOn), transaction: dbTransaction, commandType: CommandType.Text);
 
-                // Commit the transaction
-                await dbTransaction.CommitAsync(cancellationToken);
-
-                // Return early if no results are found
-                if (result == null || !result.Any())
-                {
-                    return (new List<M>(), 0, 0, 0, 0);
-                }
-
-                // Return the final models and pagination information
-                return (_models,
-                        parameters.Pagination.StartCursor > 0 ? parameters.Pagination.StartCursor : result.Select(s => s.startCursor).FirstOrDefault(),
-                        parameters.Pagination.EndCursor > 0 ? parameters.Pagination.EndCursor : result.Select(s => s.endCursor).FirstOrDefault(),
-                        result.Select(s => s.totalCount).FirstOrDefault(),
-                        result.Select(s => s.totalPageRecords).FirstOrDefault());
-            }
-            catch (Exception ex)
+            await dbTransaction.CommitAsync(cancellationToken);
+            
+            if (result == null || result.Count() == 0)
             {
-                // Rollback transaction on error
-                await dbTransaction.RollbackAsync(cancellationToken);
-                _logger.LogError(ex, "Error processing SQL query");
+                return ([], 0, 0, 0, 0);
             }
-
-            // Return default result in case of failure
-            return (new List<M>(), 0, 0, 0, 0);
+            
+            return (_models,
+                parameters.Pagination.StartCursor > 0
+                    ? parameters.Pagination.StartCursor
+                    : result.Select(s => s.startCursor).FirstOrDefault(),
+                parameters.Pagination.EndCursor > 0
+                    ? parameters.Pagination.EndCursor
+                    : result.Select(s => s.endCursor).FirstOrDefault(),
+                result.Select(s => s.totalCount).FirstOrDefault(),
+                result.Select(s => s.totalPageRecords)
+                    .FirstOrDefault());
+        }
+        catch (Exception ex)
+        {
+            await dbTransaction.RollbackAsync(cancellationToken);
+            _logger.LogError(ex, "Error upserting Process");
         }
 
-        /// <summary>
-        /// A virtual method for mapping Dapper results to the models dynamically.
-        /// </summary>
-        protected abstract (List<M> models, int? startCursor, int? endCursor, int? totalCount, int? totalPageRecords) MapToModel(
-            List<M> models, object[] rowParts);
+        return ([], 0, 0, 0, 0);
+    }
+
+    public virtual (List<M> models, int? startCursor, int? endCursor, int? totalCount, int? totalPageRecords)
+        MappingConfiguration(List<M> models, SqlStructure sqlStructure, object[] map)
+    {
+        throw new NotImplementedException();
     }
 }

@@ -11,6 +11,8 @@ public class Account : Process
         Schema = Entity.Schema.Account;
     }
     
+    public int? Id { get; set; }
+    
     // [UpsertKey("Account")]
     public Guid AccountKey { get; set; }
 

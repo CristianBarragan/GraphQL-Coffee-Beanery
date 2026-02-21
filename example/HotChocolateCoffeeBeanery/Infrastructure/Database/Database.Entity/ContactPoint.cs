@@ -13,6 +13,8 @@ public class ContactPoint : Process
         Schema = Entity.Schema.Banking;
     }
     
+    public int? Id { get; set; }
+    
     // [UpsertKey("Banking")]
     public Guid ContactPointKey { get; set; }
 

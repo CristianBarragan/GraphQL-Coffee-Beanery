@@ -12,6 +12,9 @@ public class Transaction : Process
     }
 
     // [UpsertKey("Lending")]
+    
+    public int? Id { get; set; }
+    
     public Guid TransactionKey { get; set; }
 
     public decimal? Amount { get; set; }

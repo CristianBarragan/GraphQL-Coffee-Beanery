@@ -12,65 +12,68 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
                 BuildModel(modelName, map);
             }
         }
-
-        public static void BuildModel(string modelName, EntityMap map)
+        
+        public static void BuildModel(string modelName, NodeMap map)
         {
-            var entityName = map.UpsertKeys.First().Entity;
+            var entityName = map.FieldMaps.First().DestinationEntity;
+            var linkKeys = map.LinkKeys;
+
+            foreach (var fieldMap in map.FieldMaps)
+            {
+                linkKeys.Add(new LinkKey()
+                {
+                    From = modelName,
+                    FromColumn = fieldMap.SourceName,
+                    To = entityName,
+                    ToColumn = fieldMap.DestinationEntity
+                });
+            }
 
             // -------------------------
             // Trees
             // -------------------------
-            SqlNodeRegistry.ModelTrees.TryAdd(modelName, new NodeTree
-            {
-                Name = modelName
-            });
 
-            SqlNodeRegistry.EntityTrees.TryAdd(entityName, new NodeTree
+            if (map.IsModel)
             {
-                Name = entityName,
-                Schema = map.Schema
-            });
+                SqlNodeRegistry.ModelTrees[modelName] = new NodeTree
+                {
+                    Name = modelName,
+                    Children = linkKeys.Select(a => a.From).ToList(),
+                    Mapping = map.FieldMaps
+                };
+            }
+
+            if (map.IsEntity)
+            {
+                SqlNodeRegistry.EntityTrees[entityName] = new NodeTree
+                {
+                    Name = entityName,
+                    Schema = map.Schema,
+                    Children = linkKeys.Select(a => a.From).ToList(),
+                    Mapping = map.FieldMaps
+                };
+            }
 
             // -------------------------
             // Field nodes
             // -------------------------
             foreach (var field in map.FieldMaps)
             {
-                var key = $"{modelName}~{field.SourceName}";
-
-                // Register regular field nodes
-                SqlNodeRegistry.RegisterNode($"{modelName}~{field.SourceName}", $"{entityName}~{field.DestinationName}", new SqlNode
+                var tempSqlNode = new SqlNode
                 {
                     Schema = map.Schema,
-                    Table = field.DestinationEntity,
+                    Table = entityName,
                     Column = field.DestinationName,
                     RelationshipKey = $"{entityName}~{field.DestinationName}", // Relationship key
                     SqlNodeType = SqlNodeType.Node,
                     FromEnumeration = map.FromEnum,
-                    ToEnumeration = map.ToEnum
-                });
-                
-                SqlNodeRegistry.RegisterEdge($"{modelName}~{field.SourceName}", $"{entityName}~{field.DestinationName}", new SqlNode
-                {
-                    Schema = map.Schema,
-                    Table = field.DestinationEntity,
-                    Column = field.DestinationName,
-                    RelationshipKey = $"{entityName}~{field.DestinationName}", // Relationship key
-                    SqlNodeType = SqlNodeType.Edge,
-                    FromEnumeration = map.FromEnum,
-                    ToEnumeration = map.ToEnum
-                });
-                
-                SqlNodeRegistry.RegisterMutation($"{modelName}~{field.SourceName}", $"{entityName}~{field.DestinationName}", new SqlNode
-                {
-                    Schema = map.Schema,
-                    Table = field.DestinationEntity,
-                    Column = field.DestinationName,
-                    RelationshipKey = $"{entityName}~{field.DestinationName}", // Relationship key
-                    SqlNodeType = SqlNodeType.Mutation,
-                    FromEnumeration = map.FromEnum,
-                    ToEnumeration = map.ToEnum
-                });
+                    ToEnumeration = map.ToEnum,
+                    UpsertKeys = map.UpsertKeys.Select(x => $"{x.Entity}~{x.Key}").ToList(),
+                };
+                tempSqlNode.LinkKeys.AddRange(linkKeys);
+
+                // Register regular field nodes
+                SqlNodeRegistry.RegisterNode($"{modelName}~{field.SourceName}", $"{entityName}~{field.DestinationName}", tempSqlNode);
             }
 
             // -------------------------
@@ -80,38 +83,19 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
             {
                 for (int i = 0; i < map.FromEnum.Count - 1; i++)
                 {
-                    SqlNodeRegistry.RegisterNode($"{modelName}~{map.FromEnum.ElementAt(i).Key}", $"{entityName}~{map.ToEnum.ElementAt(i).Key}", new SqlNode
+                    var tempSqlNode = new SqlNode
                     {
                         Schema = map.Schema,
                         Table = entityName, // Enums are typically mapped within the same entity context
                         Column = map.ToEnum.ElementAt(i).Key,
                         RelationshipKey = $"{entityName}~{map.ToEnum.ElementAt(i).Key}",
-                        SqlNodeType = SqlNodeType.Node,
                         FromEnumeration = map.FromEnum,
-                        ToEnumeration = map.ToEnum
-                    });
+                        ToEnumeration = map.ToEnum,
+                        UpsertKeys = map.UpsertKeys.Select(x => $"{x.Entity}~{x.Key}").ToList()
+                    };
+                    tempSqlNode.LinkKeys.AddRange(linkKeys);
                     
-                    SqlNodeRegistry.RegisterEdge($"{modelName}~{map.FromEnum.ElementAt(i).Key}", $"{entityName}~{map.ToEnum.ElementAt(i).Key}", new SqlNode
-                    {
-                        Schema = map.Schema,
-                        Table = entityName, // Enums are typically mapped within the same entity context
-                        Column = map.ToEnum.ElementAt(i).Key,
-                        RelationshipKey = $"{entityName}~{map.ToEnum.ElementAt(i).Key}",
-                        SqlNodeType = SqlNodeType.Edge,
-                        FromEnumeration = map.FromEnum,
-                        ToEnumeration = map.ToEnum
-                    });
-                    
-                    SqlNodeRegistry.RegisterMutation($"{modelName}~{map.FromEnum.ElementAt(i).Key}", $"{entityName}~{map.ToEnum.ElementAt(i).Key}", new SqlNode
-                    {
-                        Schema = map.Schema,
-                        Table = entityName, // Enums are typically mapped within the same entity context
-                        Column = map.ToEnum.ElementAt(i).Key,
-                        RelationshipKey = $"{entityName}~{map.ToEnum.ElementAt(i).Key}",
-                        SqlNodeType = SqlNodeType.Mutation,
-                        FromEnumeration = map.FromEnum,
-                        ToEnumeration = map.ToEnum
-                    });
+                    SqlNodeRegistry.RegisterNode($"{modelName}~{map.FromEnum.ElementAt(i).Key}", $"{entityName}~{map.ToEnum.ElementAt(i).Key}", tempSqlNode);
                 }
             }
             
@@ -120,38 +104,19 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
             // -------------------------
             for (int i = 0; i < map.UpsertKeys.Count - 1; i++)
             {
-                SqlNodeRegistry.RegisterNode($"{modelName}~{map.UpsertKeys[i].Key}", $"{entityName}~{map.UpsertKeys[i].Key}", new SqlNode
+                var tempSqlNode = new SqlNode
                 {
                     Schema = map.Schema,
-                    Table = entityName, // Enums are typically mapped within the same entity context
-                    Column = $"{entityName}~{map.UpsertKeys[i].Key}",
+                    Table = entityName,
+                    Column = map.UpsertKeys[i].Key,
                     RelationshipKey = $"{entityName}~{map.ToEnum.ElementAt(i).Key}",
-                    SqlNodeType = SqlNodeType.Node,
                     FromEnumeration = map.FromEnum,
-                    ToEnumeration = map.ToEnum
-                });
+                    ToEnumeration = map.ToEnum,
+                    UpsertKeys = map.UpsertKeys.Select(x => $"{x.Entity}~{x.Key}").ToList()
+                };
+                tempSqlNode.LinkKeys.AddRange(linkKeys);
                 
-                SqlNodeRegistry.RegisterEdge($"{modelName}~{map.UpsertKeys[i].Key}", $"{entityName}~{map.UpsertKeys[i].Key}", new SqlNode
-                {
-                    Schema = map.Schema,
-                    Table = entityName, // Enums are typically mapped within the same entity context
-                    Column = $"{entityName}~{map.UpsertKeys[i].Key}",
-                    RelationshipKey = $"{entityName}~{map.ToEnum.ElementAt(i).Key}",
-                    SqlNodeType = SqlNodeType.Edge,
-                    FromEnumeration = map.FromEnum,
-                    ToEnumeration = map.ToEnum
-                });
-                
-                SqlNodeRegistry.RegisterMutation($"{modelName}~{map.UpsertKeys[i].Key}", $"{entityName}~{map.UpsertKeys[i].Key}", new SqlNode
-                {
-                    Schema = map.Schema,
-                    Table = entityName, // Enums are typically mapped within the same entity context
-                    Column = $"{entityName}~{map.UpsertKeys[i].Key}",
-                    RelationshipKey = $"{entityName}~{map.ToEnum.ElementAt(i).Key}",
-                    SqlNodeType = SqlNodeType.Mutation,
-                    FromEnumeration = map.FromEnum,
-                    ToEnumeration = map.ToEnum
-                });
+                SqlNodeRegistry.RegisterNode($"{modelName}~{map.UpsertKeys[i].Key}", $"{entityName}~{map.UpsertKeys[i].Key}", tempSqlNode);
             }
         }
     }

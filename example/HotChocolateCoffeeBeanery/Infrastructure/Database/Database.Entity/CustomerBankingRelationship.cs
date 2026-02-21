@@ -10,6 +10,8 @@ public class CustomerBankingRelationship : Process
     {
         Schema = Entity.Schema.Banking;
     }
+    
+    public int? Id { get; set; }
 
     // [UpsertKey("Banking")]
     public Guid CustomerBankingRelationshipKey { get; set; }

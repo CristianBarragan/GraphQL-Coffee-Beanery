@@ -14,8 +14,8 @@ namespace CoffeeBeanery.GraphQL.Core.Mapping
         public static MappingBuilder<TModel> Create(Action<MappingBuilder<TModel>> configure)
             => new MappingBuilder<TModel>(configure);
 
-        public EntityMap EntityMap()
-            => new EntityMap();
+        public NodeMap EntityMap()
+            => new NodeMap();
 
         public void Build()
         {

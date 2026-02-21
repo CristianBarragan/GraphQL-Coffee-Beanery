@@ -8,12 +8,11 @@ namespace CoffeeBeanery.GraphQL.Core.GraphQL
     {
         public string Name { get; init; } = "";
         public string Schema { get; init; } = "public";
-        public int Id { get; init; }
+        public string Id { get; init; }
 
         public string ParentName { get; set; } = "";
-        public List<NodeTree> Children { get; } = new();
-        public List<string> ChildrenName => Children.Select(c => c.Name).ToList();
+        public List<string> Children { get; set; } = new();
 
-        public List<FieldMap> Mapping { get; } = new();
+        public List<FieldMap> Mapping { get; set; } = new();
     }
 }

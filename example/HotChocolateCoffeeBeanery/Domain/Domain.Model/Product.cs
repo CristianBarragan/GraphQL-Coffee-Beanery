@@ -26,15 +26,6 @@ public class Product
     public decimal? Balance { get; set; }
 
     public ProductType? ProductType { get; set; }
-
-    // [LinkBusinessKey("CustomerBankingRelationship","CustomerBankingRelationshipId")]
-    public CustomerBankingRelationship? CustomerBankingRelationship { get; set; }
-    
-    // [LinkBusinessKey("Contract","ContractId")]
-    public Contract? Contract { get; set; }
-
-    // [LinkBusinessKey("Account","AccountId")]
-    public Account? Account { get; set; }
 }
 
 public enum ProductType

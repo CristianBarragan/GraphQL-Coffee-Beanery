@@ -10,8 +10,6 @@ public class Contract
     public ContractType? ContractType { get; set; }
 
     public decimal? Amount { get; set; }
-
-    public Guid? AccountKey { get; set; }
     
     public Guid? CustomerBankingRelationshipKey { get; set; }
 

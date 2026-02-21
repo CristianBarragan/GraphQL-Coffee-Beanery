@@ -3,6 +3,7 @@ using Amazon;
 using Amazon.RDS.Util;
 using Api.Banking.Mutation;
 using Api.Banking.Query;
+using CoffeeBeanery.GraphQL.Core.Mapping;
 using CoffeeBeanery.GraphQL.Core.Sql;
 using Domain.Model;
 using Domain.Shared.Extension;
@@ -77,7 +78,7 @@ public class Program
         // executor.ExecuteMap(model, entity);
 
         
-        GraphWarmup.Init(typeof(MappingRegistration).Assembly);
+        GraphWarmup.Init(Assembly.Load("Domain.Shared"));
         SqlNodeBuilder.BuildFromMappings();
 
         //

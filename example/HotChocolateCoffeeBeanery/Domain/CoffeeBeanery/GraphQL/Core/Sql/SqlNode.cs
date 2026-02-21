@@ -4,14 +4,12 @@
     {
         Node,
         Edge,
-        Query,
         Mutation,
         Graph
     }
 
-    public sealed class SqlNode
+    public sealed class SqlNode : ICloneable
     {
-        public string Entity { get; set; } = "";
         public string Schema { get; set; } = "public";
         public string Table { get; set; } = "";
         public string Column { get; set; } = "";
@@ -30,7 +28,6 @@
         public string JoinColumnTo { get; set; } = "";
 
         // For edges
-        public string Relationship { get; set; } = "";
         public string RelationshipKey { get; set; } = "";
 
         // For enum mapping
@@ -39,6 +36,25 @@
 
         public bool IsGraph => SqlNodeType == SqlNodeType.Graph;
         public bool IsEdge => SqlNodeType == SqlNodeType.Edge;
-
+        public bool IsNode => SqlNodeType == SqlNodeType.Node;
+        
+        public object Clone()
+        {
+            return new SqlNode()
+            {
+                Schema = this.Schema,
+                Table = this.Table,
+                Column = this.Column,
+                Value = this.Value,
+                UpsertKeys = this.UpsertKeys,
+                LinkKeys = this.LinkKeys,
+                Graph = this.Graph,
+                IsColumnGraph = this.IsColumnGraph,
+                SqlNodeType = this.SqlNodeType,
+                RelationshipKey = this.RelationshipKey,
+                FromEnumeration = this.FromEnumeration,
+                ToEnumeration = this.ToEnumeration
+            };
+        }
     }
 }

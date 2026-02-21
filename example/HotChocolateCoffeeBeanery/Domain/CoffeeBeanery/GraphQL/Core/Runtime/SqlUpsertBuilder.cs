@@ -19,7 +19,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
             foreach (var node in mutationDict.Values.Where(n => !n.IsGraph))
             {
                 var columns = mutationDict.Values
-                    .Where(x => x.Entity == node.Entity && !string.IsNullOrEmpty(x.Value))
+                    .Where(x => x.Table == node.Table && !string.IsNullOrEmpty(x.Value))
                     .Select(x => $"\"{x.Column}\"")
                     .Distinct()
                     .ToList();
@@ -27,7 +27,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                 if (!columns.Any()) continue;
 
                 var values = mutationDict.Values
-                    .Where(x => x.Entity == node.Entity && !string.IsNullOrEmpty(x.Value))
+                    .Where(x => x.Table == node.Table && !string.IsNullOrEmpty(x.Value))
                     .Select(x => $"'{x.Value}'")
                     .Distinct()
                     .ToList();
@@ -37,12 +37,12 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
 
                 var updateColumns = string.Join(", ",
                     mutationDict.Values
-                        .Where(x => x.Entity == node.Entity && !string.IsNullOrEmpty(x.Value))
+                        .Where(x => x.Table == node.Table && !string.IsNullOrEmpty(x.Value))
                         .Select(x => $"\"{x.Column}\" = EXCLUDED.\"{x.Column}\"")
                         .Distinct());
 
                 var sql = $@"
-                    INSERT INTO ""{tree.Schema}"".""{node.Entity}""
+                    INSERT INTO ""{tree.Schema}"".""{node.Table}""
                     ({string.Join(",", columns)})
                     VALUES ({string.Join(",", values)})
                     ON CONFLICT ({conflictColumns})

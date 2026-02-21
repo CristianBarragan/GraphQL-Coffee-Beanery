@@ -6,6 +6,5 @@ namespace CoffeeBeanery.Service
     {
         public SqlStructure SqlStructure { get; set; } = new();
         public Pagination Pagination { get; set; } = new();
-        public IReadOnlyDictionary<string, Type> SplitOnDapper { get; init; }
     }
 }
