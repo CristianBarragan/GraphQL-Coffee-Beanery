@@ -104,8 +104,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                             {
                                 case "eq":
                                 {
-                                    var clause = SqlGraphQLHelper
-                                        .ProcessFilter(currentNodeTree, linkEntityDictionaryTreeNode,
+                                    var clause = ProcessFilter(currentNodeTree, linkEntityDictionaryTreeNode,
                                             field, "=",
                                             clauseValue, clauseCondition);
                                     AddToDictionary(sqlWhereStatement, clause, field, trees);
@@ -113,8 +112,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                                 }
                                 case "neq":
                                 {
-                                    var clause = SqlGraphQLHelper
-                                        .ProcessFilter(currentNodeTree, linkEntityDictionaryTreeNode, field, "<>",
+                                    var clause = ProcessFilter(currentNodeTree, linkEntityDictionaryTreeNode, field, "<>",
                                             clauseValue, clauseCondition);
                                     AddToDictionary(sqlWhereStatement, clause, field, trees);
                                     break;
@@ -124,8 +122,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                                     clauseValue = "(" + string.Join(',',
                                         column[1].Replace("[", "").Replace("]", "").Split(',')
                                             .Select(v => $"'{v.Trim()}'")) + ")";
-                                    var clause = SqlGraphQLHelper
-                                        .ProcessFilter(currentNodeTree, linkEntityDictionaryTreeNode,
+                                    var clause = ProcessFilter(currentNodeTree, linkEntityDictionaryTreeNode,
                                             field, "in", clauseValue, clauseCondition);
                                     AddToDictionary(sqlWhereStatement, clause, field, trees);
                                     break;
@@ -164,6 +161,76 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                     }
                 }
             }
+        }
+        
+        private static List<string> ProcessFilter(NodeTree nodeTree,
+        Dictionary<string, SqlNode> linkModelDictionaryTreeNode, string field, string filterType, string value,
+        string filterCondition)
+        {
+            var enumeration = string.Empty;
+            var conditions = new List<string>();
+
+            if (string.IsNullOrEmpty(field) ||
+                string.IsNullOrEmpty(filterType))
+            {
+                return conditions;
+            }
+
+            if (linkModelDictionaryTreeNode.TryGetValue($"{nodeTree.Name}~{field}", out var sqlNodeTo))
+            {
+                if (sqlNodeTo.FromEnumeration.TryGetValue(value,
+                        out var enumValue))
+                {
+                    var toEnum = sqlNodeTo.ToEnumeration.FirstOrDefault(e =>
+                        e.Value.Matches(enumValue)).Value;
+                    enumeration = toEnum;
+                }
+                else
+                {
+                    enumeration = string.Empty;
+                }
+
+                switch (filterType)
+                {
+                    case "<>":
+
+                        if (value.Matches("null"))
+                        {
+                            conditions.Add($" {filterCondition} ~.\"{sqlNodeTo.Column}\" IS NOT NULL ");
+                            return conditions;
+                        }
+
+                        conditions.Add(
+                            $" {filterCondition} ~.\"{sqlNodeTo.Column}\" <> '{(string.IsNullOrEmpty(enumeration) ? value : enumeration)}' ");
+                        return conditions;
+
+                    case "=":
+
+                        if (value.Matches("null"))
+                        {
+                            conditions.Add($" {filterCondition} ~.\"{sqlNodeTo.Column}\" IS NULL ");
+                            return conditions;
+                        }
+
+                        conditions.Add(
+                            $" {filterCondition} ~.\"{sqlNodeTo.Column}\" = '{(string.IsNullOrEmpty(enumeration) ? value : enumeration)}' ");
+                        return conditions;
+
+                    case "in":
+                        var inValues = string.Empty;
+                        foreach (var val in value.Split(','))
+                        {
+                            var valAux = val.Sanitize().Replace("(", "").Replace(")", "").ToUpperCamelCase();
+                            inValues += $"'{(string.IsNullOrEmpty(enumeration) ? valAux : enumeration)}'" + ",";
+                        }
+
+                        conditions.Add(
+                            $" {filterCondition} ~.\"{sqlNodeTo.Column}\" in ({inValues.Substring(0, inValues.Length - 1)})");
+                        return conditions;
+                }
+            }
+
+            return conditions;
         }
     }
     
