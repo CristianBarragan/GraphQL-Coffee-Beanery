@@ -5,10 +5,12 @@ public static class GraphWarmup
 {
     private static bool _initialized;
 
-    public static void Init(Assembly assembly)
+    public static void Init(this IServiceCollection services, Assembly assembly)
     {
         if (_initialized) return;
         _initialized = true;
+
+        var mappings = new Dictionary<string, NodeMap>();
 
         foreach (var type in assembly.GetTypes())
         {
@@ -16,10 +18,12 @@ public static class GraphWarmup
                 && !type.IsAbstract)
             {
                 var typeMapping = ((IMappingRegistration)Activator.CreateInstance(type));
-                var mappings = typeMapping.Register();
+                mappings = typeMapping.Register();
                 MappingWarmup.Warmup(mappings);
             }
         }
+
+        services.AddSingleton<IMapper>(new Mapper(mappings));
     }
 }
 

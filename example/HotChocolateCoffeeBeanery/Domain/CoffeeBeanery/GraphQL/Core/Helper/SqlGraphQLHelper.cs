@@ -85,21 +85,5 @@ namespace CoffeeBeanery.GraphQL.Core.Helper
 
         return conditions;
     }
-
-    /// <summary>
-    /// Method to translate sort clause from entity model fields into data model clause 
-    /// </summary>
-    /// <param name="nodeTree"></param>
-    /// <param name="field"></param>
-    /// <param name="sortClause"></param>
-    /// <returns></returns>
-    public static string HandleSort(NodeTree nodeTree, string field, string sortClause, Dictionary<string, SqlNode> linkModelDictionaryTree)
-    {
-        if (linkModelDictionaryTree.TryGetValue($"{nodeTree.Name}~{field}", out var sqlNodeTo))
-        {
-            return $" ~*~.{sqlNodeTo.RelationshipKey.Split('~')[1]} ORDER BY {sortClause},";
-        }
-        return string.Empty;
-    }
     }
 }

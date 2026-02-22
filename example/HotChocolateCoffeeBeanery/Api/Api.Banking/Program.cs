@@ -3,6 +3,7 @@ using Amazon.RDS.Util;
 using Api.Banking.Mutation;
 using Api.Banking.Query;
 using CoffeeBeanery.GraphQL.Core.Sql;
+using Domain.Model;
 using Domain.Shared.Extension;
 using Domain.Shared.Query;
 using HotChocolate.AspNetCore;
@@ -39,7 +40,7 @@ public class Program
         var connectionString = configuration.GetConnectionString("BankingConnectionString");
 
         services.AddBankingDomainModelServiceCollection(connectionString);
-        GraphWarmup.Init(typeof(CustomerCustomerEdgeQueryHandler<>).Assembly);
+        services.Init(typeof(CustomerCustomerEdgeQueryHandler<>).Assembly);
         SqlNodeBuilder.BuildFromMappings();
        
         var isRds = false;

@@ -14,5 +14,7 @@ namespace CoffeeBeanery.GraphQL.Core.GraphQL
         public List<string> Children { get; set; } = new();
 
         public List<FieldMap> Mapping { get; set; } = new();
+
+        public bool IsGraph { get; set; }
     }
 }

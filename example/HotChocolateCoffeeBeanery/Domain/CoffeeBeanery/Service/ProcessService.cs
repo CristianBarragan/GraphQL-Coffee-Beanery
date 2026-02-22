@@ -89,6 +89,7 @@ namespace CoffeeBeanery.Service
                 edgeStatementNodes,
                 nodeStatementNodes,
                 rootEntity,
+                SqlNodeRegistry.EntityTrees,
                 sqlWhereStatement
             );
 
@@ -145,6 +146,10 @@ namespace CoffeeBeanery.Service
                     rootTree, string.Empty, rootTree, SqlNodeRegistry.ModelTrees.Keys.ToList(), new List<string>());
             }
 
+            var sqlWhereStatement = new Dictionary<string, string>();
+            
+            var mutationStructure = SqlMutationCompiler.Compile(selection, rootTree, wrapperEntityName, mutationStatementNodes, sqlWhereStatement);
+
             var edgeStatementNodes = new Dictionary<string, SqlNode>();
             var visitedModels = new List<string>();
             var visitedEntities = new List<string>();
@@ -192,8 +197,6 @@ namespace CoffeeBeanery.Service
                     : rootEdgeEntity.Value.Name;
             }
 
-            var sqlWhereStatement = new Dictionary<string, string>();
-
             // Compile SQL using your current compiler
             var sqlStructure = SqlQueryCompiler.Compile(
                 selection,
@@ -201,8 +204,11 @@ namespace CoffeeBeanery.Service
                 edgeStatementNodes,
                 nodeStatementNodes,
                 rootEntity,
+                SqlNodeRegistry.EntityTrees,
                 sqlWhereStatement
             );
+            
+            sqlStructure.SqlUpsert = mutationStructure.SqlUpsert;
 
             var parameters = new ProcessQueryParameters
             {

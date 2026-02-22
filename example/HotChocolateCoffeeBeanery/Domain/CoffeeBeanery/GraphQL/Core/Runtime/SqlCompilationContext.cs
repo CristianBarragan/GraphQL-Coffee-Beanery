@@ -8,8 +8,9 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
         public string SelectSql { get; set; } = "";
         public string UpsertSql { get; set; } = "";
 
-        public string Where { get; set; } = "";
-        public string OrderBy { get; set; } = "";
+        public string SqlWhereStatement { get; set; } = "";
+        
+        public string SqlOrderStatement { get; set; } = "";
 
         public Pagination Pagination { get; set; } = new Pagination();
 

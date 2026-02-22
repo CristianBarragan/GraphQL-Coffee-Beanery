@@ -12,11 +12,11 @@ public static class MappingRegistry
     public static NodeMap Register(Type modelType, Type entityType, NodeMap map)
     {
         // Ensure we're populating SqlNodeRegistry.EntityTrees if not already present
-        if (!SqlNodeRegistry.EntityTrees.ContainsKey(modelType.GetType().Name) && map.UpsertKeys.Count > 0)
+        if (!SqlNodeRegistry.EntityTrees.ContainsKey(modelType.Name) && map.UpsertKeys.Count > 0)
         {
-            SqlNodeRegistry.EntityTrees[modelType.GetType().Name] = new NodeTree
+            SqlNodeRegistry.EntityTrees[modelType.Name] = new NodeTree
             {
-                Name = modelType.GetType().Name,
+                Name = modelType.Name,
                 Schema = map.Schema,
                 Children = map.Children
             };
@@ -26,7 +26,7 @@ public static class MappingRegistry
         map.ModelType = modelType;
 
         // Register the model mapping in the registry
-        Registry[modelType.GetType().Name] = map;
+        Registry[modelType.Name] = map;
 
         return map;
     }

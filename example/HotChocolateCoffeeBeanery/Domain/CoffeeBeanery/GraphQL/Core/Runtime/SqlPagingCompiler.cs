@@ -1,31 +1,113 @@
-﻿using HotChocolate.Execution.Processing;
+﻿using System.Text;
+using CoffeeBeanery.GraphQL.Core.GraphQL;
+using CoffeeBeanery.GraphQL.Helper;
+using HotChocolate.Execution.Processing;
 
 namespace CoffeeBeanery.GraphQL.Core.Runtime
 {
     internal static class SqlPagingCompiler
     {
-        public static void Compile(SqlCompilationContext ctx, ISelection rootSelection)
+        public static void Compile(NodeTree rootTree, SqlCompilationContext ctx, ISelection rootSelection)
         {
-            foreach (var arg in rootSelection.SyntaxNode.Arguments)
+            foreach (var argument in rootSelection.SyntaxNode.Arguments.Where(a => !a.Name.Value.Matches("where")))
             {
-                switch (arg.Name.Value)
+                switch (argument.Name.ToString())
                 {
                     case "first":
-                        if (int.TryParse(arg.Value?.ToString(), out var f))
-                        {
-                            ctx.Pagination.First = f;
-                            ctx.Pagination.PageSize = f;
-                        }
+                        ctx.Pagination.First = string.IsNullOrEmpty(argument.Value?.Value?.ToString())
+                            ? 0
+                            : int.Parse(argument.Value?.Value.ToString());
                         break;
                     case "last":
-                        if (int.TryParse(arg.Value?.ToString(), out var l))
-                        {
-                            ctx.Pagination.Last = l;
-                            ctx.Pagination.PageSize = l;
-                        }
+                        ctx.Pagination.Last = string.IsNullOrEmpty(argument.Value?.Value?.ToString())
+                            ? 0
+                            : int.Parse(argument.Value?.Value.ToString());
+                        break;
+                    case "before":
+                        ctx.Pagination.Before = string.IsNullOrEmpty(argument.Value?.Value?.ToString())
+                            ? ""
+                            : argument.Value?.Value.ToString();
+                        break;
+                    case "after":
+                        ctx.Pagination.After = string.IsNullOrEmpty(argument.Value?.Value?.ToString())
+                            ? ""
+                            : argument.Value?.Value.ToString();
                         break;
                 }
             }
+
+            HandleQueryClause(rootTree, ctx);
+        }
+        
+        private static void HandleQueryClause(NodeTree rootTree, SqlCompilationContext ctx, bool hasTotalCount = false)
+        {
+            var sqlQuery = new StringBuilder();
+            sqlQuery.AppendLine(ctx.SelectSql);
+            var from = 1;
+            var to = ctx.Pagination!.PageSize;
+            var sqlWhereStatement = string.Empty;
+
+            if (!string.IsNullOrEmpty(ctx.Pagination!.After) && ctx.Pagination.First > 0 &&
+                hasTotalCount)
+            {
+                from = int.Parse(ctx.Pagination.After) + 1;
+                to = from + ctx.Pagination.First!.Value;
+                sqlWhereStatement += string.IsNullOrEmpty(sqlWhereStatement)
+                    ? $" WHERE \"RowNumber\" BETWEEN {from} AND {to}"
+                    : $" AND \"RowNumber\" BETWEEN {from} AND {to}";
+            }
+            else if (!string.IsNullOrEmpty(ctx.Pagination?.Before) && ctx.Pagination.Last > 0 &&
+                     hasTotalCount)
+            {
+                to = int.Parse(ctx.Pagination.Before) - 1;
+                from = to - ctx.Pagination.Last!.Value;
+                to = to >= 1 ? to : 1;
+                from = from >= 1 ? from : 1;
+                sqlWhereStatement += string.IsNullOrEmpty(sqlWhereStatement)
+                    ? $" WHERE \"RowNumber\" BETWEEN {from} AND {to}"
+                    : $" AND \"RowNumber\" BETWEEN {from} AND {to}";
+            }
+            else if (ctx.Pagination!.First > 0 && ctx.Pagination!.Last > 0 && hasTotalCount)
+            {
+                to = ctx.Pagination!.First!.Value;
+                sqlWhereStatement += string.IsNullOrEmpty(sqlWhereStatement)
+                    ? $" WHERE \"RowNumber\" BETWEEN {ctx.Pagination!.First} AND {ctx.Pagination!.Last}"
+                    : $" AND \"RowNumber\" BETWEEN {ctx.Pagination!.First} AND {ctx.Pagination!.Last}";
+            }
+            else if (ctx.Pagination!.First > 0 && hasTotalCount)
+            {
+                to = ctx.Pagination!.First!.Value;
+                sqlWhereStatement += string.IsNullOrEmpty(sqlWhereStatement)
+                    ? $" WHERE \"RowNumber\" BETWEEN {ctx.Pagination!.First} AND \"RowNumber\""
+                    : $" AND \"RowNumber\" BETWEEN {ctx.Pagination!.First} AND \"RowNumber\"";
+            }
+            else if (ctx.Pagination!.Last > 0 && hasTotalCount)
+            {
+                sqlWhereStatement += string.IsNullOrEmpty(sqlWhereStatement)
+                    ? $" WHERE \"RowNumber\" BETWEEN \"RowNumber\" - {ctx.Pagination!.Last} AND \"RowNumber\""
+                    : $" AND \"RowNumber\" BETWEEN \"RowNumber\" - {ctx.Pagination!.Last} AND \"RowNumber\"";
+            }
+            else
+            {
+                to = 0;
+                from = 0;
+            }
+
+            var hasPagination = ctx.Pagination.First > 0 || ctx.Pagination.Last > 0 ||
+                                (ctx.Pagination.First > 0 &&
+                                 !string.IsNullOrEmpty(ctx.Pagination.After)) ||
+                                (ctx.Pagination.Last > 0 &&
+                                 !string.IsNullOrEmpty(ctx.Pagination.Before));
+            var sql = $"WITH {rootTree.Schema}s AS (SELECT * FROM (SELECT * FROM (" + sqlQuery + $") {rootTree.Name} ) ";
+            var totalCount = hasPagination && hasTotalCount
+                ? $" DENSE_RANK() OVER({ctx.SqlOrderStatement}) AS \"RowNumber\","
+                : "";
+            sqlQuery.Clear();
+            sqlQuery.Append($" {sql} a ) " +
+                            $"SELECT * FROM ( SELECT (SELECT DISTINCT COUNT(\"{(rootTree.IsGraph ? $"{rootTree.Mapping.Last().DestinationName.ToSnakeCase(rootTree.Id)}\"" : $"{rootTree.Name}{"Id".ToSnakeCase(rootTree.Id)}\"")}) FROM {rootTree.Schema}s) \"RecordCount\", " +
+                            $"{totalCount} * FROM {rootTree.Schema}s) a {sqlWhereStatement.Replace('~', 'a')}");
+            
+            ctx.SelectSql = sqlQuery.ToString();
         }
     }
 }

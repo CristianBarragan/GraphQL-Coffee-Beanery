@@ -47,10 +47,6 @@
     </ItemGroup>
 
     <ItemGroup>
-      <Folder Include="GraphQL\Execution\" />
-    </ItemGroup>
-
-    <ItemGroup>
       <Compile Remove="GraphQL\CoreLegacy\**" />
       <Compile Remove="GraphQL\CoreNew\**" />
       <Compile Remove="GraphQL\CorePrevious\**" />

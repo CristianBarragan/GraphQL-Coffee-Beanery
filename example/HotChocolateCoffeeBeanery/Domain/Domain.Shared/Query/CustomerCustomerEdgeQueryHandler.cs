@@ -14,9 +14,11 @@ public class CustomerCustomerEdgeQueryHandler<M> : ProcessQuery<M>, IQuery<Proce
     (List<M> list, int? startCursor, int? endCursor, int? totalCount, int? totalPageRecords)>
     where M : class
 {
-
-    public CustomerCustomerEdgeQueryHandler(ILoggerFactory loggerFactory, NpgsqlConnection dbConnection) : base(loggerFactory, dbConnection)
+    private readonly IMapper _mapper;
+    
+    public CustomerCustomerEdgeQueryHandler(ILoggerFactory loggerFactory, NpgsqlConnection dbConnection, IMapper mapper) : base(loggerFactory, dbConnection)
     {
+        _mapper = mapper;
     }
 
     public override (List<M> models, int? startCursor, int? endCursor, int? totalCount, int? totalPageRecords)
@@ -39,6 +41,20 @@ public class CustomerCustomerEdgeQueryHandler<M> : ProcessQuery<M>, IQuery<Proce
             {
                 totalCount = (map[i] as TotalRecordCount).RecordCount;
             }
+            
+            var model = new Customer
+            {
+                CustomerKey = Guid.NewGuid(),
+                FirstNaming = "John",
+                LastNaming = "Doe",
+                FullNaming = "John Doe",
+                CustomerType = CustomerType.Person
+            };
+
+            var entity = _mapper.MapToEntity(model);
+            
+            var modelBack = _mapper.MapToModel<Customer>(entity);
+            
             // else if (map[i] is DatabaseEntity.CustomerCustomerRelationship)
             // {
             //     customerCustomerEdge = CustomerCustomerRelationshipQueryMapping

@@ -39,7 +39,8 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
                 {
                     Name = modelName,
                     Children = linkKeys.Select(a => a.From).ToList(),
-                    Mapping = map.FieldMaps
+                    Mapping = map.FieldMaps,
+                    IsGraph = map.IsGraph
                 };
             }
 
@@ -50,7 +51,8 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
                     Name = entityName,
                     Schema = map.Schema,
                     Children = linkKeys.Select(a => a.From).ToList(),
-                    Mapping = map.FieldMaps
+                    Mapping = map.FieldMaps,
+                    IsGraph = map.IsGraph
                 };
             }
 

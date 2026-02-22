@@ -2,6 +2,6 @@
 {
     public interface IMappingRegistration
     {
-        IReadOnlyDictionary<string, NodeMap> Register();
+        Dictionary<string, NodeMap> Register();
     }    
 }

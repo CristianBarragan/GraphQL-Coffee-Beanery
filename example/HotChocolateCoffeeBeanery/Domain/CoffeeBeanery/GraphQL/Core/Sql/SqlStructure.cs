@@ -13,6 +13,5 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
         public string SqlQuery { get; set; } = "";
 
         public Dictionary<string, Type> SplitOnDapper { get; set; } = new();
-        public DynamicParameters Parameters { get; set; } = new();
     }
 }

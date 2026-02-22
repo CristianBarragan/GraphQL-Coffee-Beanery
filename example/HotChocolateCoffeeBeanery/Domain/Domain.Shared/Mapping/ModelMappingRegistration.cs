@@ -10,7 +10,7 @@ namespace Domain.Shared.Mapping
 {
     public class ModelMappingRegistration : IMappingRegistration
     {
-        public IReadOnlyDictionary<string, NodeMap> Register()
+        public Dictionary<string, NodeMap> Register()
         {
             var mappings = new Dictionary<string, NodeMap>();
 
@@ -505,10 +505,10 @@ namespace Domain.Shared.Mapping
                 DestinationName = nameof(DataEntity.CustomerCustomerRelationship.CustomerCustomerRelationshipKey)
             });
 
-            MappingRegistry.Register(typeof(CustomerCustomerRelationship), typeof(CustomerCustomerRelationship),
-                customerCustomerEdge);
+            GetMapping(mappings,MappingRegistry.Register(typeof(CustomerCustomerEdge), typeof(DataEntity.CustomerCustomerRelationship),
+                customerCustomerEdge));
             GetMapping(mappings,
-                MappingRegistry.Register(typeof(DataGraph.CustomerCustomerRelationshipEdge), null,
+                MappingRegistry.Register(typeof(CustomerCustomerEdge), typeof(DataGraph.CustomerCustomerRelationshipEdge),
                     customerCustomerEdge));
 
             //-----------------------------------------
@@ -548,7 +548,7 @@ namespace Domain.Shared.Mapping
             });
 
             GetMapping(mappings,
-                MappingRegistry.Register(typeof(DataGraph.CustomerCustomerRelationshipEdge), null,
+                MappingRegistry.Register(typeof(CustomerCustomerEdge), typeof(DataGraph.CustomerCustomerRelationshipEdge),
                     customerCustomerEdge));
 
             return mappings;

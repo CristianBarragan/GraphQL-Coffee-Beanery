@@ -9,13 +9,20 @@ public interface IMapper
     TModel MapToModel<TModel>(object entity);
 }
 
-public class ReflectionMapper : IMapper
+public class Mapper : IMapper
 {
+    private readonly Dictionary<string, NodeMap> _mappings = new Dictionary<string, NodeMap>();
+
+    public Mapper(Dictionary<string, NodeMap> mappings)
+    {
+        _mappings = mappings;
+    }
+    
     public object MapToEntity<TModel>(TModel model)
     {
         if (model == null) return null;
 
-        var nodeMap = MappingRegistry.Get(typeof(TModel).Name);
+        var nodeMap = _mappings[typeof(TModel).Name];
 
         var entity = Activator.CreateInstance(nodeMap.EntityType);
 
@@ -45,7 +52,8 @@ public class ReflectionMapper : IMapper
         if (entity == null) return default(TModel);
 
         var modelType = typeof(TModel);
-        var nodeMap = MappingRegistry.Get(modelType.Name);
+        
+        var nodeMap = _mappings[modelType.Name];
 
         if (nodeMap == null)
             throw new InvalidOperationException($"No mapping registered for {modelType.Name}");

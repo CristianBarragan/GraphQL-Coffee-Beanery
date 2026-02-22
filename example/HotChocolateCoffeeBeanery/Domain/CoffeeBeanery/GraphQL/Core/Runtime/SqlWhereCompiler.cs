@@ -20,8 +20,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
             var whereFields = new List<string>();
             GetFieldsWhere(SqlNodeRegistry.ModelTrees, rootTree, SqlNodeRegistry.EntityNodes,
                 SqlNodeRegistry.ModelNodes,
-                whereFields, sqlWhereStatement, selection.SyntaxNode.Arguments
-                    .FirstOrDefault(a => a.Name.Value.Matches("where")),
+                whereFields, sqlWhereStatement, selection.SyntaxNode.Arguments.FirstOrDefault(a => a.Name.Value == "where"),
                 SqlNodeRegistry.ModelTrees.Last().Value.Name, wrapperEntityName,
                 string.Empty, Entity.ClauseTypes, default);
         }

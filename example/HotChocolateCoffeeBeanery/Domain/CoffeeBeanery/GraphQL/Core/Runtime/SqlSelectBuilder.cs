@@ -239,39 +239,29 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
             
             currentColumns.AddRange(sqlStatementNodes
                 .Where(k => k.Key.Split('~')[0].Matches(currentTree.Name) &&
-                            !k.Value.LinkKeys.Any(b => b.From.Matches(k.Key)) &&
-                            (currentTree.Mapping.Any(m => m.DestinationName.Matches(k.Key.Split('~')[1])) &&
-                             !k.Key.Matches($"{currentTree.Name}Id"))).ToList());
+                            !k.Value.LinkKeys.Any(b => b.From.Matches(k.Key)) 
+                            // &&
+                            // (currentTree.Mapping.Any(m => m.DestinationName.Matches(k.Key.Split('~')[1])) &&
+                            //  !k.Key.Matches($"{currentTree.Name}Id"))).ToList()
+            ));
 
             if (currentColumns == null || currentColumns.Count == 0 || currentColumns[0].Key == null)
             {
                 return new SqlQueryStructure();
             }
-
-            // foreach (var joinKey in currentColumns.FirstOrDefault().Value.LinkKeys)
-            // {
-            //     if (currentColumns.Any(c => c.Key.Matches($"{currentTree.Name}~Id")))
-            //     {
-            //         continue;
-            //     }
-            //
-            //     var aux = currentColumns[0].Value;
-            //     aux.Column = $"{joinKey.To.Split('~')[0]}Id";
-            //     currentColumns.Add(new KeyValuePair<string, SqlNode>($"{currentTree.Name}~{joinKey.To.Split('~')[0]}Id", aux));
-            // }
             
-            foreach (var linkKey in currentColumns.FirstOrDefault().Value.LinkKeys)
-            {
-                if (currentColumns.Any(c => c.Key.Matches($"{currentTree.Name}~{linkKey.From.Split('~')[0]}Id")) ||
-                    currentTree.Name.Matches($"{linkKey.From.Split('~')[0]}"))
-                {
-                    continue;
-                }
-                
-                var aux = currentColumns[0].Value;
-                aux.Column = $"{linkKey.From.Split('~')[0]}Id";
-                currentColumns.Add(new KeyValuePair<string, SqlNode>($"{currentTree.Name}~{linkKey.From.Split('~')[0]}Id", aux));
-            }
+            // foreach (var linkKey in currentColumns.FirstOrDefault().Value.LinkKeys)
+            // {
+            //     // if (currentColumns.Any(c => c.Key.Matches($"{currentTree.Name}~{linkKey.From.Split('~')[0]}Id")) ||
+            //     //     currentTree.Name.Matches($"{linkKey.From.Split('~')[0]}"))
+            //     // {
+            //     //     continue;
+            //     // }
+            //     
+            //     var aux = currentColumns[0].Value;
+            //     aux.Column = $"{linkKey.From.Split('~')[0]}Id";
+            //     currentColumns.Add(new KeyValuePair<string, SqlNode>($"{currentTree.Name}~{linkKey.From.Split('~')[0]}Id", aux));
+            // }
             
             var queryBuilder = string.Empty;
             var queryColumns = new List<string>();

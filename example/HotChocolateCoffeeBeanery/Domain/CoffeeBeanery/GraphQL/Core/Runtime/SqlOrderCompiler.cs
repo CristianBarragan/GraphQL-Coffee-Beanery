@@ -1,8 +1,7 @@
-﻿using System.Linq;
-using System.Text;
-using HotChocolate.Execution.Processing;
-using CoffeeBeanery.GraphQL.Core.GraphQL;
+﻿using CoffeeBeanery.GraphQL.Core.GraphQL;
 using CoffeeBeanery.GraphQL.Core.Sql;
+using HotChocolate.Execution.Processing;
+using HotChocolate.Language;
 
 namespace CoffeeBeanery.GraphQL.Core.Runtime
 {
@@ -10,31 +9,50 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
     {
         public static void Compile(
             SqlCompilationContext ctx,
-            ISelection rootSelection,
-            NodeTree rootTree,
+            Dictionary<string, NodeTree> trees,
+            ISelection orderNode,
+            string entity,
             Dictionary<string, SqlNode> nodeDict)
         {
-            var sb = new StringBuilder();
-
-            foreach (var arg in rootSelection.SyntaxNode.Arguments)
+            ctx.SqlOrderStatement = GetFieldsOrdering(trees, orderNode.SyntaxNode, entity, nodeDict);
+        }
+        
+        private static string GetFieldsOrdering(Dictionary<string, NodeTree> trees, ISyntaxNode orderNode, string entity,
+            Dictionary<string, SqlNode> linkModelDictionaryTree)
+        {
+            var orderString = string.Empty;
+            foreach (var oNode in orderNode.GetNodes())
             {
-                if (arg.Name.Value.Contains("order"))
+                var currentEntity = entity;
+                if (oNode.ToString().Contains("{") && oNode.ToString()[0] != '{' && oNode.ToString().Contains(":"))
                 {
-                    var raw = arg.Value?.ToString() ?? "";
-                    raw = raw.Trim('{', '}', ' ');
+                    currentEntity = oNode.ToString().Split(":")[0];
+                }
 
-                    var parts = raw.Split(':').Select(p => p.Trim()).ToArray();
-                    if (parts.Length == 2)
+                if (!oNode.ToString().Contains("{") && oNode.ToString().Contains(":"))
+                {
+                    var column = oNode.ToString().Split(":");
+                    if ((column[1].Contains("DESC") || column[1].Contains("ASC")) &&
+                        trees.ContainsKey(currentEntity))
                     {
-                        if (nodeDict.TryGetValue($"{rootTree.Name}~{parts[0]}", out var node))
-                        {
-                            sb.Append($"{rootTree.Name}.\"{node.Column}\" {parts[1]}, ");
-                        }
+                        var currentNodeTree = trees[currentEntity];
+                        orderString += HandleSort(currentNodeTree, column[0], column[1], linkModelDictionaryTree);
                     }
                 }
+
+                orderString += $", {GetFieldsOrdering(trees, oNode, currentEntity, linkModelDictionaryTree)}";
             }
 
-            ctx.OrderBy = sb.ToString().TrimEnd(',', ' ');
+            return orderString;
+        }
+        
+        private static string HandleSort(NodeTree nodeTree, string field, string sortClause, Dictionary<string, SqlNode> linkModelDictionaryTree)
+        {
+            if (linkModelDictionaryTree.TryGetValue($"{nodeTree.Name}~{field}", out var sqlNodeTo))
+            {
+                return $" ~*~.{sqlNodeTo.RelationshipKey.Split('~')[1]} ORDER BY {sortClause},";
+            }
+            return string.Empty;
         }
     }
 }
