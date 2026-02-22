@@ -9,21 +9,26 @@ public static class MappingRegistry
     public static Dictionary<string, NodeMap> Registry { get; } = new();
 
     // Registers a model's mapping to the registry and ensures its presence in EntityTrees
-    public static void Register(string modelName, NodeMap map)
+    public static NodeMap Register(Type modelType, Type entityType, NodeMap map)
     {
         // Ensure we're populating SqlNodeRegistry.EntityTrees if not already present
-        if (!SqlNodeRegistry.EntityTrees.ContainsKey(modelName) && map.UpsertKeys.Count > 0)
+        if (!SqlNodeRegistry.EntityTrees.ContainsKey(modelType.GetType().Name) && map.UpsertKeys.Count > 0)
         {
-            SqlNodeRegistry.EntityTrees[modelName] = new NodeTree
+            SqlNodeRegistry.EntityTrees[modelType.GetType().Name] = new NodeTree
             {
-                Name = modelName,
+                Name = modelType.GetType().Name,
                 Schema = map.Schema,
                 Children = map.Children
             };
         }
+        
+        map.EntityType = entityType;
+        map.ModelType = modelType;
 
         // Register the model mapping in the registry
-        Registry[modelName] = map;
+        Registry[modelType.GetType().Name] = map;
+
+        return map;
     }
 
     // Retrieves a specific model map by its name

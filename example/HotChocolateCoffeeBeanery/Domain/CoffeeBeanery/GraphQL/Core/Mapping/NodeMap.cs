@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Reflection;
 using CoffeeBeanery.GraphQL.Core.Sql;
 
 namespace CoffeeBeanery.GraphQL.Core.Mapping
@@ -11,16 +12,27 @@ namespace CoffeeBeanery.GraphQL.Core.Mapping
         
         public bool IsEntity { get; set; }
 
-        public List<FieldMap> FieldMaps { get; } = new();
-        public List<UpsertKey> UpsertKeys { get; private set; } = new();
-        public List<LinkKey> LinkKeys { get; private set; } = new();
+        public List<FieldMap> FieldMaps { get; } = new List<FieldMap>();
+        public List<UpsertKey> UpsertKeys { get; private set; } = new List<UpsertKey>();
+        public List<LinkKey> LinkKeys { get; private set; } = new List<LinkKey>();
 
         // ENUMS
-        public Dictionary<string, string> FromEnum { get; set; } = new();
-        public Dictionary<string, string> ToEnum { get; set; } = new();
-        public List<string> Children { get; private set; } = new();
+        public Dictionary<string, string> FromEnum { get; set; } = new Dictionary<string, string>();
+        public Dictionary<string, string> ToEnum { get; set; } = new Dictionary<string, string>();
+        public List<string> Children { get; private set; } = new List<string>();
         
         public bool IsGraph { get; set; }
+        
+        public Type ModelType { get; set; }
+        
+        public Type EntityType { get; set; }
+
+        public Dictionary<string, PropertyInfo> ModelProperties { get; set; }
+            = new Dictionary<string, PropertyInfo>();
+
+        public Dictionary<string, PropertyInfo> EntityProperties { get; set; }
+            = new Dictionary<string, PropertyInfo>();
+
     }
 
 }

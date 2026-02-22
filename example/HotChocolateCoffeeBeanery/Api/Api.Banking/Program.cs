@@ -1,14 +1,10 @@
-using System.Reflection;
 using Amazon;
 using Amazon.RDS.Util;
 using Api.Banking.Mutation;
 using Api.Banking.Query;
-using CoffeeBeanery.GraphQL.Core.Mapping;
 using CoffeeBeanery.GraphQL.Core.Sql;
-using Domain.Model;
 using Domain.Shared.Extension;
-using Domain.Shared.Mapping;
-using DataEntity = Database.Entity;
+using Domain.Shared.Query;
 using HotChocolate.AspNetCore;
 using HotChocolate.Types.Pagination;
 
@@ -43,64 +39,9 @@ public class Program
         var connectionString = configuration.GetConnectionString("BankingConnectionString");
 
         services.AddBankingDomainModelServiceCollection(connectionString);
-        
-        // var modelNodes = new Dictionary<string, SqlNode>();
-        // var entityNodes = new Dictionary<string, SqlNode>();
-        //
-        // MappingSetup.RegisterAll();
-        // MappingSetup.BuildAll(modelNodes, entityNodes);
-        //
-        // var modelTree = NodeTreeBuilder.Build(modelNodes);
-        // var entityTree = NodeTreeBuilder.Build(entityNodes);
-
-        // MappingSetup.RegisterAll();
-        //
-        // var mapper = BulkMapper.Compile<Domain.Model.Customer, Database.Entity.Customer>(
-        //     MappingRegistry.TryGet<Domain.Model.Customer, Database.Entity.Customer>(out var mappings)
-        //         ? (PropertyMapping<Domain.Model.Customer, Database.Entity.Customer>[])mappings
-        //         : throw new Exception("Not registered"));
-        //
-        // var model = new Domain.Model.Customer { CustomerKey = Guid.NewGuid(), FirstNaming = "John" };
-        // var entity = new Database.Entity.Customer();
-        // mapper(model, entity);
-        
-        // BulkMapper.Compile(AppDomain.CurrentDomain.GetAssemblies());
-
-        // MappingRegistry.Register(
-        //     Shared.Mapping.Mappings.ModelToEntity()
-        // );
-
-        // var executor = new GraphExecutor();
-        //
-        // var model = new Customer { FirstNaming = "A" };
-        // var entity = new Database.Entity.Customer();
-        //
-        // executor.ExecuteMap(model, entity);
-
-        
-        GraphWarmup.Init(Assembly.Load("Domain.Shared"));
+        GraphWarmup.Init(typeof(CustomerCustomerEdgeQueryHandler<>).Assembly);
         SqlNodeBuilder.BuildFromMappings();
-
-        //
-        //
-        // MappingSetup.RegisterAll();
-        // MappingSetup.BuildAll(modelNodes, entityNodes);
-        //
-        // var modelTree = NodeTreeBuilder.Build(modelNodes);
-        // var entityTree = NodeTreeBuilder.Build(entityNodes);
-        //
-        // MappingSetup.RegisterAll();
-        //
-        // var runtime = GraphRuntimeBuilder.Build();
-        // var executor = new GraphExecutor(runtime);
-        //
-        // var model = new Domain.Model.Customer { CustomerKey= Guid.NewGuid(), FirstNaming="A", LastNaming="B" };
-        // var entity = new Database.Entity.Customer();
-        //
-        // executor.ExecuteMap("ignored", model, entity);
-
-
-        
+       
         var isRds = false;
 
         if (isRds)
