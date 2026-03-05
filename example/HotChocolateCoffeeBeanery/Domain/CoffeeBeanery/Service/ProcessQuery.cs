@@ -26,14 +26,14 @@ public class ProcessQuery<M> : IQuery<ProcessQueryParameters,
         ExecuteAsync(ProcessQueryParameters parameters, CancellationToken cancellationToken)
     {
         
-        var splitOnTypes = parameters.SqlStructure.SplitOnDapper.Values.Distinct().ToList();
+        var types = parameters.SqlStructure.SplitOnDapper.Values.Distinct().ToList();
         var splitOn = parameters.SqlStructure.SplitOnDapper
             .Select(a => a.Key).ToList();
         
         if (parameters != null && parameters.Pagination.TotalRecordCount.RecordCount > 0 && parameters.Pagination.TotalPageRecords.PageRecords > 0)
         {
-            splitOnTypes.Add(typeof(TotalPageRecords));
-            splitOnTypes.Add(typeof(TotalRecordCount));
+            types.Add(typeof(TotalPageRecords));
+            types.Add(typeof(TotalRecordCount));
             splitOn.Insert(0, "RowNumber");
         }
 
@@ -47,7 +47,7 @@ public class ProcessQuery<M> : IQuery<ProcessQueryParameters,
         {
             var result =
                 await connection.QueryAsync<(int? startCursor, int? endCursor, int? totalCount, int? totalPageRecords)>(
-                    query, splitOnTypes.ToArray(), map =>
+                    query, types.ToArray(), map =>
                     {
                         var set = MappingConfiguration(_models, parameters.SqlStructure, map);
                         _models = set.models;

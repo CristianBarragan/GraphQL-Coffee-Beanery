@@ -2,7 +2,7 @@
 
 public class SqlQueryStructure
 {
-    public string Id { get; set; }
+    public int Id { get; set; }
     
     public SqlNodeType SqlNodeType { get; set; } = SqlNodeType.Node;
     

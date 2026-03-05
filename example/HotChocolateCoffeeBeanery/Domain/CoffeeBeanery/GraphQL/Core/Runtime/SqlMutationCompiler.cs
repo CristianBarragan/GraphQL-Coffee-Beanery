@@ -32,8 +32,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                 wrapperEntityName, generatedQuery, mutationDict, SqlNodeRegistry.EntityTrees[entityTreeName],
                 sqlWhereStatement, new List<string>(),
                 sqlUpsertBuilder, sqlSelectUpsertBuilder);
-
-            // Build upsert statement (INSERT/UPDATE)
+            
             ctx.UpsertSql = sqlUpsertBuilder.ToString() + " ; " + sqlSelectUpsertBuilder.ToString();
 
             return new SqlStructure

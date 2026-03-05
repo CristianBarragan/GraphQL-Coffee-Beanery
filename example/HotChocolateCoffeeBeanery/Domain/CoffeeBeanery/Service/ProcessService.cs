@@ -37,11 +37,19 @@ namespace CoffeeBeanery.Service
         }
 
         public async Task<QueryResult> QueryProcessAsync(
-            string cacheKey, ISelection selection, string rootName, string wrapperModelName, CancellationToken cancellationToken)
+            string cacheKey, ISelection selection, string modelName, string wrapperName, CancellationToken cancellationToken)
         {
             var ctx = new SqlCompilationContext();
+            var transformedToParent = false;
+            var entityName = string.Empty;
+            
+            while (!SqlNodeRegistry.EntityNames.Contains(entityName) || entityName.Matches(wrapperName))
+            {
+                entityName = SqlNodeRegistry.ModelTrees[modelName].ParentName;
+                transformedToParent = true;
+            }
 
-            var rootTree = SqlNodeRegistry.ModelTrees[rootName];
+            var rootTree = SqlNodeRegistry.EntityTrees[modelName];
 
             var edgeStatementNodes = new Dictionary<string, SqlNode>();
             var visitedModels = new List<string>();
@@ -63,22 +71,22 @@ namespace CoffeeBeanery.Service
             var rootNodeEntity = SqlNodeRegistry.EntityTrees.OrderBy(a => a.Value.Id)
                 .First(a => visitedEntities.Contains(a.Key));
 
-            var rootEntity = string.Empty;
-
-            if (rootEdgeEntity.Key != null && rootNodeEntity.Key == null)
-            {
-                rootEntity = rootEdgeEntity.Key;
-            }
-            else if (rootEdgeEntity.Key == null && rootNodeEntity.Key != null)
-            {
-                rootEntity = rootNodeEntity.Key;
-            }
-            else if (rootNodeEntity.Key != null && rootEdgeEntity.Key != null)
-            {
-                rootEntity = int.Parse(rootEdgeEntity.Value.Id) > int.Parse(rootNodeEntity.Value.Id)
-                    ? rootNodeEntity.Value.Name
-                    : rootEdgeEntity.Value.Name;
-            }
+            // var rootEntity = string.Empty;
+            //
+            // if (rootEdgeEntity.Key != null && rootNodeEntity.Key == null)
+            // {
+            //     rootEntity = rootEdgeEntity.Key;
+            // }
+            // else if (rootEdgeEntity.Key == null && rootNodeEntity.Key != null)
+            // {
+            //     rootEntity = rootNodeEntity.Key;
+            // }
+            // else if (rootNodeEntity.Key != null && rootEdgeEntity.Key != null)
+            // {
+            //     rootEntity = int.Parse(rootEdgeEntity.Value.Id) > int.Parse(rootNodeEntity.Value.Id)
+            //         ? rootNodeEntity.Value.Name
+            //         : rootEdgeEntity.Value.Name;
+            // }
 
             var sqlWhereStatement = new Dictionary<string, string>();
 
@@ -88,9 +96,10 @@ namespace CoffeeBeanery.Service
                 rootTree,
                 edgeStatementNodes,
                 nodeStatementNodes,
-                rootEntity,
+                rootNodeEntity.Key,
                 SqlNodeRegistry.EntityTrees,
-                sqlWhereStatement
+                sqlWhereStatement,
+                transformedToParent
             );
 
             var parameters = new ProcessQueryParameters
@@ -115,16 +124,32 @@ namespace CoffeeBeanery.Service
         }
 
         public async Task<QueryResult> MutationProcessAsync(
-            string cacheKey, ISelection selection, string rootName, string wrapperEntityName,
-            CancellationToken cancellationToken)
+            string cacheKey, ISelection selection, string modelName, string wrapperName, CancellationToken cancellationToken)
         {
             var ctx = new SqlCompilationContext();
+            var transformedToParent = false;
+            var entityName = modelName;
+            
+            while (!SqlNodeRegistry.EntityNames.Contains(entityName) || entityName.Matches(wrapperName))
+            {
+                if (SqlNodeRegistry.ModelTrees.ContainsKey(entityName))
+                {
+                    entityName = SqlNodeRegistry.ModelTrees[entityName].ParentName;
 
-            var rootTree = SqlNodeRegistry.ModelTrees[rootName];
+                    if (string.IsNullOrEmpty(entityName))
+                    {
+                        entityName = SqlNodeRegistry.EntityNames.First();
+                    }
+                
+                    transformedToParent = true;    
+                }
+            }
+
+            var rootTree = SqlNodeRegistry.EntityTrees[entityName];
 
             var mutationStatementNodes = new Dictionary<string, SqlNode>();
 
-            var argument = selection.SyntaxNode.Arguments.FirstOrDefault(a => a.Name.Value.Matches(wrapperEntityName));
+            var argument = selection.SyntaxNode.Arguments.FirstOrDefault(a => a.Name.Value.Matches(wrapperName));
 
             if (
                 argument.GetNodes().ToList()[1].ToString().StartsWith("["))
@@ -148,7 +173,7 @@ namespace CoffeeBeanery.Service
 
             var sqlWhereStatement = new Dictionary<string, string>();
             
-            var mutationStructure = SqlMutationCompiler.Compile(selection, rootTree, wrapperEntityName, mutationStatementNodes, sqlWhereStatement);
+            var mutationStructure = SqlMutationCompiler.Compile(selection, rootTree, wrapperName, mutationStatementNodes, sqlWhereStatement);
 
             var edgeStatementNodes = new Dictionary<string, SqlNode>();
             var visitedModels = new List<string>();
@@ -192,7 +217,7 @@ namespace CoffeeBeanery.Service
             }
             else if (rootNodeEntity.Key != null && rootEdgeEntity.Key != null)
             {
-                rootEntity = int.Parse(rootEdgeEntity.Value.Id) > int.Parse(rootNodeEntity.Value.Id)
+                rootEntity = rootEdgeEntity.Value.Id > rootNodeEntity.Value.Id
                     ? rootNodeEntity.Value.Name
                     : rootEdgeEntity.Value.Name;
             }
@@ -205,7 +230,8 @@ namespace CoffeeBeanery.Service
                 nodeStatementNodes,
                 rootEntity,
                 SqlNodeRegistry.EntityTrees,
-                sqlWhereStatement
+                sqlWhereStatement,
+                transformedToParent
             );
             
             sqlStructure.SqlUpsert = mutationStructure.SqlUpsert;

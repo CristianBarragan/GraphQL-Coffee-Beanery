@@ -14,66 +14,69 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
             Dictionary<string, SqlNode> nodeDict,
             Dictionary<string, SqlNode> edgeDict,
             string wrapperEntityName,
-            Dictionary<string, string> sqlWhereStatement)
+            Dictionary<string, string> sqlWhereStatement,
+            Dictionary<string, Type> splitOnDapper,
+            bool transformedToParent)
         {
             var sqlQueryStructures = new Dictionary<string, SqlQueryStructure>(
                 StringComparer.OrdinalIgnoreCase);
-            var splitOnDapper = new Dictionary<string, Type>();
             var visitedEntities = new List<string>();
             var childrenSqlStatement = new Dictionary<string, string>(
                 StringComparer.OrdinalIgnoreCase);
 
             foreach (var edgeKey in edgeDict)
             {
-                nodeDict.Add(edgeKey.Key, edgeKey.Value);
+                if (!nodeDict.ContainsKey(edgeKey.Key))
+                {
+                    nodeDict.Add(edgeKey.Key, edgeKey.Value);    
+                }
             }
             
             GenerateQuery(SqlNodeRegistry.EntityTrees,
-                new List<Type>(),
+                SqlNodeRegistry.EntityTypes,
                 SqlNodeRegistry.EntityNodes, SqlNodeRegistry.ModelNodes,
                 nodeDict, sqlWhereStatement,
                 SqlNodeRegistry.EntityTrees[wrapperEntityName],
                 childrenSqlStatement, wrapperEntityName, sqlQueryStructures,
                 splitOnDapper, visitedEntities);
             
+            var queryStructure = sqlQueryStructures.FirstOrDefault();
+
+            if (transformedToParent && splitOnDapper.Count > 0)
+            {
+                var splitOn = splitOnDapper.FirstOrDefault(a => a.Value.Name == wrapperEntityName);
+
+                if (splitOn.Value != null)
+                {
+                    splitOnDapper.Remove(splitOn.Key);    
+                }
+                
+                foreach (var childName in SqlNodeRegistry.EntityTrees[wrapperEntityName].Children)
+                {
+                    if (SqlNodeRegistry.ModelNodes.FirstOrDefault(a => a.Key.Split('~')[0].Matches(wrapperEntityName)).Value.RelationshipKey.Split('~')[1]
+                        .Matches(childName))
+                    {
+                        queryStructure = sqlQueryStructures.FirstOrDefault(s => s.Key.Matches(childName));
+                        if (queryStructure.Value != null)
+                        {
+                            break;
+                        }    
+                    }
+                    else
+                    {
+                        splitOnDapper.Remove(splitOnDapper.First(a => a.Value.Name == childName).Key);
+                    }
+                }
+            }
+
+            if (splitOnDapper.Count == 0)
+            {
+                var nodeType = SqlNodeRegistry.EntityTypes
+                    .First(a => a.Name.Matches(queryStructure.Key));
+                splitOnDapper.Add($"{"Id".ToSnakeCase(nodeTree.Id)}", nodeType);
+            }
+            
             return sqlQueryStructures.LastOrDefault().Value.Query;
-            // var sb = new StringBuilder();
-            // sb.Append("SELECT ");
-            //
-            // if (!ctx.SelectSqlFields.Any())
-            //     sb.Append("* ");
-            // else
-            //     sb.Append(string.Join(", ", ctx.SelectSqlFields));
-            //
-            // sb.Append($" FROM \"{rootTree.Schema}\".\"{rootTree.Name}\" {rootTree.Name} ");
-            //
-            // // EDGE joins (INNER)
-            // foreach (var edge in edgeDict.Values)
-            // {
-            //     if (string.IsNullOrEmpty(edge.RelationshipKey))
-            //         continue;
-            //
-            //     sb.Append($"INNER JOIN \"{edge.Schema}\".\"{edge.RelationshipKey}\" {edge.RelationshipKey} " +
-            //               $"ON {rootTree.Name}.\"{edge.JoinColumnFrom}\" = {edge.RelationshipKey}.\"{edge.JoinColumnTo}\" ");
-            // }
-            //
-            // // NODE joins (LEFT)
-            // foreach (var node in nodeDict.Values)
-            // {
-            //     if (string.IsNullOrEmpty(node.JoinTable))
-            //         continue;
-            //
-            //     sb.Append($"LEFT JOIN \"{node.Schema}\".\"{node.JoinTable}\" {node.JoinTable} " +
-            //               $"ON {rootTree.Name}.\"{node.JoinColumnFrom}\" = {node.JoinTable}.\"{node.JoinColumnTo}\" ");
-            // }
-            //
-            // if (!string.IsNullOrEmpty(ctx.Where))
-            //     sb.Append($" WHERE {ctx.Where}");
-            //
-            // if (!string.IsNullOrEmpty(ctx.OrderBy))
-            //     sb.Append($" ORDER BY {ctx.OrderBy}");
-            //
-            // return sb.ToString();
         }
         
         private static void 
@@ -102,7 +105,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                 childrenOrder.Add(child);
             }
 
-            var currentEntityStructure = GenerateEntityQuery(entityTrees, sqlStatementNodes, currentTree,
+            var currentEntityStructure = GenerateEntityQuery(entityTrees, linkEntityDictionaryTree, sqlStatementNodes, currentTree,
                 sqlQueryStructures, sqlWhereStatement, childrenSqlStatement, rootEntityName);
 
             if (string.IsNullOrEmpty(currentEntityStructure.Query))
@@ -230,6 +233,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
         /// <param name="rootEntityName"></param>
         /// <returns></returns>
         private static SqlQueryStructure GenerateEntityQuery(Dictionary<string, NodeTree> entityTrees,
+            Dictionary<string, SqlNode> linkEntityDictionaryTree,
             Dictionary<string, SqlNode> sqlStatementNodes, NodeTree currentTree, 
             Dictionary<string, SqlQueryStructure> sqlQueryStructures, Dictionary<string, string> sqlWhereStatement, 
             Dictionary<string, string> childrenSqlStatement, string rootEntityName)
@@ -240,12 +244,11 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
             currentColumns.AddRange(sqlStatementNodes
                 .Where(k => k.Key.Split('~')[0].Matches(currentTree.Name) &&
                             !k.Value.LinkKeys.Any(b => b.From.Matches(k.Key)) 
-                            // &&
                             // (currentTree.Mapping.Any(m => m.DestinationName.Matches(k.Key.Split('~')[1])) &&
                             //  !k.Key.Matches($"{currentTree.Name}Id"))).ToList()
             ));
 
-            if (currentColumns == null || currentColumns.Count == 0 || currentColumns[0].Key == null)
+            if (currentColumns == null || currentColumns.Count <= 1 || currentColumns[0].Key == null)
             {
                 return new SqlQueryStructure();
             }
@@ -262,6 +265,9 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
             //     aux.Column = $"{linkKey.From.Split('~')[0]}Id";
             //     currentColumns.Add(new KeyValuePair<string, SqlNode>($"{currentTree.Name}~{linkKey.From.Split('~')[0]}Id", aux));
             // }
+            
+            // currentColumns.Insert(0, linkEntityDictionaryTree
+            //     .FirstOrDefault(k => k.Key.Matches($"{currentTree.Name}~Id")));
             
             var queryBuilder = string.Empty;
             var queryColumns = new List<string>();

@@ -10,6 +10,7 @@
 
     public sealed class SqlNode : ICloneable
     {
+        public string Id { get; set; }
         public string Schema { get; set; } = "public";
         public string Table { get; set; } = "";
         public string Column { get; set; } = "";

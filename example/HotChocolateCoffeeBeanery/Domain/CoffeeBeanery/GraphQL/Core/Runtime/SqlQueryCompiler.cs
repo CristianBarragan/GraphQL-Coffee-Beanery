@@ -15,17 +15,19 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
             Dictionary<string, SqlNode> nodeDict,
             string wrapperEntityName,
             Dictionary<string, NodeTree> trees,
-            Dictionary<string, string> sqlWhereStatement)
+            Dictionary<string, string> sqlWhereStatement,
+            bool transformedToParent)
         {
             var ctx = new SqlCompilationContext();
-
+            var splitOnDapper = new Dictionary<string, Type>();
+            
             if (sqlWhereStatement.Count == 0)
             {
                 SqlWhereCompiler.Compile(ctx, rootSelection, rootTree, wrapperEntityName, sqlWhereStatement);    
             }
             
             SqlOrderCompiler.Compile(ctx, trees, rootSelection, rootTree.Name, nodeDict);
-            ctx.SelectSql = SqlSelectBuilder.Build(rootTree, nodeDict, edgeDict, wrapperEntityName, sqlWhereStatement);
+            ctx.SelectSql = SqlSelectBuilder.Build(rootTree, nodeDict, edgeDict, wrapperEntityName, sqlWhereStatement, splitOnDapper, transformedToParent);
             SqlPagingCompiler.Compile(rootTree, ctx, rootSelection);
 
             return new SqlStructure
@@ -34,7 +36,8 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                 SqlUpsert = ctx.UpsertSql,
                 Pagination = ctx.Pagination,
                 HasTotalCount = ctx.Pagination.TotalRecordCount.RecordCount > 0,
-                HasPagination = ctx.Pagination.TotalPageRecords.PageRecords > 0
+                HasPagination = ctx.Pagination.TotalPageRecords.PageRecords > 0,
+                SplitOnDapper = splitOnDapper
             };
         }
     }

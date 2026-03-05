@@ -2,16 +2,60 @@ namespace CoffeeBeanery.GraphQL.Helper
 {
     public static class StringExtensions
     {
-        public static bool Matches(this string a, string b) =>
-            string.Equals(a, b, System.StringComparison.OrdinalIgnoreCase);
+        public static bool Matches(this string? input, string comparison)
+        {
+            if (string.IsNullOrEmpty(input))
+            {
+                return false;
+            }
 
-        public static string ToSnakeCase(this string value, string suffix = "")
-            => $"{value}_{suffix}".ToLowerInvariant();
+            return string.Compare(input, comparison, StringComparison.InvariantCultureIgnoreCase) == 0;
+        }
 
-        public static string ToUpperCamelCase(this string s)
-            => string.IsNullOrEmpty(s) ? s : char.ToUpper(s[0]) + s[1..];
+        public static string ToSnakeCase(this string input, int numberOfSnakeChar = 1)
+        {
+            if (string.IsNullOrEmpty(input))
+            {
+                return input;
+            }
 
-        public static string Sanitize(this string s)
-            => s.Replace("\"", "").Replace("'", "").Trim();
+            var underscored = string.Empty;
+            for (var i = 0; i < numberOfSnakeChar; i++)
+            {
+                underscored += '_';
+            }
+
+            return input + underscored;
+        }
+
+        public static string ToUpperCamelCase(this string field)
+        {
+            if (string.IsNullOrEmpty(field))
+            {
+                return field;
+            }
+
+            return field.Substring(0, 1).ToUpper() + field.Substring(1, field.Length - 1);
+        }
+
+        public static string ToLowerCamelCase(this string field)
+        {
+            if (string.IsNullOrEmpty(field))
+            {
+                return field;
+            }
+
+            return field.Substring(0, 1).ToLower() + field.Substring(1, field.Length - 1);
+        }
+
+        public static string Sanitize(this string field)
+        {
+            if (string.IsNullOrEmpty(field))
+            {
+                return field;
+            }
+
+            return field.Replace("'", "").Replace("\"", "").Trim();
+        }
     }
 }

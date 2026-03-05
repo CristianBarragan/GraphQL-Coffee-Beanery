@@ -8,7 +8,7 @@ namespace CoffeeBeanery.GraphQL.Core.GraphQL
     {
         public string Name { get; init; } = "";
         public string Schema { get; init; } = "public";
-        public string Id { get; init; }
+        public int Id { get; init; }
 
         public string ParentName { get; set; } = "";
         public List<string> Children { get; set; } = new();

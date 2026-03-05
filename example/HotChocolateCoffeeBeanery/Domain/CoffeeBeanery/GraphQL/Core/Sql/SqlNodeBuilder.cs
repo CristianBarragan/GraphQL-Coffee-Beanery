@@ -37,23 +37,29 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
             {
                 SqlNodeRegistry.ModelTrees[modelName] = new NodeTree
                 {
+                    Id = map.Id,
                     Name = modelName,
-                    Children = linkKeys.Select(a => a.From).ToList(),
+                    Children = map.Children,
                     Mapping = map.FieldMaps,
                     IsGraph = map.IsGraph
                 };
+                
+                SqlNodeRegistry.ModelTypes.Add(map.ModelType);
             }
 
             if (map.IsEntity)
             {
                 SqlNodeRegistry.EntityTrees[entityName] = new NodeTree
                 {
+                    Id = map.Id,
                     Name = entityName,
                     Schema = map.Schema,
-                    Children = linkKeys.Select(a => a.From).ToList(),
+                    Children = map.Children,
                     Mapping = map.FieldMaps,
                     IsGraph = map.IsGraph
                 };
+                
+                SqlNodeRegistry.EntityTypes.Add(map.EntityType);
             }
 
             // -------------------------
@@ -63,18 +69,18 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
             {
                 var tempSqlNode = new SqlNode
                 {
+                    Id = map.Id.ToString(),
                     Schema = map.Schema,
                     Table = entityName,
                     Column = field.DestinationName,
-                    RelationshipKey = $"{entityName}~{field.DestinationName}", // Relationship key
+                    RelationshipKey = $"{entityName}~{field.DestinationName}",
                     SqlNodeType = SqlNodeType.Node,
                     FromEnumeration = map.FromEnum,
                     ToEnumeration = map.ToEnum,
                     UpsertKeys = map.UpsertKeys.Select(x => $"{x.Entity}~{x.Key}").ToList(),
                 };
                 tempSqlNode.LinkKeys.AddRange(linkKeys);
-
-                // Register regular field nodes
+                
                 SqlNodeRegistry.RegisterNode($"{modelName}~{field.SourceName}", $"{entityName}~{field.DestinationName}", tempSqlNode);
             }
 
@@ -87,8 +93,9 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
                 {
                     var tempSqlNode = new SqlNode
                     {
+                        Id = map.Id.ToString(),
                         Schema = map.Schema,
-                        Table = entityName, // Enums are typically mapped within the same entity context
+                        Table = entityName,
                         Column = map.ToEnum.ElementAt(i).Key,
                         RelationshipKey = $"{entityName}~{map.ToEnum.ElementAt(i).Key}",
                         FromEnumeration = map.FromEnum,
@@ -108,6 +115,7 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
             {
                 var tempSqlNode = new SqlNode
                 {
+                    Id = map.Id.ToString(),
                     Schema = map.Schema,
                     Table = entityName,
                     Column = map.UpsertKeys[i].Key,

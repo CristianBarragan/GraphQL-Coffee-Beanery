@@ -12,5 +12,5 @@ public class CustomerCustomerRelationshipEdge : Edge
     
     public int InnerCustomerId { get; set; }
     
-    public int CustomerCustomerRelationshipId { get; set; }
+    public int Id { get; set; }
 }

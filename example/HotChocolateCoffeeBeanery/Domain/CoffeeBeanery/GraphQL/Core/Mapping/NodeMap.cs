@@ -6,6 +6,8 @@ namespace CoffeeBeanery.GraphQL.Core.Mapping
 {
     public sealed class NodeMap
     {
+        public int Id { get; set; }
+        
         public string Schema { get; set; } = "public";
 
         public bool IsModel { get; set; }
@@ -32,6 +34,10 @@ namespace CoffeeBeanery.GraphQL.Core.Mapping
 
         public Dictionary<string, PropertyInfo> EntityProperties { get; set; }
             = new Dictionary<string, PropertyInfo>();
+        
+        public Func<object, object> CreateMapper { get; set; }
+        
+        public Action<object, object> UpdateMapper { get; set; }
 
     }
 

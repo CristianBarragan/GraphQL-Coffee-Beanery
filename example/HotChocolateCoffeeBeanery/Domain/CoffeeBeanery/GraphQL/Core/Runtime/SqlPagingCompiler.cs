@@ -9,6 +9,8 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
     {
         public static void Compile(NodeTree rootTree, SqlCompilationContext ctx, ISelection rootSelection)
         {
+            var hasPagination = false;
+            
             foreach (var argument in rootSelection.SyntaxNode.Arguments.Where(a => !a.Name.Value.Matches("where")))
             {
                 switch (argument.Name.ToString())
@@ -17,26 +19,33 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                         ctx.Pagination.First = string.IsNullOrEmpty(argument.Value?.Value?.ToString())
                             ? 0
                             : int.Parse(argument.Value?.Value.ToString());
+                        hasPagination = true;
                         break;
                     case "last":
                         ctx.Pagination.Last = string.IsNullOrEmpty(argument.Value?.Value?.ToString())
                             ? 0
                             : int.Parse(argument.Value?.Value.ToString());
+                        hasPagination = true;
                         break;
                     case "before":
                         ctx.Pagination.Before = string.IsNullOrEmpty(argument.Value?.Value?.ToString())
                             ? ""
                             : argument.Value?.Value.ToString();
+                        hasPagination = true;
                         break;
                     case "after":
                         ctx.Pagination.After = string.IsNullOrEmpty(argument.Value?.Value?.ToString())
                             ? ""
                             : argument.Value?.Value.ToString();
+                        hasPagination = true;
                         break;
                 }
             }
 
-            HandleQueryClause(rootTree, ctx);
+            if (hasPagination)
+            {
+                HandleQueryClause(rootTree, ctx);    
+            }
         }
         
         private static void HandleQueryClause(NodeTree rootTree, SqlCompilationContext ctx, bool hasTotalCount = false)
@@ -104,7 +113,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                 : "";
             sqlQuery.Clear();
             sqlQuery.Append($" {sql} a ) " +
-                            $"SELECT * FROM ( SELECT (SELECT DISTINCT COUNT(\"{(rootTree.IsGraph ? $"{rootTree.Mapping.Last().DestinationName.ToSnakeCase(rootTree.Id)}\"" : $"{rootTree.Name}{"Id".ToSnakeCase(rootTree.Id)}\"")}) FROM {rootTree.Schema}s) \"RecordCount\", " +
+                            $"SELECT * FROM ( SELECT (SELECT DISTINCT COUNT(1) FROM {rootTree.Schema}s) \"RecordCount\", " +
                             $"{totalCount} * FROM {rootTree.Schema}s) a {sqlWhereStatement.Replace('~', 'a')}");
             
             ctx.SelectSql = sqlQuery.ToString();

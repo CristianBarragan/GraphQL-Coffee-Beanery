@@ -204,14 +204,12 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                      .Where(v => sqlNode.Column.Matches(v.Value.Column)))
         {
             entity.Value.SqlNodeType = isEdge ? SqlNodeType.Edge : SqlNodeType.Node;
-            if (sqlStatementNodes.ContainsKey(entity.Key) &&
-                entities.Contains(entity.Key) && isEdge)
+            if (sqlStatementNodes.ContainsKey(entity.Key))
             {
                 sqlStatementNodes[entity.Key] = entity.Value;
             }
                 
-            if (!sqlStatementNodes.ContainsKey(entity.Key) &&
-                entities.Contains(entity.Key) && !isEdge)
+            if (!sqlStatementNodes.ContainsKey(entity.Key))
             {
                 sqlStatementNodes.Add(entity.Key, entity.Value);
             }
