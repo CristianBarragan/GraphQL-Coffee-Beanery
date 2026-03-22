@@ -26,6 +26,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                 SqlWhereCompiler.Compile(ctx, rootSelection, rootTree, wrapperEntityName, sqlWhereStatement);    
             }
             
+            //Refactor with new alias feature
             SqlOrderCompiler.Compile(ctx, trees, rootSelection, rootTree.Name, nodeDict);
             ctx.SelectSql = SqlSelectBuilder.Build(rootTree, nodeDict, edgeDict, wrapperEntityName, sqlWhereStatement, splitOnDapper, transformedToParent);
             SqlPagingCompiler.Compile(rootTree, ctx, rootSelection);

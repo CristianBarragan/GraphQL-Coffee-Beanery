@@ -22,9 +22,6 @@ public class Customer
 
     // [LinkBusinessKey("ContactPoint","ContactPointId")]
     public List<ContactPoint>? ContactPoint { get; set; }
-
-    // [LinkBusinessKey("CustomerBankingRelationship","CustomerBankingRelationshipId")]
-    public List<CustomerBankingRelationship>? CustomerBankingRelationship { get; set; }
 }
 
 public enum CustomerType

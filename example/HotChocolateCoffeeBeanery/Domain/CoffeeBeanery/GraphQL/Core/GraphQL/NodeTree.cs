@@ -6,6 +6,8 @@ namespace CoffeeBeanery.GraphQL.Core.GraphQL
 {
     public sealed class NodeTree
     {
+        
+        public string Alias { get; init; } = "";
         public string Name { get; init; } = "";
         public string Schema { get; init; } = "public";
         public int Id { get; init; }
@@ -14,6 +16,8 @@ namespace CoffeeBeanery.GraphQL.Core.GraphQL
         public List<string> Children { get; set; } = new();
 
         public List<FieldMap> Mapping { get; set; } = new();
+        
+        public List<string> UpsertKeys { get; set; } = new();
 
         public bool IsGraph { get; set; }
     }

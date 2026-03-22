@@ -53,6 +53,7 @@ namespace CoffeeBeanery.Service
 
             var edgeStatementNodes = new Dictionary<string, SqlNode>();
             var visitedModels = new List<string>();
+            visitedModels.Add(SqlNodeRegistry.ModelTrees.Values.OrderBy(a => a.Id).First().Name);
             var visitedEntities = new List<string>();
             var nodeStatementNodes = new Dictionary<string, SqlNode>();
 
@@ -63,6 +64,9 @@ namespace CoffeeBeanery.Service
             var rootEdgeEntity = SqlNodeRegistry.EntityTrees.OrderBy(a => a.Value.Id)
                 .First(a => visitedEntities.Contains(a.Key));
             visitedEntities.Clear();
+            
+            visitedEntities.Clear();
+            visitedModels.Add(SqlNodeRegistry.ModelTrees.Values.OrderBy(a => a.Id).First().Name);
 
             SqlNodeResolver.GetFields(SqlNodeRegistry.ModelTrees, selection.SyntaxNode, SqlNodeRegistry.EntityNodes,
                 SqlNodeRegistry.ModelNodes, nodeStatementNodes, rootTree, new NodeTree(), visitedModels, visitedEntities,
@@ -138,7 +142,7 @@ namespace CoffeeBeanery.Service
 
                     if (string.IsNullOrEmpty(entityName))
                     {
-                        entityName = SqlNodeRegistry.EntityNames.First();
+                        entityName = SqlNodeRegistry.EntityTrees.OrderBy(a => a.Value.Id).First().Key;
                     }
                 
                     transformedToParent = true;    
@@ -166,34 +170,37 @@ namespace CoffeeBeanery.Service
             }
             else
             {
-                SqlNodeResolver.GetMutations(SqlNodeRegistry.ModelTrees, selection.SyntaxNode, SqlNodeRegistry.EntityNodes,
+                SqlNodeResolver.GetMutations(SqlNodeRegistry.ModelTrees, selection.SyntaxNode.Arguments[0], SqlNodeRegistry.EntityNodes,
                     SqlNodeRegistry.ModelNodes, mutationStatementNodes,
                     rootTree, string.Empty, rootTree, SqlNodeRegistry.ModelTrees.Keys.ToList(), new List<string>());
             }
 
             var sqlWhereStatement = new Dictionary<string, string>();
             
-            var mutationStructure = SqlMutationCompiler.Compile(selection, rootTree, wrapperName, mutationStatementNodes, sqlWhereStatement);
+            var mutationStructure = SqlMutationCompiler.Compile(selection, SqlNodeRegistry.ModelTrees[modelName], wrapperName, mutationStatementNodes, sqlWhereStatement);
 
             var edgeStatementNodes = new Dictionary<string, SqlNode>();
             var visitedModels = new List<string>();
+            visitedModels.Add(SqlNodeRegistry.ModelTrees.Values.OrderBy(a => a.Id).First().Name);
             var visitedEntities = new List<string>();
             var nodeStatementNodes = new Dictionary<string, SqlNode>();
 
-            SqlNodeResolver.GetFields(SqlNodeRegistry.ModelTrees, selection.SyntaxNode, SqlNodeRegistry.EntityNodes,
+            SqlNodeResolver.GetFields(SqlNodeRegistry.ModelTrees, selection.SyntaxNode.GetNodes().ToList()[2], SqlNodeRegistry.EntityNodes,
                 SqlNodeRegistry.ModelNodes, edgeStatementNodes, rootTree, new NodeTree(), visitedModels, visitedEntities,
                 SqlNodeRegistry.ModelNames, SqlNodeRegistry.EntityNames, true);
 
             var rootEdgeEntity = SqlNodeRegistry.EntityTrees.OrderBy(a => a.Value.Id)
                 .FirstOrDefault(a => visitedEntities.Contains(a.Key));
             visitedEntities.Clear();
+            visitedModels.Clear();
+            visitedModels.Add(SqlNodeRegistry.ModelTrees.Values.OrderBy(a => a.Id).First().Name);
 
             if (edgeStatementNodes.Count == 0)
             {
                 rootEdgeEntity = default;
             }
 
-            SqlNodeResolver.GetFields(SqlNodeRegistry.ModelTrees, selection.SyntaxNode, SqlNodeRegistry.EntityNodes,
+            SqlNodeResolver.GetFields(SqlNodeRegistry.ModelTrees, selection.SyntaxNode.GetNodes().ToList()[2], SqlNodeRegistry.EntityNodes,
                 SqlNodeRegistry.ModelNodes, nodeStatementNodes, rootTree, new NodeTree(), visitedModels, visitedEntities,
                 SqlNodeRegistry.ModelNames, SqlNodeRegistry.EntityNames, false);
 

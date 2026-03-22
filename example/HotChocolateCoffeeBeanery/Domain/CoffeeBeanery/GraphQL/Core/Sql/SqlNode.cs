@@ -21,7 +21,7 @@
         public bool IsColumnGraph { get; set; } = false;
 
 
-        public SqlNodeType SqlNodeType { get; set; }
+        public List<SqlNodeType> SqlNodeTypes { get; set; }
 
         // Used for joins
         public string JoinTable { get; set; } = "";
@@ -35,9 +35,9 @@
         public Dictionary<string, string> FromEnumeration { get; set; } = new();
         public Dictionary<string, string> ToEnumeration { get; set; } = new();
 
-        public bool IsGraph => SqlNodeType == SqlNodeType.Graph;
-        public bool IsEdge => SqlNodeType == SqlNodeType.Edge;
-        public bool IsNode => SqlNodeType == SqlNodeType.Node;
+        public bool IsGraph => SqlNodeTypes.Contains(SqlNodeType.Graph);
+        public bool IsEdge => SqlNodeTypes.Contains(SqlNodeType.Edge);
+        public bool IsNode => SqlNodeTypes.Contains(SqlNodeType.Node);
         
         public object Clone()
         {
@@ -51,7 +51,7 @@
                 LinkKeys = this.LinkKeys,
                 Graph = this.Graph,
                 IsColumnGraph = this.IsColumnGraph,
-                SqlNodeType = this.SqlNodeType,
+                SqlNodeTypes = this.SqlNodeTypes,
                 RelationshipKey = this.RelationshipKey,
                 FromEnumeration = this.FromEnumeration,
                 ToEnumeration = this.ToEnumeration

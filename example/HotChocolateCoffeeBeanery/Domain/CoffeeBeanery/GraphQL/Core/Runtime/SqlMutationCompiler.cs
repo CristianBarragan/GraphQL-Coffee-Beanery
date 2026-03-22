@@ -26,7 +26,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                 SqlWhereCompiler.Compile(ctx, rootSelection, rootTree, wrapperEntityName, sqlWhereStatement);    
             }
 
-            var entityTreeName = SqlNodeRegistry.ModelNodes.First(a => a.Key.Split('~')[0].Matches(rootTree.Name)).Value.Table;
+            var entityTreeName = SqlNodeRegistry.ModelNodes.First(a => a.Key.Split('~')[1].Matches(rootTree.Name)).Value.Table;
             
             GenerateUpsertStatements(SqlNodeRegistry.ModelTrees, SqlNodeRegistry.EntityTrees, SqlNodeRegistry.EntityNodes,
                 wrapperEntityName, generatedQuery, mutationDict, SqlNodeRegistry.EntityTrees[entityTreeName],
@@ -137,7 +137,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
             }
 
             sqlUpsertAux += $" INSERT INTO \"{currentTree.Schema}\".\"{currentTree.Name}\" ( " +
-                            $" {string.Join(",", currentColumns.Select(s => $"\"{s.Value.RelationshipKey.Split('~')[1]}\"").ToList())}) VALUES ({
+                            $" {string.Join(",", currentColumns.Select(s => $"\"{s.Key.Split('~')[1]}\"").ToList())}) VALUES ({
                                 string.Join(",", currentColumns.Select(s => $"'{s.Value.Value}'").ToList())}) " +
                             $" ON CONFLICT" +
                             $" ({string.Join(",", currentColumns.FirstOrDefault(a => a.Value.UpsertKeys
@@ -288,7 +288,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                 currentColumns.Count == 0 ||
                 !currentColumns.Any(a => a.Value.UpsertKeys
                                              .Any(u => u.Split('~')[1].Matches(a.Value.Column)) &&
-                                         a.Value.SqlNodeType == SqlNodeType.Mutation &&
+                                         a.Value.SqlNodeTypes.Contains(SqlNodeType.Mutation) &&
                                          !string.IsNullOrEmpty(a.Value.Value)) ||
                 where.Count == 0)
             {

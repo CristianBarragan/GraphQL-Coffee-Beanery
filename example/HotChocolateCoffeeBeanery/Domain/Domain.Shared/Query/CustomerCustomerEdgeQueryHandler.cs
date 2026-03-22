@@ -25,11 +25,9 @@ public class CustomerCustomerEdgeQueryHandler<M> : ProcessQuery<M>, IQuery<Proce
         MappingConfiguration(List<M> models, SqlStructure sqlStructure, object[] map)
     {
         var customerCustomerEdges = models.OfType<CustomerCustomerEdge>().ToList();
-        var rowNumber = 0;
         var totalCount = 0;
         var pageRecords = 0;
         var customerCustomerEdge = new CustomerCustomerEdge();
-        var product = new Product();
         
         for (int i = 0; i < map.Length; i++)
         {
@@ -41,39 +39,31 @@ public class CustomerCustomerEdgeQueryHandler<M> : ProcessQuery<M>, IQuery<Proce
             {
                 totalCount = (map[i] as TotalRecordCount).RecordCount;
             }
-            
-            var model = new Customer
-            {
-                CustomerKey = Guid.NewGuid(),
-                FirstNaming = "John",
-                LastNaming = "Doe",
-                FullNaming = "John Doe",
-                CustomerType = CustomerType.Person
-            };
-
-            var entity = _mapper.MapToEntity(model);
-            
-            var modelBack = _mapper.MapToModel<Customer>(entity);
-            
             // else if (map[i] is DatabaseEntity.CustomerCustomerRelationship)
             // {
-            //     customerCustomerEdge = CustomerCustomerRelationshipQueryMapping
-            //         .MapCustomerCustomerRelationship(customerCustomerEdges, map[i], _mapper);
-            // }
-            // else if (map[i] is DatabaseEntity.Customer)
-            // {
-            //     customerCustomerEdge = CustomerQueryMapping.MapCustomer(customerCustomerEdges, map[i], _mapper);
+            //     customerCustomerEdge = _mapper
+            //         .MapToUpdatedModel<CustomerCustomerEdge, DatabaseEntity.CustomerCustomerRelationship, CustomerCustomerRelationship>(
+            //             customerCustomerEdge, map[i] as  DatabaseEntity.CustomerCustomerRelationship, a => a.CustomerCustomerRelationship);
+            //     
+            //     customerCustomerEdge = _mapper
+            //         .MapToUpdatedModel<CustomerCustomerEdge, DatabaseEntity.Customer, Customer>(
+            //             customerCustomerEdge, map[i+1] as  DatabaseEntity.Customer, a => a.InnerCustomer);
+            //     
+            //     
+            //     customerCustomerEdge = _mapper
+            //         .MapToUpdatedModel<CustomerCustomerEdge, DatabaseEntity.Customer, Customer>(
+            //             customerCustomerEdge, map[i+2] as  DatabaseEntity.Customer, a => a.OuterCustomer);
             // }
             // else if (map[i] is DatabaseEntity.ContactPoint)
             // {
-            //     customerCustomerEdge = ContactPointQueryMapping.MapFromCustomer(map[i], _mapper, customerCustomerEdge);
+            //     customerCustomerEdge = _mapper
+            //         .MapToUpdatedModel<CustomerCustomerEdge, DatabaseEntity.ContactPoint, ContactPoint>(
+            //             customerCustomerEdge, map[i+1] as  DatabaseEntity.ContactPoint, a => a.ContactPoint);
             // }
             // else if (map[i] is DatabaseEntity.CustomerBankingRelationship)
             // {
-            //     var result = CustomerBankingRelationshipQueryMapping
-            //         .MapFromCustomer(map[i], _mapper, customerCustomerEdge, product);
-            //     customerCustomerEdge = result.existingCustomerCustomerEdge;
-            //     product = result.existingProduct;
+            //     customerCustomerEdge = (CustomerCustomerEdge) _mapper.MapToUpdatedEntity<CustomerCustomerEdge, DatabaseEntity.CustomerBankingRelationship>(customerCustomerEdge);
+            //     customerCustomerEdge = (CustomerCustomerEdge) _mapper.MapToUpdatedEntity<CustomerCustomerEdge, DatabaseEntity.CustomerBankingRelationship>(customerCustomerEdge);
             // }
             // else if (map[i] is DatabaseEntity.Contract)
             // {
@@ -99,7 +89,7 @@ public class CustomerCustomerEdgeQueryHandler<M> : ProcessQuery<M>, IQuery<Proce
         }  
         
         var existingCustomerIndex = customerCustomerEdges.FindIndex(c => 
-            c.InnerCustomer.CustomerKey == customerCustomerEdge.InnerCustomer?.CustomerKey);
+            c.InnerCustomerKey == customerCustomerEdge.InnerCustomerKey);
         if (existingCustomerIndex >= 0)
         {
             customerCustomerEdges[existingCustomerIndex]  = customerCustomerEdge;

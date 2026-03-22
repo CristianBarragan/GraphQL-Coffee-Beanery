@@ -39,6 +39,8 @@ namespace CoffeeBeanery.GraphQL.Core.Mapping
         
         public Action<object, object> UpdateMapper { get; set; }
 
+        public string Alias { get; set; }
+
     }
 
 }

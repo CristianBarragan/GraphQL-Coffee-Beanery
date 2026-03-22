@@ -20,22 +20,22 @@ namespace Domain.Shared.Extension
 
             services = AddCache(services);
 
-            services.AddScoped<IProcessService<dynamic>, ProcessService<dynamic>>();
-            services.AddScoped<IQuery<ProcessQueryParameters,
-                    (List<dynamic> list, int? startCursor, int? endCursor, int? totalCount, int?
-                    totalPageRecords)>,
-                ProcessQuery<dynamic>>();
+            // services.AddScoped<IProcessService<dynamic>, ProcessService<dynamic>>();
+            // services.AddScoped<IQuery<ProcessQueryParameters,
+            //         (List<dynamic> list, int? startCursor, int? endCursor, int? totalCount, int?
+            //         totalPageRecords)>,
+            //     CustomerCustomerEdgeQueryHandler<dynamic>>();
 
             services.AddScoped<IProcessService<Wrapper>, ProcessService<Wrapper>>();
             services.AddScoped<IQuery<ProcessQueryParameters,
                     (List<Wrapper> list, int? startCursor, int? endCursor, int? totalCount, int?
                     totalPageRecords)>,
-                ProcessQuery<Wrapper>>();
+                CustomerCustomerEdgeQueryHandler<Wrapper>>();
 
-            services.AddScoped<IQuery<ProcessQueryParameters,
-                    (List<CustomerCustomerEdge> list, int? startCursor, int? endCursor, int? totalCount,
-                    int? totalPageRecords)>,
-                CustomerCustomerEdgeQueryHandler<CustomerCustomerEdge>>();
+            // services.AddScoped<IQuery<ProcessQueryParameters,
+            //         (List<CustomerCustomerEdge> list, int? startCursor, int? endCursor, int? totalCount,
+            //         int? totalPageRecords)>,
+            //     CustomerCustomerEdgeQueryHandler<CustomerCustomerEdge>>();
 
             services.AddScoped<IQueryDispatcher, QueryDispatcher>();
             services.AddScoped<UnitOfWork, UnitOfWork>();

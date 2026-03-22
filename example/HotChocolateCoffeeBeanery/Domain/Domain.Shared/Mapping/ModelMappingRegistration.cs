@@ -13,13 +13,84 @@ namespace Domain.Shared.Mapping
         public Dictionary<string, NodeMap> Register()
         {
             var mappings = new Dictionary<string, NodeMap>();
+            
+            //-----------------------------------------
+            // CUSTOMER CUSTOMER RELATIONSHIP EDGE
+            //-----------------------------------------
+            var customerCustomerRelationshipEdge = new NodeMap
+            {
+                Id = 1,
+                Schema = nameof(DataGraph.CustomerCustomerRelationshipEdge),
+                IsGraph = true,
+                IsModel = true
+            };
+            
+            // customerCustomerRelationshipEdge.FieldMaps.Add(new FieldMap
+            // {
+            //     SourceName = nameof(CustomerCustomerEdge.Clause),
+            //     DestinationEntity = nameof(DataEntity.CustomerCustomerRelationship)
+            //     // ,
+            //     // DestinationName = nameof(DataEntity.CustomerCustomerRelationship.Id)
+            // });
+            //
+            // customerCustomerRelationshipEdge.FieldMaps.Add(new FieldMap
+            // {
+            //     SourceName = nameof(CustomerCustomerEdge.LevelDepth),
+            //     DestinationEntity = nameof(DataEntity.CustomerCustomerRelationship)
+            //     // ,
+            //     // DestinationName = nameof(DataEntity.CustomerCustomerRelationship.Id)
+            // });
+            //
+            // customerCustomerRelationshipEdge.FieldMaps.Add(new FieldMap
+            // {
+            //     SourceName = nameof(CustomerCustomerEdge.LevelDirection),
+            //     DestinationEntity = nameof(DataEntity.CustomerCustomerRelationship)
+            //     // ,
+            //     // DestinationName = nameof(DataEntity.CustomerCustomerRelationship.Id)
+            // });
+            
+            customerCustomerRelationshipEdge.Children.Add(nameof(DataEntity.CustomerCustomerRelationship));
+            customerCustomerRelationshipEdge.Children.Add(nameof(DataEntity.CustomerCustomerRelationship.InnerCustomer));
+            customerCustomerRelationshipEdge.Children.Add(nameof(DataEntity.CustomerCustomerRelationship.OuterCustomer));
+            
+            customerCustomerRelationshipEdge.FieldMaps.Add(new FieldMap
+            {
+                SourceName = nameof(DataGraph.CustomerCustomerRelationshipEdge.Id),
+                DestinationEntity = nameof(DataGraph.CustomerCustomerRelationshipEdge),
+                DestinationName = nameof(DataGraph.CustomerCustomerRelationshipEdge.Id)
+            });
+            
+            customerCustomerRelationshipEdge.FieldMaps.Add(new FieldMap
+            {
+                SourceName = nameof(CustomerCustomerEdge.InnerCustomerKey),
+                DestinationEntity = nameof(DataEntity.CustomerCustomerRelationship),
+                DestinationName = nameof(DataEntity.CustomerCustomerRelationship.InnerCustomerKey)
+            });
+            
+            customerCustomerRelationshipEdge.FieldMaps.Add(new FieldMap
+            {
+                SourceName = nameof(CustomerCustomerEdge.OuterCustomerKey),
+                DestinationEntity = nameof(DataEntity.CustomerCustomerRelationship),
+                DestinationName = nameof(DataEntity.CustomerCustomerRelationship.OuterCustomerKey)
+            });
+            
+            customerCustomerRelationshipEdge.FieldMaps.Add(new FieldMap
+            {
+                SourceName = nameof(CustomerCustomerEdge.CustomerCustomerRelationshipKey),
+                DestinationEntity = nameof(DataEntity.CustomerCustomerRelationship),
+                DestinationName = nameof(DataEntity.CustomerCustomerRelationship.CustomerCustomerRelationshipKey)
+            });
+
+            GetMapping(mappings,
+                MappingRegistry.Register(typeof(CustomerCustomerEdge), typeof(DataGraph.CustomerCustomerRelationshipEdge),
+                    customerCustomerRelationshipEdge));
 
             //-----------------------------------------
             // CUSTOMER
             //-----------------------------------------
             var cust = new NodeMap
             {
-                Id = 2,
+                Id = 3,
                 Schema = nameof(DataEntity.Schema.Banking)
             };
 
@@ -68,28 +139,32 @@ namespace Domain.Shared.Mapping
 
             // Enum mapping for CustomerType
             var custEnums = EnumMapFactory.Create(
-                new Dictionary<CustomerType, DataEntity.CustomerType>
+                new Dictionary<string, (CustomerType, DataEntity.CustomerType)>
                 {
-                    { CustomerType.Person, DataEntity.CustomerType.Person },
-                    { CustomerType.Organisation, DataEntity.CustomerType.Organisation }
+                    { $"{nameof(Customer)}~{nameof(DataEntity.Customer)}~{DataEntity.CustomerType.Person}", (CustomerType.Person, DataEntity.CustomerType.Person) },
+                    { $"{nameof(Customer)}~{nameof(DataEntity.Customer)}~{DataEntity.CustomerType.Organisation}", (CustomerType.Organisation, DataEntity.CustomerType.Organisation) }
                 },
-                new Dictionary<DataEntity.CustomerType, CustomerType>
+                new Dictionary<string, (DataEntity.CustomerType, CustomerType)>
                 {
-                    { DataEntity.CustomerType.Person, CustomerType.Person },
-                    { DataEntity.CustomerType.Organisation, CustomerType.Organisation }
+                    { $"{nameof(DataEntity.Customer)}~{nameof(Customer)}~{CustomerType.Person}", (DataEntity.CustomerType.Person, CustomerType.Person) },
+                    { $"{nameof(DataEntity.Customer)}~{nameof(Customer)}~{CustomerType.Organisation}", (DataEntity.CustomerType.Organisation, CustomerType.Organisation) }
                 });
 
             cust.FromEnum = custEnums.from;
             cust.ToEnum = custEnums.to;
 
-            GetMapping(mappings, MappingRegistry.Register(typeof(Customer), typeof(DataEntity.Customer), cust));
+            // GetMapping(mappings, MappingRegistry.Register(typeof(Customer), typeof(DataEntity.Customer), cust), nameof(Customer));
+            GetMapping(mappings, MappingRegistry.Register(typeof(Customer), typeof(DataEntity.Customer), cust, 
+                nameof(DataEntity.CustomerCustomerRelationship.InnerCustomer)), nameof(DataEntity.CustomerCustomerRelationship.InnerCustomer));
+            GetMapping(mappings, MappingRegistry.Register(typeof(Customer), typeof(DataEntity.Customer), cust, 
+                nameof(DataEntity.CustomerCustomerRelationship.OuterCustomer)), nameof(DataEntity.CustomerCustomerRelationship.OuterCustomer));
 
             //-----------------------------------------
             // CONTACTPOINT
             //-----------------------------------------
             var cp = new NodeMap
             {
-                Id = 3,
+                Id = 4,
                 Schema = nameof(DataEntity.Schema.Banking)
             };
 
@@ -129,17 +204,17 @@ namespace Domain.Shared.Mapping
 
             // Enum mapping for ContactPointType
             var cpEnums = EnumMapFactory.Create(
-                new Dictionary<ContactPointType, DataEntity.ContactPointType>
+                new Dictionary<string, (ContactPointType, DataEntity.ContactPointType)>
                 {
-                    { ContactPointType.Mobile, DataEntity.ContactPointType.Mobile },
-                    { ContactPointType.Landline, DataEntity.ContactPointType.Landline },
-                    { ContactPointType.Email, DataEntity.ContactPointType.Email }
+                    { $"{nameof(ContactPoint)}~{nameof(DataEntity.ContactPoint)}~{DataEntity.ContactPointType.Mobile}", (ContactPointType.Mobile, DataEntity.ContactPointType.Mobile) },
+                    { $"{nameof(ContactPoint)}~{nameof(DataEntity.ContactPoint)}~{DataEntity.ContactPointType.Landline}", (ContactPointType.Landline, DataEntity.ContactPointType.Landline) },
+                    { $"{nameof(ContactPoint)}~{nameof(DataEntity.ContactPoint)}~{DataEntity.ContactPointType.Email}", (ContactPointType.Email, DataEntity.ContactPointType.Email) }
                 },
-                new Dictionary<DataEntity.ContactPointType, ContactPointType>
+                new Dictionary<string, (DataEntity.ContactPointType, ContactPointType)>
                 {
-                    { DataEntity.ContactPointType.Mobile, ContactPointType.Mobile },
-                    { DataEntity.ContactPointType.Landline, ContactPointType.Landline },
-                    { DataEntity.ContactPointType.Email, ContactPointType.Email }
+                    { $"{nameof(DataEntity.ContactPoint)}~{nameof(ContactPoint)}~{ContactPointType.Mobile}", (DataEntity.ContactPointType.Mobile, ContactPointType.Mobile) },
+                    { $"{nameof(DataEntity.ContactPoint)}~{nameof(ContactPoint)}~{ContactPointType.Landline}", (DataEntity.ContactPointType.Landline, ContactPointType.Landline) },
+                    { $"{nameof(DataEntity.ContactPoint)}~{nameof(ContactPoint)}~{ContactPointType.Email}", (DataEntity.ContactPointType.Email, ContactPointType.Email) }
                 });
 
             cp.FromEnum = cpEnums.from;
@@ -152,7 +227,7 @@ namespace Domain.Shared.Mapping
             //-----------------------------------------
             var contract = new NodeMap
             {
-                Id = 5,
+                Id = 6,
                 Schema = nameof(DataEntity.Schema.Lending)
             };
 
@@ -184,20 +259,20 @@ namespace Domain.Shared.Mapping
                 DestinationEntity = nameof(DataEntity.Contract),
                 DestinationName = nameof(DataEntity.Contract.Amount)
             });
-
+            
             // Enum mapping for ContractType
             var contractEnums = EnumMapFactory.Create(
-                new Dictionary<ContractType, DataEntity.ContractType>
+                new Dictionary<string, (ProductType, DataEntity.ContractType)>
                 {
-                    { ContractType.CreditCard, DataEntity.ContractType.CreditCard },
-                    { ContractType.Mortgage, DataEntity.ContractType.Mortgage },
-                    { ContractType.PersonalLoan, DataEntity.ContractType.PersonalLoan }
+                    { $"{nameof(Product)}~{nameof(DataEntity.ContactPoint)}~{DataEntity.ContractType.CreditCard}", (ProductType.CreditCard, DataEntity.ContractType.CreditCard) },
+                    { $"{nameof(Product)}~{nameof(DataEntity.ContactPoint)}~{DataEntity.ContractType.Mortgage}", (ProductType.Mortgage, DataEntity.ContractType.Mortgage) },
+                    { $"{nameof(Product)}~{nameof(DataEntity.ContactPoint)}~{DataEntity.ContractType.PersonalLoan}", (ProductType.PersonalLoan, DataEntity.ContractType.PersonalLoan) }
                 },
-                new Dictionary<DataEntity.ContractType, ContractType>
+                new Dictionary<string, (DataEntity.ContractType, ProductType)>
                 {
-                    { DataEntity.ContractType.CreditCard, ContractType.CreditCard },
-                    { DataEntity.ContractType.Mortgage, ContractType.Mortgage },
-                    { DataEntity.ContractType.PersonalLoan, ContractType.PersonalLoan }
+                    { $"{nameof(DataEntity.ContactPoint)}~{nameof(Product)}~{ProductType.CreditCard}", (DataEntity.ContractType.CreditCard, ProductType.CreditCard) },
+                    { $"{nameof(DataEntity.ContactPoint)}~{nameof(Product)}~{ProductType.Mortgage}", (DataEntity.ContractType.Mortgage, ProductType.Mortgage) },
+                    { $"{nameof(DataEntity.ContactPoint)}~{nameof(Product)}~{ProductType.PersonalLoan}", (DataEntity.ContractType.PersonalLoan, ProductType.PersonalLoan) }
                 });
 
             contract.FromEnum = contractEnums.from;
@@ -210,7 +285,7 @@ namespace Domain.Shared.Mapping
             //-----------------------------------------
             var acct = new NodeMap
             {
-                Id = 7,
+                Id = 8,
                 Schema = nameof(DataEntity.Schema.Account)
             };
 
@@ -256,7 +331,7 @@ namespace Domain.Shared.Mapping
             //-----------------------------------------
             var cbr = new NodeMap
             {
-                Id = 4,
+                Id = 5,
                 Schema = nameof(DataEntity.Schema.Banking)
             };
 
@@ -297,7 +372,7 @@ namespace Domain.Shared.Mapping
             //-----------------------------------------
             var ccr = new NodeMap
             {
-                Id = 1,
+                Id = 2,
                 Schema = nameof(DataEntity.Schema.Banking)
             };
 
@@ -308,6 +383,34 @@ namespace Domain.Shared.Mapping
 
             ccr.UpsertKeys.Add(new UpsertKey(nameof(DataEntity.CustomerCustomerRelationship),
                 nameof(DataEntity.CustomerCustomerRelationship.CustomerCustomerRelationshipKey)));
+
+            ccr.FieldMaps.Add(new FieldMap
+            {
+                SourceName = nameof(DataEntity.CustomerCustomerRelationship.Id),
+                DestinationEntity = nameof(DataEntity.CustomerCustomerRelationship),
+                DestinationName = nameof(DataEntity.CustomerCustomerRelationship.Id)
+            });
+
+            ccr.FieldMaps.Add(new FieldMap
+            {
+                SourceName = nameof(DataEntity.CustomerCustomerRelationship.InnerCustomerKey),
+                DestinationEntity = nameof(DataEntity.Customer),
+                DestinationName = nameof(DataEntity.Customer.CustomerKey)
+            });
+            
+            ccr.FieldMaps.Add(new FieldMap
+            {
+                SourceName = nameof(DataEntity.CustomerCustomerRelationship.OuterCustomerKey),
+                DestinationEntity = nameof(DataEntity.Customer),
+                DestinationName = nameof(DataEntity.Customer.CustomerKey)
+            });
+
+            ccr.FieldMaps.Add(new FieldMap
+            {
+                SourceName = nameof(DataEntity.CustomerCustomerRelationship.Id),
+                DestinationEntity = nameof(DataEntity.CustomerCustomerRelationship),
+                DestinationName = nameof(DataEntity.CustomerCustomerRelationship.Id)
+            });
 
             ccr.FieldMaps.Add(new FieldMap
             {
@@ -392,25 +495,7 @@ namespace Domain.Shared.Mapping
             product.IsModel = true;
 
             product.Children.Add(nameof(Contract));
-            product.Children.Add(nameof(CustomerBankingRelationship));
             product.Children.Add(nameof(Account));
-
-            product.UpsertKeys.Add(new UpsertKey(nameof(DataEntity.CustomerBankingRelationship),
-                nameof(DataEntity.CustomerBankingRelationship.CustomerBankingRelationshipKey)));
-
-            product.FieldMaps.Add(new FieldMap
-            {
-                SourceName = nameof(DataEntity.CustomerBankingRelationship.Id),
-                DestinationEntity = nameof(DataEntity.CustomerBankingRelationship),
-                DestinationName = nameof(DataEntity.CustomerBankingRelationship.Id)
-            });
-
-            product.FieldMaps.Add(new FieldMap
-            {
-                SourceName = nameof(Product.CustomerBankingRelationshipKey),
-                DestinationEntity = nameof(DataEntity.CustomerBankingRelationship),
-                DestinationName = nameof(DataEntity.CustomerBankingRelationship.CustomerBankingRelationshipKey)
-            });
 
             product.FieldMaps.Add(new FieldMap
             {
@@ -449,153 +534,42 @@ namespace Domain.Shared.Mapping
 
             // Enum mapping for ProductType by value
             var productEnums = EnumMapFactory.Create(
-                new Dictionary<ProductType, DataEntity.ContractType>
+                new Dictionary<string, (ProductType, DataEntity.ContractType)>
                 {
-                    { ProductType.CreditCard, DataEntity.ContractType.CreditCard },
-                    { ProductType.Mortgage, DataEntity.ContractType.Mortgage },
-                    { ProductType.PersonalLoan, DataEntity.ContractType.PersonalLoan }
+                    { $"{nameof(Product)}~{nameof(DataEntity.ContactPoint)}~{DataEntity.ContractType.CreditCard}", (ProductType.CreditCard, DataEntity.ContractType.CreditCard) },
+                    { $"{nameof(Product)}~{nameof(DataEntity.ContactPoint)}~{DataEntity.ContractType.Mortgage}", (ProductType.Mortgage, DataEntity.ContractType.Mortgage) },
+                    { $"{nameof(Product)}~{nameof(DataEntity.ContactPoint)}~{DataEntity.ContractType.PersonalLoan}", (ProductType.PersonalLoan, DataEntity.ContractType.PersonalLoan) }
                 },
-                new Dictionary<DataEntity.ContractType, ProductType>
+                new Dictionary<string, (DataEntity.ContractType, ProductType)>
                 {
-                    { DataEntity.ContractType.CreditCard, ProductType.CreditCard },
-                    { DataEntity.ContractType.Mortgage, ProductType.Mortgage },
-                    { DataEntity.ContractType.PersonalLoan, ProductType.PersonalLoan }
+                    { $"{nameof(DataEntity.ContactPoint)}~{nameof(Product)}~{ProductType.CreditCard}", (DataEntity.ContractType.CreditCard, ProductType.CreditCard) },
+                    { $"{nameof(DataEntity.ContactPoint)}~{nameof(Product)}~{ProductType.Mortgage}", (DataEntity.ContractType.Mortgage, ProductType.Mortgage) },
+                    { $"{nameof(DataEntity.ContactPoint)}~{nameof(Product)}~{ProductType.PersonalLoan}", (DataEntity.ContractType.PersonalLoan, ProductType.PersonalLoan) }
                 });
 
             product.FromEnum = productEnums.from;
             product.ToEnum = productEnums.to;
 
             GetMapping(mappings, MappingRegistry.Register(typeof(Product), null, product));
-
-            //-----------------------------------------
-            // CUSTOMER CUSTOMER EDGE
-            //-----------------------------------------
-            // var customerCustomerEdge = new NodeMap
-            // {
-            //     Schema = nameof(DataEntity.Schema.Banking),
-            //     IsGraph = true
-            // };
-            //
-            // customerCustomerEdge.IsEntity = true;
-            // customerCustomerEdge.IsModel = true;
-            //
-            // customerCustomerEdge.Children.Add(nameof(DataEntity.CustomerCustomerRelationship));
-            // customerCustomerEdge.Children.Add(nameof(DataEntity.Customer));
-            //
-            // customerCustomerEdge.UpsertKeys.Add(new UpsertKey(nameof(DataEntity.CustomerCustomerRelationship),
-            //     nameof(DataEntity.CustomerCustomerRelationship.CustomerCustomerRelationshipKey)));
-            //
-            // customerCustomerEdge.FieldMaps.Add(new FieldMap
-            // {
-            //     SourceName = nameof(DataEntity.CustomerCustomerRelationship.Id),
-            //     DestinationEntity = nameof(DataEntity.CustomerCustomerRelationship),
-            //     DestinationName = nameof(DataEntity.CustomerCustomerRelationship.Id)
-            // });
-            //
-            // customerCustomerEdge.FieldMaps.Add(new FieldMap
-            // {
-            //     SourceName = nameof(CustomerCustomerEdge.OuterCustomerKey),
-            //     DestinationEntity = nameof(DataEntity.CustomerCustomerRelationship),
-            //     DestinationName = nameof(DataEntity.CustomerCustomerRelationship.OuterCustomerKey)
-            // });
-            //
-            // customerCustomerEdge.FieldMaps.Add(new FieldMap
-            // {
-            //     SourceName = nameof(CustomerCustomerEdge.InnerCustomerKey),
-            //     DestinationEntity = nameof(DataEntity.CustomerCustomerRelationship),
-            //     DestinationName = nameof(DataEntity.CustomerCustomerRelationship.InnerCustomerKey)
-            // });
-            //
-            // customerCustomerEdge.FieldMaps.Add(new FieldMap
-            // {
-            //     SourceName = nameof(CustomerCustomerEdge.CustomerCustomerRelationshipKey),
-            //     DestinationEntity = nameof(DataEntity.CustomerCustomerRelationship),
-            //     DestinationName = nameof(DataEntity.CustomerCustomerRelationship.CustomerCustomerRelationshipKey)
-            // });
-            //
-            // GetMapping(mappings,MappingRegistry.Register(typeof(CustomerCustomerEdge), typeof(DataEntity.CustomerCustomerRelationship),
-            //     customerCustomerEdge));
-            // GetMapping(mappings,
-            //     MappingRegistry.Register(typeof(CustomerCustomerEdge), typeof(DataGraph.CustomerCustomerRelationshipEdge),
-            //         customerCustomerEdge));
             
-            //-----------------------------------------
-            // CUSTOMER CUSTOMER RELATIONSHIP EDGE
-            //-----------------------------------------
-            var customerCustomerRelationshipEdge = new NodeMap
-            {
-                Id = 9,
-                Schema = nameof(DataGraph.CustomerCustomerRelationshipEdge),
-                IsGraph = true,
-                IsModel = true
-            };
-
-            customerCustomerRelationshipEdge.FieldMaps.Add(new FieldMap
-            {
-                SourceName = nameof(DataEntity.CustomerCustomerRelationship.Id),
-                DestinationEntity = nameof(DataEntity.CustomerCustomerRelationship),
-                DestinationName = nameof(DataEntity.CustomerCustomerRelationship.Id)
-            });
-
-            customerCustomerRelationshipEdge.FieldMaps.Add(new FieldMap
-            {
-                SourceName = nameof(CustomerCustomerEdge.OuterCustomerKey),
-                DestinationEntity = nameof(DataGraph.CustomerCustomerRelationshipEdge),
-                DestinationName = nameof(DataGraph.CustomerCustomerRelationshipEdge.OuterCustomerId)
-            });
-
-            customerCustomerRelationshipEdge.FieldMaps.Add(new FieldMap
-            {
-                SourceName = nameof(CustomerCustomerEdge.InnerCustomerKey),
-                DestinationEntity = nameof(DataGraph.CustomerCustomerRelationshipEdge),
-                DestinationName = nameof(DataGraph.CustomerCustomerRelationshipEdge.InnerCustomerId)
-            });
-
-            customerCustomerRelationshipEdge.FieldMaps.Add(new FieldMap
-            {
-                SourceName = nameof(CustomerCustomerEdge.CustomerCustomerRelationshipKey),
-                DestinationEntity = nameof(DataGraph.CustomerCustomerRelationshipEdge),
-                DestinationName = nameof(DataGraph.CustomerCustomerRelationshipEdge.Id)
-            });
-            
-            // customerCustomerRelationshipEdge.FieldMaps.Add(new FieldMap
-            // {
-            //     SourceName = nameof(DataEntity.Customer.Id),
-            //     DestinationEntity = nameof(DataGraph.CustomerCustomerRelationshipEdge),
-            //     DestinationName = nameof(DataGraph.CustomerCustomerRelationshipEdge.OuterCustomerId)
-            // });
-            //
-            // customerCustomerRelationshipEdge.FieldMaps.Add(new FieldMap
-            // {
-            //     SourceName = nameof(DataEntity.Customer.Id),
-            //     DestinationEntity = nameof(DataGraph.CustomerCustomerRelationshipEdge),
-            //     DestinationName = nameof(DataGraph.CustomerCustomerRelationshipEdge.InnerCustomerId)
-            // });
-            //
-            // customerCustomerRelationshipEdge.FieldMaps.Add(new FieldMap
-            // {
-            //     SourceName = nameof(DataEntity.CustomerCustomerRelationship.Id),
-            //     DestinationEntity = nameof(DataGraph.CustomerCustomerRelationshipEdge),
-            //     DestinationName = nameof(DataGraph.CustomerCustomerRelationshipEdge.CustomerCustomerRelationshipId)
-            // });
-
-            GetMapping(mappings,
-                MappingRegistry.Register(typeof(CustomerCustomerEdge), typeof(DataGraph.CustomerCustomerRelationshipEdge),
-                    customerCustomerRelationshipEdge));
-
             return mappings;
         }
 
-        private void GetMapping(Dictionary<string, NodeMap> mappings, NodeMap nodeMap)
+        private void GetMapping(Dictionary<string, NodeMap> mappings, NodeMap nodeMap, string alias = "")
         {
+            if (string.IsNullOrEmpty(alias))
+            {
+                alias = nodeMap.ModelType.Name;
+            }
+            
             if (nodeMap.ModelType != null)
             {
-                mappings.TryAdd(nodeMap.ModelType.Name, nodeMap);    
+                mappings.TryAdd(alias, nodeMap);
             }
             
             if (nodeMap.EntityType != null)
             {
-                mappings.TryAdd(nodeMap.EntityType.Name, nodeMap);    
+                mappings.TryAdd(alias, nodeMap);    
             }
         }
     }
