@@ -57,7 +57,7 @@ namespace CoffeeBeanery.Service
             var visitedEntities = new List<string>();
             var nodeStatementNodes = new Dictionary<string, SqlNode>();
 
-            SqlNodeResolver.GetFields(SqlNodeRegistry.ModelTrees, selection.SyntaxNode, SqlNodeRegistry.EntityNodes,
+            SqlNodeResolver.GetFields(SqlNodeRegistry.ModelTrees, SqlNodeRegistry.EntityTrees, selection.SyntaxNode, SqlNodeRegistry.EntityNodes,
                 SqlNodeRegistry.ModelNodes, edgeStatementNodes, rootTree, new NodeTree(), visitedModels, visitedEntities,
                 SqlNodeRegistry.ModelNames, SqlNodeRegistry.EntityNames, true);
 
@@ -68,7 +68,7 @@ namespace CoffeeBeanery.Service
             visitedEntities.Clear();
             visitedModels.Add(SqlNodeRegistry.ModelTrees.Values.OrderBy(a => a.Id).First().Name);
 
-            SqlNodeResolver.GetFields(SqlNodeRegistry.ModelTrees, selection.SyntaxNode, SqlNodeRegistry.EntityNodes,
+            SqlNodeResolver.GetFields(SqlNodeRegistry.ModelTrees, SqlNodeRegistry.EntityTrees, selection.SyntaxNode, SqlNodeRegistry.EntityNodes,
                 SqlNodeRegistry.ModelNodes, nodeStatementNodes, rootTree, new NodeTree(), visitedModels, visitedEntities,
                 SqlNodeRegistry.ModelNames, SqlNodeRegistry.EntityNames, false);
 
@@ -185,7 +185,7 @@ namespace CoffeeBeanery.Service
             var visitedEntities = new List<string>();
             var nodeStatementNodes = new Dictionary<string, SqlNode>();
 
-            SqlNodeResolver.GetFields(SqlNodeRegistry.ModelTrees, selection.SyntaxNode.GetNodes().ToList()[2], SqlNodeRegistry.EntityNodes,
+            SqlNodeResolver.GetFields(SqlNodeRegistry.ModelTrees, SqlNodeRegistry.EntityTrees, selection.SyntaxNode.GetNodes().ToList()[2], SqlNodeRegistry.EntityNodes,
                 SqlNodeRegistry.ModelNodes, edgeStatementNodes, rootTree, new NodeTree(), visitedModels, visitedEntities,
                 SqlNodeRegistry.ModelNames, SqlNodeRegistry.EntityNames, true);
 
@@ -200,7 +200,7 @@ namespace CoffeeBeanery.Service
                 rootEdgeEntity = default;
             }
 
-            SqlNodeResolver.GetFields(SqlNodeRegistry.ModelTrees, selection.SyntaxNode.GetNodes().ToList()[2], SqlNodeRegistry.EntityNodes,
+            SqlNodeResolver.GetFields(SqlNodeRegistry.ModelTrees, SqlNodeRegistry.EntityTrees, selection.SyntaxNode.GetNodes().ToList()[2], SqlNodeRegistry.EntityNodes,
                 SqlNodeRegistry.ModelNodes, nodeStatementNodes, rootTree, new NodeTree(), visitedModels, visitedEntities,
                 SqlNodeRegistry.ModelNames, SqlNodeRegistry.EntityNames, false);
 

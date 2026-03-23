@@ -51,7 +51,7 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
             //     } 
             // }
             //
-            if (EntityTrees.Any(a => a.Key.Matches(entityKey.Split('~')[0])))
+            if (EntityTrees.Any(a => a.Key.Matches(entityKey.Split('~')[2])))
             {
                 EntityNodes[entityKey] = node;    
             }

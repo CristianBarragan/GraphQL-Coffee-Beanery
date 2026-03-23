@@ -11,13 +11,13 @@ public static class MappingRegistry
     {
         if (string.IsNullOrEmpty(name))
         {
-            if (entityType != null)
-            {
-                name = entityType.Name;
-            }
-            else if (modelType != null)
+            if (modelType != null)
             {
                 name = modelType.Name;
+            }
+            else if (entityType != null)
+            {
+                name = entityType.Name;
             }
         }
         

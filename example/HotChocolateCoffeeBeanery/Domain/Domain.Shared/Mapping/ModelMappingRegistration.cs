@@ -22,7 +22,8 @@ namespace Domain.Shared.Mapping
                 Id = 1,
                 Schema = nameof(DataGraph.CustomerCustomerRelationshipEdge),
                 IsGraph = true,
-                IsModel = true
+                IsModel = true,
+                IsEntity = true
             };
             
             // customerCustomerRelationshipEdge.FieldMaps.Add(new FieldMap
