@@ -150,7 +150,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                 currentColumns.Where(c => c.Value.UpsertKeys
                         .Any(u => !u.Matches(c.Value.RelationshipKey.Split('~')[1])))
                     .Select(e =>
-                        $"\"{e.Value.RelationshipKey.Split('~')[1]}\" = EXCLUDED.\"{e.Value.RelationshipKey.Split('~')[1]}\"")
+                        $"\"{e.Value.RelationshipKey.Split('~')[3]}\" = EXCLUDED.\"{e.Value.RelationshipKey.Split('~')[3]}\"")
             );
 
             if (exclude.Count > 0)

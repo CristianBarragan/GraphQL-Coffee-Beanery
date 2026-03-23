@@ -175,18 +175,18 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                             foreach (var _ in sqlQueryStructures.Where(a => currentTree.Children.Any(b => b.Matches(a.Key))))
                             {
                                 
-                                joinChildKey = childStructure.Columns.FirstOrDefault(c => c.Contains($"\"{childAlias}Id\""));
+                                joinChildKey = childStructure.Columns.FirstOrDefault(c => c.Contains($"\"Id\""));
             
                                 if (string.IsNullOrEmpty(joinChildKey))
                                 {
                                     joinChildKey =
-                                        childStructure.Columns.FirstOrDefault(c => c.Contains($"\"{currentTree.Name}Id\""));
+                                        childStructure.Columns.FirstOrDefault(c => c.Contains($"\"Id\""));
                                 }
             
                                 if (string.IsNullOrEmpty(joinChildKey))
                                 {
                                     joinChildKey = childStructure.Columns.FirstOrDefault(c => c.Contains($"\"Id"));
-                                    joinParentKey = $"\"{childAlias}~Id\"";
+                                    joinParentKey = $"\"Id\"";
                                 }
             
                                 joinChildKey = joinChildKey.Split("AS").Last().Sanitize();
