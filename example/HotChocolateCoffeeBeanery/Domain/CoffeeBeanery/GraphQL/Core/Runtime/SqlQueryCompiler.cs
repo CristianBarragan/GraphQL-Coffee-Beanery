@@ -20,6 +20,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
         {
             var ctx = new SqlCompilationContext();
             var splitOnDapper = new Dictionary<string, Type>();
+            var aliases = new Dictionary<string, string>();
             
             if (sqlWhereStatement.Count == 0)
             {
@@ -28,7 +29,8 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
             
             //Refactor with new alias feature
             SqlOrderCompiler.Compile(ctx, trees, rootSelection, rootTree.Name, nodeDict);
-            ctx.SelectSql = SqlSelectBuilder.Build(rootTree, nodeDict, edgeDict, wrapperEntityName, sqlWhereStatement, splitOnDapper, transformedToParent);
+            var selectResult = SqlSelectBuilder.Build(rootTree, nodeDict, edgeDict, wrapperEntityName, sqlWhereStatement, splitOnDapper, aliases, transformedToParent);
+            ctx.SelectSql = selectResult.Item1;
             SqlPagingCompiler.Compile(rootTree, ctx, rootSelection);
 
             return new SqlStructure
@@ -38,7 +40,8 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                 Pagination = ctx.Pagination,
                 HasTotalCount = ctx.Pagination.TotalRecordCount.RecordCount > 0,
                 HasPagination = ctx.Pagination.TotalPageRecords.PageRecords > 0,
-                SplitOnDapper = splitOnDapper
+                SplitOnDapper = selectResult.Item2,
+                Aliases = selectResult.Item3
             };
         }
     }

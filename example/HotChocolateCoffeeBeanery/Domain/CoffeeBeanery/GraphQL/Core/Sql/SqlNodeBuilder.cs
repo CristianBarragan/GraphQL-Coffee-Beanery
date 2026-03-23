@@ -165,7 +165,7 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
             // Trees
             // -------------------------
 
-            if (map.IsModel)
+            if (map.IsModel && !map.IsGraph)
             {
                 SqlNodeRegistry.ModelTrees[modelName] = new NodeTree
                 {
@@ -179,10 +179,10 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
                 };
                 
                 SqlNodeRegistry.ModelTypes.Add(map.ModelType);
-                SqlNodeRegistry.ModelNames.Add(map.ModelType.Name);
+                SqlNodeRegistry.ModelNames.Add(modelName);
             }
 
-            if (map.IsEntity)
+            if (map.IsEntity && !map.IsGraph)
             {
                 SqlNodeRegistry.EntityTrees[map.EntityType.Name] = new NodeTree
                 {
@@ -197,7 +197,7 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
                 };
                 
                 SqlNodeRegistry.EntityTypes.Add(map.EntityType);
-                SqlNodeRegistry.EntityNames.Add(map.EntityType.Name);
+                SqlNodeRegistry.EntityNames.Add(modelName);
             }
             
             if (map.IsGraph)
@@ -229,7 +229,7 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
                 };
                 
                 SqlNodeRegistry.ModelTypes.Add(map.ModelType);
-                SqlNodeRegistry.ModelNames.Add(map.ModelType.Name);
+                SqlNodeRegistry.ModelNames.Add(modelName);
             }
         }
     }

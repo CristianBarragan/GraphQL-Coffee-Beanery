@@ -104,9 +104,18 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
             foreach (var childTreeName in processingTree.Children)
             {
                 var childTree = entitytrees[childTreeName];
+                var childVisitedEntities = new List<string>(entitiesProcessed)
+                {
+                    currentTree.Name
+                };
+
+                if (!string.IsNullOrEmpty(currentTree.ParentName))
+                {
+                    childVisitedEntities.Add(currentTree.ParentName);
+                }
+                
                 GenerateUpsertStatements(modeltrees, entitytrees, sqlNodes, wrapperEntityName, generatedQuery,
-                    sqlUpsertStatementNodes, childTree,
-                    sqlWhereStatement, entitiesProcessed,
+                    sqlUpsertStatementNodes, childTree, sqlWhereStatement, childVisitedEntities,
                     sqlUpsertBuilder, sqlSelectUpsertBuilder);
             }
 
@@ -126,15 +135,28 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
             string whereClause, List<string> entityNames, Dictionary<string, SqlNode> sqlNodes)
         {
             var sqlUpsertAux = string.Empty;
+            
+            var currentColumns = new List<KeyValuePair<string, SqlNode>>();
+            var aux = sqlNodes
+                .FirstOrDefault(k => k.Value.Table.Matches(currentTree.Name));
 
-            var currentColumns = sqlUpsertStatementNodes
-                .Where(k => k.Key.Split('~')[0].Matches(currentTree.Name)).ToList();
+            foreach (var upsertKey in aux.Value.UpsertKeys)
+            {
+                currentColumns.Add(new KeyValuePair<string, SqlNode>(upsertKey, aux.Value));
+            }
 
-            if (currentColumns.Count == 0 || !currentColumns.Any(a => a.Value.UpsertKeys
-                    .Any(u => currentColumns.Any(c => u.Matches(c.Key)))))
+            currentColumns.AddRange(sqlUpsertStatementNodes
+                .Where(k => !k.Value.Value.Matches("") && k.Key.Split('~')[0].Matches($"{currentTree.Alias}")).ToList());
+
+            var node = sqlNodes
+                .FirstOrDefault(k => k.Key.Contains($"{currentTree.Alias}~"));
+            
+            if (node.Value == null || currentColumns.Count <= node.Value.UpsertKeys.Count() || node.Value.UpsertKeys?.Count() == 0)
             {
                 return string.Empty;
             }
+            
+            currentColumns = currentColumns.Where(a => !string.IsNullOrEmpty(a.Value.Value)).DistinctBy(a => a.Key).ToList();
 
             sqlUpsertAux += $" INSERT INTO \"{currentTree.Schema}\".\"{currentTree.Name}\" ( " +
                             $" {string.Join(",", currentColumns.Select(s => $"\"{s.Key.Split('~')[1]}\"").ToList())}) VALUES ({

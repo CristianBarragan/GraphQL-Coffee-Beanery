@@ -1,5 +1,6 @@
 ﻿using System.Linq.Expressions;
 using System.Reflection;
+using CoffeeBeanery.GraphQL.Core.GraphQL;
 using CoffeeBeanery.GraphQL.Core.Helper;
 using CoffeeBeanery.GraphQL.Core.Mapping;
 
@@ -9,14 +10,41 @@ public static class MappingWarmup
 {
     public static void Warmup(IReadOnlyDictionary<string, NodeMap> mapping)
     {
+        var nodeTrees = new Dictionary<string, NodeTree>();
+        var nodeIds = new List<KeyValuePair<string, int>>();
+
         foreach (var map in mapping.Values)
         {
             if (map.ModelType == null || map.EntityType == null)
+                continue;
+
+            // Dynamically create an instance of the model type
+            object? modelInstance = null;
+            try
             {
+                modelInstance = Activator.CreateInstance(map.ModelType);
+            }
+            catch
+            {
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine($"[WARNING] Could not instantiate {map.ModelType.FullName}");
+                Console.ResetColor();
                 continue;
             }
-            
+
+            // Generate tree for this node
+            NodeTreeIterator.GenerateTree(
+                nodeTrees,
+                modelInstance,
+                map.ModelType.Name,
+                nodeIds,
+                isModel: true
+            );
+
+            // Warmup properties for mapping
             WarmupMap(map);
+
+            // Compile the mapper
             BulkMapper.Compile(map);
         }
     }
@@ -35,43 +63,4 @@ public static class MappingWarmup
                 map.EntityProperties[field.DestinationName] = entityProp;
         }
     }
-
-    // private static void CompileMapper(NodeMap map)
-    // {
-    //     var method = typeof(MappingWarmup)
-    //         .GetMethod(nameof(CompileGeneric), BindingFlags.NonPublic | BindingFlags.Static)
-    //         .MakeGenericMethod(map.ModelType, map.EntityType);
-    //
-    //     method.Invoke(null, new object[] { map });
-    // }
-    //
-    // private static void CompileGeneric<TModel, TEntity>(NodeMap map)
-    // {
-    //     var mappings = map.FieldMaps.Where(f => f.SourceName != "Id").Select(f =>
-    //     {
-    //         var srcParam = Expression.Parameter(typeof(TModel), "x");
-    //         var srcProp = Expression.Property(srcParam, f.SourceName);
-    //         var srcBody = Expression.Convert(srcProp, typeof(object));  
-    //         var dstParam = Expression.Parameter(typeof(TEntity), "x");
-    //         var dstProp = Expression.Property(dstParam, f.DestinationName);
-    //         var dstBody = Expression.Convert(dstProp, typeof(object));
-    //
-    //         return new PropertyMapping<TModel, TEntity>
-    //         {
-    //             SourceExpression =
-    //                 Expression.Lambda<Func<TModel, object>>(srcBody, srcParam),
-    //
-    //             DestinationExpression =
-    //                 Expression.Lambda<Func<TEntity, object>>(dstBody, dstParam),
-    //
-    //             FromEnum = map.FromEnum,
-    //             ToEnum = map.ToEnum
-    //         };
-    //     }).ToArray();
-    //
-    //     var compiled = BulkMapper.Compile<TModel, TEntity>(mappings);
-    //
-    //     map.MapToEntityCompiled = (src, dst) =>
-    //         compiled((TModel)src, (TEntity)dst);
-    // }
 }

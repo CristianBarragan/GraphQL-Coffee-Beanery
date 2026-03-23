@@ -37,7 +37,7 @@ public static class MappingRegistry
         map.ModelType = modelType;
         map.Alias = name;
         
-        Registry[modelType.Name] = map;
+        Registry[name] = map;
 
         return map;
     }

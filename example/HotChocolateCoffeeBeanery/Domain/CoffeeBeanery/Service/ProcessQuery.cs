@@ -35,32 +35,39 @@ public class ProcessQuery<M> : IQuery<ProcessQueryParameters,
             types.Add(typeof(TotalPageRecords));
             types.Add(typeof(TotalRecordCount));
             splitOn.Insert(0, "RowNumber");
+            parameters.SqlStructure.Aliases.Add("RowNumber");
         }
 
         var query = parameters.SqlStructure.SqlUpsert + " ; " + parameters.SqlStructure.SqlQuery;
 
-        await using var connection = _dbConnection;
+        var connection = _dbConnection;
         await connection.OpenAsync(cancellationToken);
-        var dbTransaction = await connection.BeginTransactionAsync(cancellationToken);
+        var dbTransaction = await _dbConnection.BeginTransactionAsync(cancellationToken);
 
         try
         {
+            // splitOn.Reverse();
+            // parameters.SqlStructure.Aliases.Reverse();
+            // types.Reverse();
             var result =
-                await connection.QueryAsync<(int? startCursor, int? endCursor, int? totalCount, int? totalPageRecords)>(
-                    query, types.ToArray(), map =>
-                    {
-                        var set = MappingConfiguration(_models, parameters.SqlStructure, map);
-                        _models = set.models;
-                        return (set.startCursor, set.endCursor, set.totalCount, set.totalPageRecords);
-                    }, splitOn: string.Join(",", splitOn), transaction: dbTransaction, commandType: CommandType.Text);
+                await connection
+                    .QueryAsync<(int? startCursor, int? endCursor, int? totalCount, int? totalPageRecords)>(
+                        query, types.ToArray(), map =>
+                        {
+                            var set = MappingConfiguration(_models, parameters.SqlStructure, map, types,
+                                parameters.SqlStructure.Aliases);
+                            _models = set.models;
+                            return (set.startCursor, set.endCursor, set.totalCount, set.totalPageRecords);
+                        }, splitOn: string.Join(",", splitOn), transaction: dbTransaction,
+                        commandType: CommandType.Text);
 
             await dbTransaction.CommitAsync(cancellationToken);
-            
+
             if (result == null || result.Count() == 0)
             {
                 return ([], 0, 0, 0, 0);
             }
-            
+
             return (_models,
                 parameters.Pagination.StartCursor > 0
                     ? parameters.Pagination.StartCursor
@@ -77,12 +84,16 @@ public class ProcessQuery<M> : IQuery<ProcessQueryParameters,
             await dbTransaction.RollbackAsync(cancellationToken);
             _logger.LogError(ex, "Error upserting Process");
         }
+        finally
+        {
+            await connection.CloseAsync();
+        }
 
         return ([], 0, 0, 0, 0);
     }
 
     public virtual (List<M> models, int? startCursor, int? endCursor, int? totalCount, int? totalPageRecords)
-        MappingConfiguration(List<M> models, SqlStructure sqlStructure, object[] map)
+        MappingConfiguration(List<M> models, SqlStructure sqlStructure, object[] map, List<Type> types, List<string> aliases)
     {
         throw new NotImplementedException();
     }

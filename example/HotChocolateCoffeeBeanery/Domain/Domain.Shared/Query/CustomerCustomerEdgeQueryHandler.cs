@@ -1,12 +1,9 @@
-using AutoMapper;
+
 using CoffeeBeanery.CQRS;
 using CoffeeBeanery.GraphQL.Core.Sql;
 using CoffeeBeanery.Service;
 using Domain.Model;
-using Domain.Shared.Mapping;
-using Microsoft.Extensions.Logging;
 using Npgsql;
-using DatabaseEntity = Database.Entity;
 
 namespace Domain.Shared.Query;
 
@@ -22,13 +19,13 @@ public class CustomerCustomerEdgeQueryHandler<M> : ProcessQuery<M>, IQuery<Proce
     }
 
     public override (List<M> models, int? startCursor, int? endCursor, int? totalCount, int? totalPageRecords)
-        MappingConfiguration(List<M> models, SqlStructure sqlStructure, object[] map)
+        MappingConfiguration(List<M> models, SqlStructure sqlStructure, object[] map, List<Type> types, List<string> aliases)
     {
         var customerCustomerEdges = models.OfType<CustomerCustomerEdge>().ToList();
         var totalCount = 0;
         var pageRecords = 0;
         var customerCustomerEdge = new CustomerCustomerEdge();
-        
+
         for (int i = 0; i < map.Length; i++)
         {
             if (map[i] is TotalPageRecords)
@@ -39,68 +36,27 @@ public class CustomerCustomerEdgeQueryHandler<M> : ProcessQuery<M>, IQuery<Proce
             {
                 totalCount = (map[i] as TotalRecordCount).RecordCount;
             }
-            // else if (map[i] is DatabaseEntity.CustomerCustomerRelationship)
-            // {
-            //     customerCustomerEdge = _mapper
-            //         .MapToUpdatedModel<CustomerCustomerEdge, DatabaseEntity.CustomerCustomerRelationship, CustomerCustomerRelationship>(
-            //             customerCustomerEdge, map[i] as  DatabaseEntity.CustomerCustomerRelationship, a => a.CustomerCustomerRelationship);
-            //     
-            //     customerCustomerEdge = _mapper
-            //         .MapToUpdatedModel<CustomerCustomerEdge, DatabaseEntity.Customer, Customer>(
-            //             customerCustomerEdge, map[i+1] as  DatabaseEntity.Customer, a => a.InnerCustomer);
-            //     
-            //     
-            //     customerCustomerEdge = _mapper
-            //         .MapToUpdatedModel<CustomerCustomerEdge, DatabaseEntity.Customer, Customer>(
-            //             customerCustomerEdge, map[i+2] as  DatabaseEntity.Customer, a => a.OuterCustomer);
-            // }
-            // else if (map[i] is DatabaseEntity.ContactPoint)
-            // {
-            //     customerCustomerEdge = _mapper
-            //         .MapToUpdatedModel<CustomerCustomerEdge, DatabaseEntity.ContactPoint, ContactPoint>(
-            //             customerCustomerEdge, map[i+1] as  DatabaseEntity.ContactPoint, a => a.ContactPoint);
-            // }
-            // else if (map[i] is DatabaseEntity.CustomerBankingRelationship)
-            // {
-            //     customerCustomerEdge = (CustomerCustomerEdge) _mapper.MapToUpdatedEntity<CustomerCustomerEdge, DatabaseEntity.CustomerBankingRelationship>(customerCustomerEdge);
-            //     customerCustomerEdge = (CustomerCustomerEdge) _mapper.MapToUpdatedEntity<CustomerCustomerEdge, DatabaseEntity.CustomerBankingRelationship>(customerCustomerEdge);
-            // }
-            // else if (map[i] is DatabaseEntity.Contract)
-            // {
-            //     var result = ContractQueryMapping.MapFromCustomer(map[i], _mapper, 
-            //         customerCustomerEdge, product);
-            //     customerCustomerEdge = result.existingCustomerCustomerEdge;
-            //     product = result.existingProduct;
-            // }
-            // else if (map[i] is DatabaseEntity.Account)
-            // {
-            //     var result = AccountQueryMapping.MapFromCustomer(map[i], _mapper, 
-            //         customerCustomerEdge, product);
-            //     customerCustomerEdge = result.existingCustomerCustomerEdge;
-            //     product = result.existingProduct;
-            // }
-            // else if (map[i] is DatabaseEntity.Transaction)
-            // {
-            //     var result = TransactionQueryMapping.MapFromCustomer(map[i], _mapper, 
-            //         customerCustomerEdge, product);
-            //     customerCustomerEdge = result.existingCustomerCustomerEdge;
-            //     product = result.existingProduct;
-            // }
-        }  
-        
-        var existingCustomerIndex = customerCustomerEdges.FindIndex(c => 
+            else
+            {
+                customerCustomerEdge = (CustomerCustomerEdge)_mapper.MapDynamicToModel(
+                    customerCustomerEdge,
+                    types[i],
+                    map[i],
+                    aliases[i]
+                );
+            }
+        }
+
+        var existingCustomerIndex = customerCustomerEdges.FindIndex(c =>
             c.InnerCustomerKey == customerCustomerEdge.InnerCustomerKey);
+
         if (existingCustomerIndex >= 0)
-        {
-            customerCustomerEdges[existingCustomerIndex]  = customerCustomerEdge;
-        }
+            customerCustomerEdges[existingCustomerIndex] = customerCustomerEdge;
         else
-        {
             customerCustomerEdges.Add(customerCustomerEdge);
-        }
-        
+
         dynamic list = customerCustomerEdges;
-        return (list, sqlStructure.Pagination?.StartCursor, sqlStructure.Pagination?.EndCursor, 
+        return (list, sqlStructure.Pagination?.StartCursor, sqlStructure.Pagination?.EndCursor,
             totalCount, pageRecords);
     }
 }

@@ -15,6 +15,12 @@ public interface IMapper
         params object[] nestedEntities)
         where TModel : class        
         where TEntity : class;
+    
+    object MapDynamicToModel(
+        dynamic source,
+        Type targetType,
+        object current,
+        string idPropertyName);
 }
 
 public class Mapper : IMapper
@@ -164,6 +170,140 @@ public class Mapper : IMapper
         }
 
         return updatedModel;
+    }
+    
+    public object MapDynamicToModel(
+        dynamic source,
+        Type targetType,
+        object current,
+        string idPropertyName)
+    {
+        if (source == null) throw new ArgumentNullException(nameof(source));
+        if (targetType == null) throw new ArgumentNullException(nameof(targetType));
+        if (current == null) throw new ArgumentNullException(nameof(current));
+        if (string.IsNullOrWhiteSpace(idPropertyName)) throw new ArgumentNullException(nameof(idPropertyName));
+
+        var sourceModelType = ((object)source).GetType();
+        var incomingEntityType = current.GetType();
+
+        // Step 1 — resolve NodeMap for the incoming entity type
+        if (!_mappings.TryGetValue(targetType.Name, out var nodeMap))
+            throw new InvalidOperationException(
+                $"No mapping registered for {targetType.Name}.");
+
+        // Step 2 — infer the TModel property name from FieldMaps using idPropertyName
+        // idPropertyName is on the entity side (DestinationName), we need the model side (SourceName)
+        var idFieldMap = nodeMap.FieldMaps
+            .FirstOrDefault(f => f.DestinationName.Equals(idPropertyName, StringComparison.OrdinalIgnoreCase));
+
+        if (idFieldMap == null)
+            throw new InvalidOperationException(
+                $"No FieldMap found with DestinationName '{idPropertyName}' in mapping for {targetType.Name}.");
+
+        var modelIdPropertyName = idFieldMap.SourceName;
+
+        // Step 3 — read the unique ID value from the incoming entity via reflection
+        var incomingIdProp = incomingEntityType
+            .GetProperty(idPropertyName, BindingFlags.Public | BindingFlags.Instance);
+
+        if (incomingIdProp == null)
+            throw new InvalidOperationException(
+                $"Property '{idPropertyName}' not found on incoming entity {incomingEntityType.Name}.");
+
+        var incomingIdValue = incomingIdProp.GetValue(current);
+
+        // Step 4 — fully map the incoming entity to its TModel type via FieldMaps
+        var mappedModel = Activator.CreateInstance(targetType);
+
+        foreach (var fieldMap in nodeMap.FieldMaps)
+        {
+            var sourceProp = incomingEntityType
+                .GetProperty(fieldMap.DestinationName, BindingFlags.Public | BindingFlags.Instance);
+
+            if (sourceProp == null) continue;
+
+            var value = sourceProp.GetValue(current);
+
+            if (value != null && nodeMap.ToEnum != null && sourceProp.PropertyType.IsEnum)
+                value = nodeMap.ToEnum[value.ToString()];
+
+            if (nodeMap.ModelProperties.TryGetValue(fieldMap.SourceName, out var destProp))
+                destProp.SetValue(mappedModel, value);
+        }
+
+        // Step 5 — find the List<T> property on the source TModel that holds items of targetType
+        var listProperty = sourceModelType
+            .GetProperties(BindingFlags.Public | BindingFlags.Instance)
+            .FirstOrDefault(p =>
+                p.PropertyType.IsGenericType &&
+                p.PropertyType.GetGenericTypeDefinition() == typeof(List<>) &&
+                p.PropertyType.GetGenericArguments()[0] == targetType);
+
+        // Step 6 — clone the source TModel as base
+        var mergedModel = Activator.CreateInstance(sourceModelType);
+        foreach (var prop in sourceModelType
+                     .GetProperties(BindingFlags.Public | BindingFlags.Instance)
+                     .Where(p => p.CanRead && p.CanWrite))
+        {
+            prop.SetValue(mergedModel, prop.GetValue(source));
+        }
+
+        if (listProperty != null)
+        {
+            // Step 7a — get or create the List<T> on the merged model
+            var existingList = listProperty.GetValue(mergedModel);
+            if (existingList == null)
+            {
+                existingList = Activator.CreateInstance(listProperty.PropertyType);
+                listProperty.SetValue(mergedModel, existingList);
+            }
+
+            var list = existingList as System.Collections.IList;
+
+            // Step 8 — find existing item in the list by the inferred model ID property
+            var modelIdProp = targetType
+                .GetProperty(modelIdPropertyName, BindingFlags.Public | BindingFlags.Instance);
+
+            var existingIndex = -1;
+            for (int i = 0; i < list.Count; i++)
+            {
+                var itemIdValue = modelIdProp?.GetValue(list[i]);
+                if (Equals(itemIdValue, incomingIdValue))
+                {
+                    existingIndex = i;
+                    break;
+                }
+            }
+
+            // Step 9 — update existing item or add new one
+            if (existingIndex >= 0)
+                list[existingIndex] = mappedModel;
+            else
+                list.Add(mappedModel);
+        }
+        else
+        {
+            // Step 7b — no List<T> found, fall back to overlaying flat fields directly onto mergedModel
+            foreach (var fieldMap in nodeMap.FieldMaps)
+            {
+                if (!nodeMap.ModelProperties.TryGetValue(fieldMap.SourceName, out var mappedProp))
+                    continue;
+
+                var mappedValue = mappedProp.GetValue(mappedModel);
+                var defaultValue = mappedProp.PropertyType.IsValueType
+                    ? Activator.CreateInstance(mappedProp.PropertyType)
+                    : null;
+
+                if (!Equals(mappedValue, defaultValue))
+                {
+                    var mergedProp = sourceModelType
+                        .GetProperty(fieldMap.SourceName, BindingFlags.Public | BindingFlags.Instance);
+                    mergedProp?.SetValue(mergedModel, mappedValue);
+                }
+            }
+        }
+
+        return mergedModel;
     }
     
     private TModel ShallowClone<TModel>(TModel source) where TModel : class

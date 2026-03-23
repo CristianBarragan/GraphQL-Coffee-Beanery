@@ -9,7 +9,7 @@ namespace CoffeeBeanery.GraphQL.Core.GraphQL
         
         public string Alias { get; init; } = "";
         public string Name { get; init; } = "";
-        public string Schema { get; init; } = "public";
+        public string Schema { get; set; } = "public";
         public int Id { get; init; }
 
         public string ParentName { get; set; } = "";
@@ -20,5 +20,6 @@ namespace CoffeeBeanery.GraphQL.Core.GraphQL
         public List<string> UpsertKeys { get; set; } = new();
 
         public bool IsGraph { get; set; }
+        
     }
 }

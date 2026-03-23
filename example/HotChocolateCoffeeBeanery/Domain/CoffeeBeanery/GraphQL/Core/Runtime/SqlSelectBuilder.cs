@@ -9,13 +9,14 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
 {
     internal static class SqlSelectBuilder
     {
-        public static string Build(
+        public static (string, Dictionary<string, Type>, List<string>) Build(
             NodeTree nodeTree,
             Dictionary<string, SqlNode> nodeDict,
             Dictionary<string, SqlNode> edgeDict,
             string wrapperEntityName,
             Dictionary<string, string> sqlWhereStatement,
             Dictionary<string, Type> splitOnDapper,
+            Dictionary<string, string> aliases,
             bool transformedToParent)
         {
             var sqlQueryStructures = new Dictionary<string, SqlQueryStructure>(
@@ -23,6 +24,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
             var visitedEntities = new List<string>();
             var childrenSqlStatement = new Dictionary<string, string>(
                 StringComparer.OrdinalIgnoreCase);
+            var entityOrder = new List<string>();
 
             foreach (var edgeKey in edgeDict)
             {
@@ -37,12 +39,12 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                 SqlNodeRegistry.EntityNodes, SqlNodeRegistry.ModelNodes,
                 nodeDict, sqlWhereStatement,
                 SqlNodeRegistry.EntityTrees[wrapperEntityName],
-                childrenSqlStatement, wrapperEntityName, sqlQueryStructures,
-                splitOnDapper, visitedEntities, new List<string>());
+                childrenSqlStatement, wrapperEntityName, sqlQueryStructures, 
+                splitOnDapper, aliases, entityOrder, visitedEntities, new List<string>());
 
             if (sqlQueryStructures.Count == 0)
             {
-                return string.Empty;
+                return (string.Empty, default(Dictionary<string, Type>), default(List<string>));
             }
             
             var queryStructure = sqlQueryStructures.FirstOrDefault();
@@ -53,7 +55,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
 
                 if (splitOn.Value != null)
                 {
-                    splitOnDapper.Remove(splitOn.Key);    
+                    splitOnDapper.Remove(splitOn.Key);
                 }
                 
                 foreach (var childName in SqlNodeRegistry.EntityTrees[wrapperEntityName].Children)
@@ -81,21 +83,36 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                 }
             }
 
-            if (splitOnDapper.Count == 0)
+            var splitOnDapperOrdered = new Dictionary<string, Type>();
+            var aliasesOrdered = new List<string>();
+
+            foreach (var key in entityOrder)
             {
-                var nodeType = SqlNodeRegistry.EntityTypes
-                    .First(a => a.Name.Matches(queryStructure.Key));
-                splitOnDapper.Add($"{"Id".ToSnakeCase(nodeTree.Id)}", nodeType);
+                var index = Array.IndexOf(splitOnDapper.Values.Select(a => a.Name).ToArray(), key);
+                var kv = splitOnDapper.FirstOrDefault(t => t.Value.Name.Matches(key));
+
+                if (kv.Value != null && !splitOnDapperOrdered.ContainsKey(kv.Key))
+                {
+                    splitOnDapperOrdered.Add(kv.Key, kv.Value);
+                    aliasesOrdered.Add(aliases.ElementAtOrDefault(index).Value);
+                }
+            }
+
+            if (splitOnDapperOrdered.Count == 0)
+            {
+                var entity = SqlNodeRegistry.EntityTypes[0] as Type;
+                splitOnDapperOrdered.Add(entity.Name, entity);
+                aliasesOrdered.Add(entity.Name);
             }
             
-            return sqlQueryStructures.LastOrDefault().Value.Query;
+            return (sqlQueryStructures.LastOrDefault().Value.Query, splitOnDapperOrdered, aliasesOrdered);
         }
         
         private static void 
             GenerateQuery(Dictionary<string, NodeTree> entityTrees, List<Type> entityTypes, Dictionary<string,SqlNode> linkEntityDictionaryTree, 
                 Dictionary<string,SqlNode> linkModelDictionaryTree, Dictionary<string, SqlNode> sqlStatementNodes, 
                 Dictionary<string, string> sqlWhereStatement, NodeTree currentTree, Dictionary<string, string> childrenSqlStatement, string rootEntityName,
-                Dictionary<string, SqlQueryStructure> sqlQueryStructures, Dictionary<string,Type> splitOnDapper, List<string> visitedEntities,
+                Dictionary<string, SqlQueryStructure> sqlQueryStructures, Dictionary<string,Type> splitOnDapper, Dictionary<string, string> aliases, List<string> entityOrder, List<string> visitedEntities,
                 List<string> generatedQueries)
         {
             var childrenOrder = new List<string>();
@@ -113,6 +130,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
             
             visitedEntities.Add(alias);
             currentTree = entityTrees[alias];
+            entityOrder.Add(currentTree.Name);
 
             foreach (var treeAlias in entityTrees.Where(a => a.Value.Name.Matches(currentTree.Name)))
             {
@@ -136,7 +154,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                         }
                         
                         GenerateQuery(entityTrees, entityTypes, linkEntityDictionaryTree, linkModelDictionaryTree, sqlStatementNodes, sqlWhereStatement,
-                            entityTrees[child], childrenSqlStatement, rootEntityName, sqlQueryStructures, splitOnDapper, childVisitedEntities, generatedQueries);
+                            entityTrees[child], childrenSqlStatement, rootEntityName, sqlQueryStructures, splitOnDapper, aliases, entityOrder, childVisitedEntities, generatedQueries);
                     }
                     childrenOrder.Add(child);
                 }
@@ -203,6 +221,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                                 {
                                     splitOnDapper.Add("Id".ToSnakeCase(currentTree.Id),
                                         entityTypes.FirstOrDefault(e => e.Name.Matches(child)));
+                                    aliases.Add(currentTree.Name, currentTree.Alias);
                                 }
                             }
                         }
@@ -225,13 +244,15 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                             {
                                 splitOnDapper.Add("Id".ToSnakeCase(currentTree.Id),
                                     entityTypes.FirstOrDefault(e => e.Name.Matches(childAlias)));
+                                aliases.Add(currentTree.Name, currentTree.Alias);
                             }
                         }
                     }
             
                     if (!splitOnDapper.ContainsKey("Id".ToSnakeCase(currentTree.Id)))
                     {
-                        splitOnDapper.Add("Id".ToSnakeCase(currentTree.Id), entityTypes.FirstOrDefault(e => e.Name.Matches(currentTree.Name)));    
+                        splitOnDapper.Add("Id".ToSnakeCase(currentTree.Id), entityTypes.FirstOrDefault(e => e.Name.Matches(currentTree.Name)));
+                        aliases.Add(currentTree.Name, currentTree.Alias);
                     }
                 }
             }
@@ -296,6 +317,9 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                             // (currentTree.Mapping.Any(m => m.DestinationName.Matches(k.Key.Split('~')[1])) &&
                             //  !k.Key.Matches($"{currentTree.Name}Id"))).ToList()
             ));
+
+            currentColumns[0].Value.SqlNodeTypes.Clear();
+            currentColumns[0].Value.SqlNodeTypes.Add(SqlNodeType.Node);
 
             var existingSqlQueryStructure =
                 sqlQueryStructures.Values.FirstOrDefault(b => b.Alias.Matches(currentTree.Name));

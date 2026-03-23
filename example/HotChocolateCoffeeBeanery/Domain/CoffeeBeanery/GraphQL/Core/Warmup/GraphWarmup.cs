@@ -15,15 +15,17 @@ public static class GraphWarmup
 
         foreach (var type in assembly.GetTypes())
         {
-            if (typeof(IMappingRegistration).IsAssignableFrom(type)
-                && !type.IsAbstract)
+            if (typeof(IMappingRegistration).IsAssignableFrom(type) && !type.IsAbstract)
             {
-                var typeMapping = ((IMappingRegistration)Activator.CreateInstance(type));
-                mappings = typeMapping.Register();
-                MappingWarmup.Warmup(mappings);
+                var typeMapping = (IMappingRegistration)Activator.CreateInstance(type);
+                typeMapping.Register(mappings); // ✅ Pass dictionary, no return
             }
         }
 
+        // 2️⃣ Warmup all mappings
+        MappingWarmup.Warmup(mappings);
+
+        // 3️⃣ Register Mapper service
         services.AddSingleton<IMapper>(new Mapper(mappings));
     }
 }
