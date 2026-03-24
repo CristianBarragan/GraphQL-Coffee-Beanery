@@ -26,7 +26,12 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                 SqlWhereCompiler.Compile(ctx, rootSelection, rootTree, wrapperEntityName, sqlWhereStatement);    
             }
 
-            var entityTreeName = SqlNodeRegistry.ModelNodes.First(a => a.Key.Split('~')[1].Matches(rootTree.Name)).Value.Table;
+            var entityTreeName = SqlNodeRegistry.ModelNodes.FirstOrDefault(a => a.Key.Matches(rootTree.Name)).Value?.Table;
+
+            if (string.IsNullOrEmpty(entityTreeName))
+            {
+                return new SqlStructure();
+            }
             
             GenerateUpsertStatements(SqlNodeRegistry.ModelTrees, SqlNodeRegistry.EntityTrees, SqlNodeRegistry.EntityNodes,
                 wrapperEntityName, generatedQuery, mutationDict, SqlNodeRegistry.EntityTrees[entityTreeName],
@@ -159,7 +164,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
             currentColumns = currentColumns.Where(a => !string.IsNullOrEmpty(a.Value.Value)).DistinctBy(a => a.Key).ToList();
 
             sqlUpsertAux += $" INSERT INTO \"{currentTree.Schema}\".\"{currentTree.Name}\" ( " +
-                            $" {string.Join(",", currentColumns.Select(s => $"\"{s.Key.Split('~')[1]}\"").ToList())}) VALUES ({
+                            $" {string.Join(",", currentColumns.Select(s => $"\"{s.Key.Split('~')[0]}\"").ToList())}) VALUES ({
                                 string.Join(",", currentColumns.Select(s => $"'{s.Value.Value}'").ToList())}) " +
                             $" ON CONFLICT" +
                             $" ({string.Join(",", currentColumns.FirstOrDefault(a => a.Value.UpsertKeys
@@ -172,7 +177,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                 currentColumns.Where(c => c.Value.UpsertKeys
                         .Any(u => !u.Matches(c.Value.RelationshipKey.Split('~')[1])))
                     .Select(e =>
-                        $"\"{e.Value.RelationshipKey.Split('~')[3]}\" = EXCLUDED.\"{e.Value.RelationshipKey.Split('~')[3]}\"")
+                        $"\"{e.Value.RelationshipKey.Split('~')[2]}\" = EXCLUDED.\"{e.Value.RelationshipKey.Split('~')[2]}\"")
             );
 
             if (exclude.Count > 0)
@@ -215,7 +220,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
 
             var currentColumns = sqlUpsertStatementNodes
                 .Where(k => currentTree.Mapping.Any(f => f.DestinationName.Matches(k.Key.Split('~')[1]) &&
-                                                         !entityNames.Contains(k.Key.Split('~')[1]))).ToList();
+                                                         !entityNames.Contains(k.Key.Split('~')[0]))).ToList();
 
             if (currentColumns.Count == 0)
             {
@@ -243,7 +248,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                     var parentColumns = sqlUpsertStatementNodes
                         .Where(k => trees[joinKey.To.Split('~')[0]].Mapping.Any(f => f
                                 .DestinationName.Matches(k.Key.Split('~')[1]) &&
-                            !entityNames.Any(e => e.Matches(k.Key.Split('~')[1])))).ToList();
+                            !entityNames.Any(e => e.Matches(k.Key.Split('~')[0])))).ToList();
 
                     sqlUpsertAux += GenerateCommand(columns, trees, currentTree, sqlWhereStatement, parentColumns,
                         entityNames, joinKey.To.Split('~')[0]);

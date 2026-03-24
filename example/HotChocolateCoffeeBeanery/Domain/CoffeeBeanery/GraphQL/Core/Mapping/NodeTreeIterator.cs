@@ -8,9 +8,6 @@ using CoffeeBeanery.GraphQL.Extension;
 
 public static class NodeTreeIterator
 {
-    /// <summary>
-    /// Generate the full NodeTree hierarchy from a root instance
-    /// </summary>
     public static NodeTree GenerateTree<M>(
         Dictionary<string, NodeTree> nodeTrees,
         M rootInstance,
@@ -19,41 +16,38 @@ public static class NodeTreeIterator
         bool isModel)
         where M : class
     {
-        var visited = new HashSet<string>();
-        return IterateTree(
-            nodeTrees,
-            rootInstance,
-            rootAlias,
-            parentAlias: string.Empty,
-            nodeIds,
-            isModel,
-            visited
-        )!;
+        var visitedAliases = new HashSet<string>();
+        var visitedMaps = new HashSet<NodeMap>(ReferenceEqualityComparer.Instance);
+        
+        return IterateTree(nodeTrees, typeof(M), rootAlias, string.Empty, 
+            nodeIds, isModel, visitedAliases, visitedMaps)!;
     }
 
-    /// <summary>
-    /// Recursive iterator: handles reflection and registry-based children
-    /// </summary>
-    private static NodeTree? IterateTree<M>(
+    private static NodeTree? IterateTree(
         Dictionary<string, NodeTree> nodeTrees,
-        M? currentInstance,
+        Type? currentType,
         string currentAlias,
         string parentAlias,
         List<KeyValuePair<string, int>> nodeIds,
         bool isModel,
-        HashSet<string> visited)
-        where M : class
+        HashSet<string> visitedAliases,
+        HashSet<NodeMap> visitedMaps,
+        NodeMap? injectedMap = null)
     {
-        if (visited.Contains(currentAlias))
-            return null; // cycle detected
+        if (currentType == null) return null;
+        if (visitedAliases.Contains(currentAlias)) return null;
 
-        visited.Add(currentAlias);
+        // Resolve map early so we can check map-level cycles
+        var nodeMap = injectedMap ?? ResolveNodeMap(currentAlias);
 
-        var currentType = currentInstance!.GetType();
+        // Block if we've already fully processed this exact NodeMap instance
+        // under a different alias — prevents cross-path cycles
+        if (nodeMap != null && visitedMaps.Contains(nodeMap)) return null;
 
-        // Assign node ID and parent ID
+        visitedAliases.Add(currentAlias);
+        if (nodeMap != null) visitedMaps.Add(nodeMap);
+
         var id = RegisterNodeId(nodeIds, currentAlias);
-        var parentId = ResolveParentId(nodeIds, parentAlias);
 
         var node = new NodeTree
         {
@@ -63,137 +57,78 @@ public static class NodeTreeIterator
             Children = new List<string>()
         };
 
-        // Hydrate NodeMap from registry if exists
-        var nodeMap = ResolveNodeMap(currentAlias);
-        if (nodeMap == null)
-        {
-            ReportMissingMapping(currentAlias, currentType);
-        }
-        else
+        if (nodeMap != null)
         {
             nodeMap.Id = node.Id;
             nodeMap.Alias = currentAlias;
-            
-            if (nodeMap != null)
-            {
-                node.Children = new List<string>(nodeMap.Children);
-                node.Mapping = nodeMap.FieldMaps;
-                node.Schema = nodeMap.Schema;
-            }
+            node.Mapping = nodeMap.FieldMaps;
+            node.Schema = nodeMap.Schema;
         }
-        
+        else
+        {
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine($"[WARNING] Missing NodeMap for '{currentAlias}' ({currentType.Name})");
+            Console.ResetColor();
+        }
+
+        // ── Path 1: CLR property reflection ──────────────────────────────────
         foreach (var prop in currentType.GetProperties(BindingFlags.Public | BindingFlags.Instance))
         {
-            if (GraphQLFieldExtension.IsPrimitiveType(prop.PropertyType))
-                continue;
+            if (GraphQLFieldExtension.IsPrimitiveType(prop.PropertyType)) continue;
 
-            var childInstance = TryCreateChildInstance(prop);
-            if (childInstance == null)
-                continue;
+            var childType = ResolveChildType(prop.PropertyType);
+            if (childType == null) continue;
 
             var childAlias = string.IsNullOrEmpty(currentAlias)
                 ? prop.Name
                 : $"{currentAlias}.{prop.Name}";
 
-            var childNode = IterateTree(
-                nodeTrees,
-                childInstance,
-                childAlias,
-                currentAlias,
-                nodeIds,
-                isModel,
-                visited
-            );
+            if (visitedAliases.Contains(childAlias)) continue;
 
-            if (childNode != null)
-                node.Children.Add(childAlias);
+            var childMap = ResolveNodeMap(childAlias) ?? ResolveNodeMap(prop.Name);
+            if (childMap != null && visitedMaps.Contains(childMap)) continue;
+
+            var childNode = IterateTree(nodeTrees, childType, childAlias, currentAlias,
+                nodeIds, isModel, visitedAliases, visitedMaps, childMap);
+
+            if (childNode != null) node.Children.Add(childAlias);
         }
 
+        // ── Path 2: NodeMap declared children ────────────────────────────────
         if (nodeMap?.Children != null)
         {
-            foreach (var childAlias in nodeMap.Children)
+            foreach (var childName in nodeMap.Children)
             {
-                if (node.Children.Contains(childAlias))
-                    continue;
+                var childAlias = string.IsNullOrEmpty(currentAlias)
+                    ? childName
+                    : $"{currentAlias}.{childName}";
 
-                var childMap = ResolveNodeMap(childAlias);
+                if (visitedAliases.Contains(childAlias)) continue;
+                if (node.Children.Contains(childAlias)) continue;
+
+                var childMap = ResolveNodeMap(childName);
                 if (childMap == null)
                 {
-                    ReportMissingMapping(childAlias, typeof(object));
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.WriteLine($"[WARNING] No NodeMap for child '{childName}' (alias '{childAlias}')");
+                    Console.ResetColor();
                     continue;
                 }
 
-                // Instantiate the child from its ModelType or EntityType
-                var childInstance = childMap.ModelType != null
-                    ? Activator.CreateInstance(childMap.ModelType)
-                    : childMap.EntityType != null
-                        ? Activator.CreateInstance(childMap.EntityType)
-                        : null;
+                // Skip if this exact map instance was already expanded elsewhere
+                if (visitedMaps.Contains(childMap)) continue;
 
-                if (childInstance == null)
-                    continue;
+                var childType = childMap.ModelType ?? childMap.EntityType;
+                if (childType == null) continue;
 
-                var childNode = IterateTree(
-                    nodeTrees,
-                    childInstance,
-                    childAlias,
-                    currentAlias,
-                    nodeIds,
-                    isModel,
-                    visited
-                );
+                var childNode = IterateTree(nodeTrees, childType, childAlias, currentAlias,
+                    nodeIds, isModel, visitedAliases, visitedMaps, childMap);
 
-                if (childNode != null)
-                    node.Children.Add(childAlias);
+                if (childNode != null) node.Children.Add(childAlias);
             }
         }
 
-        if (nodeMap?.Children != null)
-        {
-            foreach (var childAlias in nodeMap.Children)
-            {
-                if (node.Children.Contains(childAlias))
-                    continue;
-
-                var childMap = ResolveNodeMap(childAlias);
-                if (childMap == null)
-                {
-                    ReportMissingMapping(childAlias, typeof(object));
-                    continue;
-                }
-
-                var childInstance = childMap.ModelType != null
-                    ? Activator.CreateInstance(childMap.ModelType)
-                    : childMap.EntityType != null
-                        ? Activator.CreateInstance(childMap.EntityType)
-                        : null;
-
-                if (childInstance == null)
-                    continue;
-
-                var childNode = IterateTree(
-                    nodeTrees,
-                    childInstance,
-                    childAlias,
-                    currentAlias,
-                    nodeIds,
-                    isModel,
-                    visited
-                );
-
-                if (childNode != null)
-                    node.Children.Add(childAlias);
-            }
-
-            // Copy NodeMap children to NodeTree
-            node.Children = new List<string>(nodeMap.Children);
-            node.Mapping = nodeMap.FieldMaps;
-            node.Schema = nodeMap.Schema;
-        }
-
-        // Save node into tree dictionary
         nodeTrees[currentAlias] = node;
-
         return node;
     }
 
@@ -203,49 +138,29 @@ public static class NodeTreeIterator
 
     private static NodeMap? ResolveNodeMap(string alias)
     {
-        if (MappingRegistry.Registry.TryGetValue(alias, out var map))
-            return map;
-        return null;
+        return MappingRegistry.Registry.TryGetValue(alias, out var map) ? map : null;
     }
 
     private static int RegisterNodeId(List<KeyValuePair<string, int>> nodeIds, string alias)
     {
         var existing = nodeIds.FirstOrDefault(x => x.Key == alias);
-        if (!string.IsNullOrEmpty(existing.Key))
-            return existing.Value;
+        if (!string.IsNullOrEmpty(existing.Key)) return existing.Value;
 
         var id = nodeIds.Count + 1;
         nodeIds.Add(new KeyValuePair<string, int>(alias, id));
         return id;
     }
 
-    private static int ResolveParentId(List<KeyValuePair<string, int>> nodeIds, string parentAlias)
+    private static Type? ResolveChildType(Type propertyType)
     {
-        if (string.IsNullOrEmpty(parentAlias))
-            return 0;
-        return nodeIds.FirstOrDefault(x => x.Key == parentAlias).Value;
-    }
-
-    private static object? TryCreateChildInstance(PropertyInfo property)
-    {
-        var type = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType;
+        var type = Nullable.GetUnderlyingType(propertyType) ?? propertyType;
 
         if (typeof(System.Collections.IList).IsAssignableFrom(type))
-        {
-            var itemType = type.GenericTypeArguments.FirstOrDefault();
-            return itemType != null ? Activator.CreateInstance(itemType) : null;
-        }
+            return type.GenericTypeArguments.FirstOrDefault();
 
         if (type.IsClass && type != typeof(string))
-            return Activator.CreateInstance(type);
+            return type;
 
         return null;
-    }
-
-    private static void ReportMissingMapping(string alias, Type type)
-    {
-        Console.ForegroundColor = ConsoleColor.Yellow;
-        Console.WriteLine($"[WARNING] Missing NodeMap for alias: '{alias}' (Type: {type.Name})");
-        Console.ResetColor();
     }
 }

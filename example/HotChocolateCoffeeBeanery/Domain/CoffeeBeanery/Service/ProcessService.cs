@@ -142,10 +142,14 @@ namespace CoffeeBeanery.Service
 
                     if (string.IsNullOrEmpty(entityName))
                     {
-                        entityName = SqlNodeRegistry.EntityTrees.OrderBy(a => a.Value.Id).First().Key;
+                        entityName = SqlNodeRegistry.ModelTrees[modelName].Mapping.First().DestinationEntity;
                     }
                 
                     transformedToParent = true;    
+                }
+                else
+                {
+                    return new QueryResult();
                 }
             }
 

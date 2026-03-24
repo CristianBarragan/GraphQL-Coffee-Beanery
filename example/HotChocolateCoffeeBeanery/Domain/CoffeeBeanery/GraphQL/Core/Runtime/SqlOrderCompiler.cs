@@ -50,7 +50,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
         {
             if (linkModelDictionaryTree.TryGetValue($"{nodeTree.Name}~{field}", out var sqlNodeTo))
             {
-                return $" ~*~.{sqlNodeTo.RelationshipKey.Split('~')[1]} ORDER BY {sortClause},";
+                return $" ~*~.{sqlNodeTo.RelationshipKey.Split('~')[0]} ORDER BY {sortClause},";
             }
             return string.Empty;
         }

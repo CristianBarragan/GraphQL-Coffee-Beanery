@@ -13,9 +13,13 @@ namespace Domain.Shared.Mapping
             new CustomerBankingRelationshipMapping().Register(mappings);
             new CustomerCustomerRelationshipEdgeMapping().Register(mappings);
             new CustomerCustomerRelationshipMapping().Register(mappings);
-            new CustomerMapping().Register(mappings);
+            new InnerCustomerMapping().Register(mappings);
+            new OuterCustomerMapping().Register(mappings);
             new ProductMapping().Register(mappings);
             new TransactionMapping().Register(mappings);
+            new CustomerCustomerEdgeMapping().Register(mappings);
+            
+            MappingRegistry.BuildDottedAliases();
         }
     }
 }

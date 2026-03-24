@@ -5,7 +5,7 @@ using Domain.Model;
 namespace Domain.Shared.Mapping;
 using DataEntity = Database.Entity;
 
-public class CustomerMapping : IMappingRegistration
+public class OuterCustomerMapping : IMappingRegistration
 {
     public void RegisterNodeMap(Dictionary<string, NodeMap> mappings)
     {
@@ -72,9 +72,8 @@ public class CustomerMapping : IMappingRegistration
 
         cust.FromEnum = custEnums.from;
         cust.ToEnum = custEnums.to;
-
-        mappings.TryAdd(nameof(Customer), MappingRegistry.Register(typeof(Customer), typeof(DataEntity.Customer), cust, nameof(DataEntity.CustomerCustomerRelationship.InnerCustomer)));
-        mappings.TryAdd(nameof(Customer), MappingRegistry.Register(typeof(Customer), typeof(DataEntity.Customer), cust, nameof(DataEntity.CustomerCustomerRelationship.OuterCustomer)));
+        
+        mappings.TryAdd(nameof(DataEntity.CustomerCustomerRelationship.OuterCustomer), MappingRegistry.Register(typeof(Customer), typeof(DataEntity.Customer), cust, nameof(DataEntity.CustomerCustomerRelationship.OuterCustomer)));
     }
 
     public void Register(Dictionary<string, NodeMap> mappings)

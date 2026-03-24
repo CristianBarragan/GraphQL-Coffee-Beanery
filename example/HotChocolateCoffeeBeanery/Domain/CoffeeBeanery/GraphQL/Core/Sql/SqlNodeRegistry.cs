@@ -22,12 +22,39 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
         
         public static List<Type> ModelTypes { get; } = new List<Type>();
 
-        public static void RegisterNode(string modelKey, string entityKey, SqlNode node)
+        public static void RegisterNode(string modelKey, string entityKey, SqlNode node, Type modelType, Type entityType, bool isEntity)
         {
-            ModelNodes[modelKey] = node;
-            if (EntityTrees.Any(a => a.Key.Matches(entityKey.Split('~')[2])))
+            var modelKeyAux = modelKey.Split('~').Length > 1 ? ModelTrees.FirstOrDefault(a => a.Key.Matches(modelKey.Split('~')[0])).Value?.Alias ?? modelKey.Split('~')[0] : modelKey.Split('~')[1];
+            var entityKeyAux = entityKey.Split('~').Length > 1 ? EntityTrees.FirstOrDefault(a => a.Key.Matches(entityKey.Split('~')[0])).Value?.Alias ?? entityKey.Split('~')[0] : entityKey.Split('~')[1];
+            
+            if (!ModelNames.Contains(modelKeyAux))
             {
-                EntityNodes[entityKey] = node;    
+                ModelNames.Add(modelKeyAux);
+            }
+            
+            if (!EntityNames.Contains(entityKeyAux) && isEntity)
+            {
+                EntityNames.Add(entityKeyAux);
+            }
+            
+            if (!ModelTypes.Contains(modelType))
+            {
+                ModelTypes.Add(modelType);    
+            }
+            
+            if (!EntityTypes.Contains(entityType) && isEntity)
+            {
+                EntityTypes.Add(entityType);    
+            }
+            
+            if (!EntityNodes.ContainsKey(entityKey) && isEntity)
+            {
+                EntityNodes[entityKey] = node;
+            }
+            
+            if (!ModelNodes.ContainsKey(modelKey))
+            {
+                ModelNodes[modelKey] = node;
             }
         }
     }

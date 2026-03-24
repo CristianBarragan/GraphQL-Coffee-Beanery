@@ -139,10 +139,13 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
         {
             var currentModel = visitedModels.LastOrDefault();
             
+            var modelTree = trees.FirstOrDefault(a => a.Value.Mapping.Any(b => b.DestinationEntity.Matches(currentTree.Name) &&
+                                                                     b.DestinationName.Matches(node.ToString())));
+            
             if (
-                linkModelDictionaryTree.TryGetValue($"{currentTree.Alias}~{currentTree.Name}~{node.ToString()}", out var sqlNodeFrom))
-                // ||
-                // linkModelDictionaryTree.TryGetValue($"{currentTree.Alias}~{currentModel}~{node.ToString()}", out var sqlNodeFrom))
+                linkModelDictionaryTree.TryGetValue($"{currentTree.Alias}~{currentTree.Name}~{node.ToString()}", out var sqlNodeFrom)
+                ||
+                linkModelDictionaryTree.TryGetValue($"{currentTree.Alias}~{modelTree.Value?.Alias}~{node.ToString()}", out sqlNodeFrom))
             {
                 if (linkEntityDictionaryTree.TryGetValue(sqlNodeFrom.RelationshipKey, out var sqlNodeTo))
                 {

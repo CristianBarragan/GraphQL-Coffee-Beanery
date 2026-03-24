@@ -36,6 +36,13 @@ public class CustomerCustomerRelationshipMapping : IMappingRegistration
             DestinationEntity = nameof(DataEntity.Customer),
             DestinationName = nameof(DataEntity.Customer.CustomerKey)
         });
+            
+        ccr.FieldMaps.Add(new FieldMap
+        {
+            SourceName = nameof(DataEntity.Customer.CustomerKey),
+            DestinationEntity = nameof(DataEntity.Customer),
+            DestinationName = nameof(DataEntity.Customer.CustomerKey)
+        });
         
         ccr.FieldMaps.Add(new FieldMap
         {
@@ -43,20 +50,8 @@ public class CustomerCustomerRelationshipMapping : IMappingRegistration
             DestinationEntity = nameof(DataEntity.Customer),
             DestinationName = nameof(DataEntity.Customer.CustomerKey)
         });
-
-        ccr.FieldMaps.Add(new FieldMap
-        {
-            SourceName = nameof(DataEntity.CustomerCustomerRelationship.Id),
-            DestinationEntity = nameof(DataEntity.CustomerCustomerRelationship),
-            DestinationName = nameof(DataEntity.CustomerCustomerRelationship.Id)
-        });
-
-        ccr.FieldMaps.Add(new FieldMap
-        {
-            SourceName = nameof(DataEntity.CustomerCustomerRelationship.Id),
-            DestinationEntity = nameof(DataEntity.CustomerCustomerRelationship),
-            DestinationName = nameof(DataEntity.CustomerCustomerRelationship.Id)
-        });
+        
+        
 
         ccr.FieldMaps.Add(new FieldMap
         {

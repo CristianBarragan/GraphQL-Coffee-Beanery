@@ -76,7 +76,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                             break;
                         }    
                     }
-                    else
+                    else if (splitOnDapper.FirstOrDefault(a => a.Value.Name == childName).Key != null)
                     {
                         splitOnDapper.Remove(splitOnDapper.First(a => a.Value.Name == childName).Key);
                     }
@@ -312,12 +312,17 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
             ));
             
             currentColumns.AddRange(sqlStatementNodes
-                .Where(k => k.Key.Split('~')[2].Matches(currentTree.Name) &&
+                .Where(k => k.Key.Split('~')[0].Matches(currentTree.Name) &&
                             !k.Value.LinkKeys.Any(b => b.From.Matches(k.Key)) 
                             // (currentTree.Mapping.Any(m => m.DestinationName.Matches(k.Key.Split('~')[1])) &&
                             //  !k.Key.Matches($"{currentTree.Name}Id"))).ToList()
             ));
 
+            if (currentColumns[0].Value == null)
+            {
+                return new SqlQueryStructure();
+            }
+            
             currentColumns[0].Value.SqlNodeTypes.Clear();
             currentColumns[0].Value.SqlNodeTypes.Add(SqlNodeType.Node);
 
@@ -355,8 +360,8 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
             foreach (var tableColumn in currentColumns)
             {
                 tableFieldParts = tableColumn.Key.Split('~');
-                queryColumns.Add($"{currentTree.Name}.\"{tableFieldParts[3]}\" AS \"{tableFieldParts[3].ToSnakeCase(currentTree.Id)}\"");
-                parentQueryColumns.Add($"~.\"{tableFieldParts[3].ToSnakeCase(currentTree.Id)}\" AS \"{tableFieldParts[3].ToSnakeCase(currentTree.Id)}\"");
+                queryColumns.Add($"{currentTree.Name}.\"{tableFieldParts[2]}\" AS \"{tableFieldParts[2].ToSnakeCase(currentTree.Id)}\"");
+                parentQueryColumns.Add($"~.\"{tableFieldParts[2].ToSnakeCase(currentTree.Id)}\" AS \"{tableFieldParts[2].ToSnakeCase(currentTree.Id)}\"");
             }
             
             foreach (var childQuery in sqlQueryStructures.Where(c => 
