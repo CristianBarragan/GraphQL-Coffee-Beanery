@@ -61,11 +61,8 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
                     tempSqlNode.SqlNodeTypes.Add(SqlNodeType.Graph);
                 }
                     
-                if (map.IsModel || map.IsEntity)
-                {
-                    tempSqlNode.SqlNodeTypes.Add(SqlNodeType.Edge);
-                    tempSqlNode.SqlNodeTypes.Add(SqlNodeType.Node);
-                }
+                tempSqlNode.SqlNodeTypes.Add(SqlNodeType.Edge);
+                tempSqlNode.SqlNodeTypes.Add(SqlNodeType.Node);
                     
                 // if ()
                 // {
@@ -114,17 +111,8 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
                         tempSqlNode.SqlNodeTypes.Add(SqlNodeType.Graph);
                     }
                     
-                    if (map.IsModel)
-                    {
-                        tempSqlNode.SqlNodeTypes.Add(SqlNodeType.Edge);
-                        tempSqlNode.SqlNodeTypes.Add(SqlNodeType.Node);
-                    }
-                    
-                    if (map.IsEntity)
-                    {
-                        tempSqlNode.SqlNodeTypes.Add(SqlNodeType.Edge);
-                        tempSqlNode.SqlNodeTypes.Add(SqlNodeType.Node);
-                    }
+                    tempSqlNode.SqlNodeTypes.Add(SqlNodeType.Edge);
+                    tempSqlNode.SqlNodeTypes.Add(SqlNodeType.Node);
                     
                     SqlNodeRegistry.RegisterNode($"{alias}~{toKeyParts[0]}~{toKeyParts[2]}", $"{alias}~{toKeyParts[1]}~{toKeyParts[2]}", tempSqlNode,
                         map.ModelType, map.EntityType == null ? map.ModelType : map.EntityType, map.IsEntity);
@@ -142,32 +130,24 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
                     Schema = map.Schema,
                     Table = map.EntityType.Name,
                     Column = map.UpsertKeys[i].Key,
-                    RelationshipKey = map.EntityType == null ? $"{alias}~{map.ModelType.Name}~{map.ToEnum.ElementAt(i).Key}" : $"{alias}~{map.EntityType.Name}~{map.ToEnum.ElementAt(i).Key}",
+                    RelationshipKey = map.EntityType == null ? $"{alias}~{map.ModelType.Name}~{map.UpsertKeys[i].Entity}" : $"{alias}~{map.EntityType.Name}~{map.UpsertKeys[i].Key}",
                     FromEnumeration = map.FromEnum,
                     ToEnumeration = map.ToEnum,
                     UpsertKeys = SqlNodeRegistry.EntityTrees[alias].UpsertKeys.Select(b => $"{map.EntityType.Name}~{b}").ToList()
                 };
                 tempSqlNode.LinkKeys.AddRange(linkKeys);
+                tempSqlNode.SqlNodeTypes ??= new List<SqlNodeType>();
                 
                 if (map.IsGraph)
                 {
                     tempSqlNode.SqlNodeTypes.Add(SqlNodeType.Graph);
                 }
                     
-                if (map.IsModel)
-                {
-                    tempSqlNode.SqlNodeTypes.Add(SqlNodeType.Edge);
-                    tempSqlNode.SqlNodeTypes.Add(SqlNodeType.Node);
-                }
-                    
-                if (map.IsEntity)
-                {
-                    tempSqlNode.SqlNodeTypes.Add(SqlNodeType.Edge);
-                    tempSqlNode.SqlNodeTypes.Add(SqlNodeType.Node);
-                }
+                tempSqlNode.SqlNodeTypes.Add(SqlNodeType.Edge);
+                tempSqlNode.SqlNodeTypes.Add(SqlNodeType.Node);
                 
-                SqlNodeRegistry.RegisterNode($"{alias}~{map.ModelType.Name}~{map.ToEnum.ElementAt(i).Key}", 
-                    $"{alias}~{map.EntityType.Name}~{map.ToEnum.ElementAt(i).Key}", tempSqlNode,
+                SqlNodeRegistry.RegisterNode($"{alias}~{map.ModelType.Name}~{map.UpsertKeys[i].Key}", 
+                    $"{alias}~{map.UpsertKeys[i].Entity}~{map.UpsertKeys[i].Key}", tempSqlNode,
                     map.ModelType, map.EntityType == null ? map.ModelType : map.EntityType, map.IsEntity);;
             }
         }

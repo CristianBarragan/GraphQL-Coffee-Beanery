@@ -25,16 +25,9 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
             {
                 SqlWhereCompiler.Compile(ctx, rootSelection, rootTree, wrapperEntityName, sqlWhereStatement);    
             }
-
-            var entityTreeName = SqlNodeRegistry.ModelNodes.FirstOrDefault(a => a.Key.Matches(rootTree.Name)).Value?.Table;
-
-            if (string.IsNullOrEmpty(entityTreeName))
-            {
-                return new SqlStructure();
-            }
             
             GenerateUpsertStatements(SqlNodeRegistry.ModelTrees, SqlNodeRegistry.EntityTrees, SqlNodeRegistry.EntityNodes,
-                wrapperEntityName, generatedQuery, mutationDict, SqlNodeRegistry.EntityTrees[entityTreeName],
+                wrapperEntityName, generatedQuery, mutationDict, SqlNodeRegistry.EntityTrees[rootTree.Name],
                 sqlWhereStatement, new List<string>(),
                 sqlUpsertBuilder, sqlSelectUpsertBuilder);
             
@@ -151,7 +144,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
             }
 
             currentColumns.AddRange(sqlUpsertStatementNodes
-                .Where(k => !k.Value.Value.Matches("") && k.Key.Split('~')[0].Matches($"{currentTree.Alias}")).ToList());
+                .Where(k => !k.Value.Value.Matches("") && k.Key.Split('~')[0].Matches($"{currentTree.Name}")).ToList());
 
             var node = sqlNodes
                 .FirstOrDefault(k => k.Key.Contains($"{currentTree.Alias}~"));

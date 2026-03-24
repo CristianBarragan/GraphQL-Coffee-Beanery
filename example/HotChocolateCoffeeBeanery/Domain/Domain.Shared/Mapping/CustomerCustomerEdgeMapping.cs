@@ -1,4 +1,5 @@
 ﻿using CoffeeBeanery.GraphQL.Core.Mapping;
+using CoffeeBeanery.GraphQL.Core.Sql;
 using Domain.Model;
 using DataEntity = Database.Entity;
 using DataGraph = Database.Graph;
@@ -18,6 +19,13 @@ public class CustomerCustomerEdgeMapping
         
         customerCustomerEdge.Children.Add(nameof(DataEntity.CustomerCustomerRelationship.InnerCustomer));
         customerCustomerEdge.Children.Add(nameof(DataEntity.CustomerCustomerRelationship.OuterCustomer));
+        
+        customerCustomerEdge.UpsertKeys.Add(new UpsertKey(nameof(DataEntity.CustomerBankingRelationship),
+            nameof(DataEntity.CustomerCustomerRelationship.InnerCustomer)));
+        customerCustomerEdge.UpsertKeys.Add(new UpsertKey(nameof(DataEntity.CustomerBankingRelationship),
+            nameof(DataEntity.CustomerCustomerRelationship.OuterCustomerId)));
+        customerCustomerEdge.UpsertKeys.Add(new UpsertKey(nameof(DataEntity.CustomerBankingRelationship),
+            nameof(DataEntity.CustomerCustomerRelationship.CustomerCustomerRelationshipKey)));
         
         customerCustomerEdge.FieldMaps.Add(new FieldMap
         {
