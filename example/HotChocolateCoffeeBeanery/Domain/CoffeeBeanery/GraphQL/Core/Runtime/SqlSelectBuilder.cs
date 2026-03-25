@@ -40,7 +40,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                 nodeDict, sqlWhereStatement,
                 SqlNodeRegistry.EntityTrees[wrapperEntityName],
                 childrenSqlStatement, wrapperEntityName, sqlQueryStructures, 
-                splitOnDapper, aliases, entityOrder, visitedEntities, new List<string>());
+                splitOnDapper, aliases, entityOrder, visitedEntities, new List<string>(), new List<string>());
 
             if (sqlQueryStructures.Count == 0)
             {
@@ -112,8 +112,8 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
             GenerateQuery(Dictionary<string, NodeTree> entityTrees, List<Type> entityTypes, Dictionary<string,SqlNode> linkEntityDictionaryTree, 
                 Dictionary<string,SqlNode> linkModelDictionaryTree, Dictionary<string, SqlNode> sqlStatementNodes, 
                 Dictionary<string, string> sqlWhereStatement, NodeTree currentTree, Dictionary<string, string> childrenSqlStatement, string rootEntityName,
-                Dictionary<string, SqlQueryStructure> sqlQueryStructures, Dictionary<string,Type> splitOnDapper, Dictionary<string, string> aliases, List<string> entityOrder, List<string> visitedEntities,
-                List<string> generatedQueries)
+                Dictionary<string, SqlQueryStructure> sqlQueryStructures, Dictionary<string,Type> splitOnDapper, Dictionary<string, string> aliases, 
+                List<string> entityOrder, List<string> parentVisitedEntities, List<string> childVisitedEntities, List<string> generatedQueries)
         {
             var childrenOrder = new List<string>();
             var alias = currentTree.Alias;
@@ -123,12 +123,12 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                 alias = currentTree.Name;
             }
             
-            if (visitedEntities.Contains(alias) || sqlQueryStructures.Any(a => a.Value.Alias == currentTree.Alias))
+            if (parentVisitedEntities.Contains(alias) || sqlQueryStructures.Any(a => a.Value.Alias == currentTree.Alias))
             {
                 return;
             }
             
-            visitedEntities.Add(alias);
+            parentVisitedEntities.Add(alias);
             currentTree = entityTrees[alias];
             entityOrder.Add(currentTree.Name);
 
@@ -143,18 +143,19 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                 {
                     if (treeAlias.Value.Children.Any(k => k.Matches(child)))
                     {
-                        var childVisitedEntities = new List<string>(visitedEntities)
+                        childVisitedEntities = new List<string>(parentVisitedEntities)
                         {
                             currentTree.Name
                         };
-
+            
                         if (!string.IsNullOrEmpty(currentTree.ParentName))
                         {
                             childVisitedEntities.Add(currentTree.ParentName);
                         }
                         
                         GenerateQuery(entityTrees, entityTypes, linkEntityDictionaryTree, linkModelDictionaryTree, sqlStatementNodes, sqlWhereStatement,
-                            entityTrees[child], childrenSqlStatement, rootEntityName, sqlQueryStructures, splitOnDapper, aliases, entityOrder, childVisitedEntities, generatedQueries);
+                            entityTrees[child], childrenSqlStatement, rootEntityName, sqlQueryStructures, splitOnDapper, aliases, entityOrder, parentVisitedEntities, 
+                            childVisitedEntities, generatedQueries);
                     }
                     childrenOrder.Add(child);
                 }
@@ -181,6 +182,8 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                     var childStructure = sqlQueryStructures[child];
                     sqlQueryStructures[child].Visited = true;
                     generatedQueries.Add(sqlQueryStructures[child].Query);
+                    var childTree = entityTrees[child];
+                    var parentTree = entityTrees[alias];
                     
                     if (childStructure.SqlNode?.LinkKeys?.Count > 0)
                     {
@@ -188,57 +191,63 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                         var joinParentKey = "\"Id\"";
                         var childAlias = childStructure.Alias;
                         
-                        if (currentTree.Children.Count > 0)
-                        {
-                            foreach (var _ in sqlQueryStructures.Where(a => currentTree.Children.Any(b => b.Matches(a.Key))))
-                            {
-                                
-                                joinChildKey = childStructure.Columns.FirstOrDefault(c => c.Contains($"\"Id\""));
-            
-                                if (string.IsNullOrEmpty(joinChildKey))
-                                {
-                                    joinChildKey =
-                                        childStructure.Columns.FirstOrDefault(c => c.Contains($"\"Id\""));
-                                }
-            
-                                if (string.IsNullOrEmpty(joinChildKey))
-                                {
-                                    joinChildKey = childStructure.Columns.FirstOrDefault(c => c.Contains($"\"Id"));
-                                    joinParentKey = $"\"Id\"";
-                                }
-            
-                                joinChildKey = joinChildKey.Split("AS").Last().Sanitize();
-            
-                                queryBuilder += childStructure.SqlNodeType == SqlNodeType.Edge ? " JOIN " : " LEFT JOIN ";
-                                queryBuilder +=
-                                    $" ( {childStructure.Query} ) {childAlias} ON {currentTree.Alias}.{joinParentKey} = {
-                                        childAlias}.\"{joinChildKey}\"";
-                                currentEntityStructure.SelectColumns.AddRange(
-                                    childStructure.ParentColumns.Select(s => s.Replace("~", child)));
-                                currentEntityStructure.ParentColumns.AddRange(childStructure.ParentColumns);
-            
-                                if (!splitOnDapper.ContainsKey("Id".ToSnakeCase(currentTree.Id)))
-                                {
-                                    splitOnDapper.Add("Id".ToSnakeCase(currentTree.Id),
-                                        entityTypes.FirstOrDefault(e => e.Name.Matches(entityTrees[child].Name)));
-                                    aliases.Add(currentTree.Name, currentTree.Alias);
-                                }
-                            }
-                        }
-                        else
-                        {
+                        // if (currentTree.Children.Count > 0)
+                        // {
+                        //     foreach (var childTree in sqlQueryStructures.Where(a => currentTree.Children.Any(b => b.Matches(a.Key)
+                        //                  // && !parentVisitedEntities.Contains(a.Key))))
+                        //         && !childVisitedEntities.Contains(a.Key))))
+                        //     {
+                        //         
+                        //         joinChildKey = childStructure.Columns.FirstOrDefault(c => c.Contains($"\"Id\""));
+                        //
+                        //         if (string.IsNullOrEmpty(joinChildKey))
+                        //         {
+                        //             joinChildKey =
+                        //                 childStructure.Columns.FirstOrDefault(c => c.Contains($"\"Id\""));
+                        //         }
+                        //
+                        //         if (string.IsNullOrEmpty(joinChildKey))
+                        //         {
+                        //             joinChildKey = childStructure.Columns.FirstOrDefault(c => c.Contains($"\"Id"));
+                        //             joinParentKey = $"\"Id\"";
+                        //         }
+                        //
+                        //         joinChildKey = joinChildKey.Split("AS").Last().Sanitize();
+                        //
+                        //         queryBuilder += childStructure.SqlNodeType == SqlNodeType.Edge ? " JOIN " : " LEFT JOIN ";
+                        //         queryBuilder +=
+                        //             $" ( {childStructure.Query} ) {childAlias} ON {currentTree.Alias}.{joinParentKey} = {
+                        //                 childAlias}.\"{joinChildKey}\"";
+                        //         currentEntityStructure.SelectColumns.AddRange(
+                        //             childStructure.ParentColumns.Select(s => s.Replace("~", child)));
+                        //         currentEntityStructure.ParentColumns.AddRange(childStructure.ParentColumns);
+                        //
+                        //         if (!splitOnDapper.ContainsKey("Id".ToSnakeCase(currentTree.Id)))
+                        //         {
+                        //             splitOnDapper.Add("Id".ToSnakeCase(currentTree.Id),
+                        //                 entityTypes.FirstOrDefault(e => e.Name.Matches(entityTrees[child].Name)));
+                        //             aliases.Add(currentTree.Name, currentTree.Alias);
+                        //         }
+                        //     }
+                        // }
+                        // else
+                        // {
                             joinChildKey = childStructure.Columns.FirstOrDefault(c => c.Contains($"\"Id"));
                             joinParentKey = $"\"{childAlias}Id\"";
             
                             joinChildKey = joinChildKey.Split("AS").Last().Sanitize();
             
-                            // queryBuilder += childStructure.SqlNodeType == SqlNodeType.Edge ? " JOIN " : " LEFT JOIN ";
-                            // queryBuilder +=
-                            //     $" ( {childStructure.Query} ) {childAlias} ON \"Id\" = {
-                            //         childAlias}.\"{currentTree.Name}{"Id".ToSnakeCase(currentTree.Id)}\"";
+                            queryBuilder += childStructure.SqlNodeType == SqlNodeType.Edge ? " JOIN " : " LEFT JOIN ";
+                            queryBuilder +=
+                                $" ( {childStructure.Query} ) {childAlias} ON {childAlias}.\"{"Id".ToSnakeCase(childTree.Id)}\" = {
+                                    parentTree.Alias}.\"Id\"";
                             currentEntityStructure.SelectColumns.AddRange(
                                 childStructure.ParentColumns.Select(s => s.Replace("~", childAlias)));
+                            currentEntityStructure.SelectColumns.Add($"{childTree.Alias}.\"{"Id".ToSnakeCase(childTree.Id)}\" AS {parentTree.Name}{"Id".ToSnakeCase(childTree.Id)}");
+                                
+                            childStructure.ParentColumns.Select(s => s.Replace("~", childAlias));
                             currentEntityStructure.ParentColumns.AddRange(childStructure.ParentColumns);
+                            currentEntityStructure.ParentColumns.Add($"~.{parentTree.Name}{"Id".ToSnakeCase(childTree.Id)} AS {currentTree.Name}{"Id".ToSnakeCase(childTree.Id)}");
             
                             if (!splitOnDapper.ContainsKey("Id".ToSnakeCase(currentTree.Id)))
                             {
@@ -246,7 +255,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                                     entityTypes.FirstOrDefault(e => e.Name.Matches(entityTrees[childAlias].Name)));
                                 aliases.Add(currentTree.Name, currentTree.Alias);
                             }
-                        }
+                        // }
                     }
             
                     if (!splitOnDapper.ContainsKey("Id".ToSnakeCase(currentTree.Id)))
@@ -360,7 +369,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
             foreach (var tableColumn in currentColumns)
             {
                 tableFieldParts = tableColumn.Key.Split('~');
-                queryColumns.Add($"{currentTree.Name}.\"{tableFieldParts[2]}\" AS \"{tableFieldParts[2].ToSnakeCase(currentTree.Id)}\"");
+                queryColumns.Add($"{currentTree.Alias}.\"{tableFieldParts[2]}\" AS \"{tableFieldParts[2].ToSnakeCase(currentTree.Id)}\"");
                 parentQueryColumns.Add($"~.\"{tableFieldParts[2].ToSnakeCase(currentTree.Id)}\" AS \"{tableFieldParts[2].ToSnakeCase(currentTree.Id)}\"");
             }
             
