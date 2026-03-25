@@ -180,7 +180,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                 if (node.ToString().Matches("nodes") || 
                     node.ToString().Matches("node"))
                 {
-                    currentTree = trees[models.Last()];
+                    currentTree = trees.OrderBy(a => a.Value.Id).First().Value;
                 }
                 else
                 {

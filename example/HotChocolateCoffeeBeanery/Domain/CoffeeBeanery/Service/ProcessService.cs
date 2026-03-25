@@ -153,7 +153,7 @@ namespace CoffeeBeanery.Service
                 }
             }
 
-            var rootTree = SqlNodeRegistry.EntityTrees[entityName];
+            var rootTree = SqlNodeRegistry.ModelTrees[modelName];
 
             var mutationStatementNodes = new Dictionary<string, SqlNode>();
 
@@ -181,7 +181,7 @@ namespace CoffeeBeanery.Service
 
             var sqlWhereStatement = new Dictionary<string, string>();
             
-            var mutationStructure = SqlMutationCompiler.Compile(selection, SqlNodeRegistry.ModelTrees[modelName], wrapperName, mutationStatementNodes, sqlWhereStatement);
+            var mutationStructure = SqlMutationCompiler.Compile(selection, SqlNodeRegistry.EntityTrees[entityName], wrapperName, mutationStatementNodes, sqlWhereStatement);
 
             var edgeStatementNodes = new Dictionary<string, SqlNode>();
             var visitedModels = new List<string>();

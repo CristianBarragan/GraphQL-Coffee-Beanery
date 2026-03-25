@@ -220,7 +220,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                                 if (!splitOnDapper.ContainsKey("Id".ToSnakeCase(currentTree.Id)))
                                 {
                                     splitOnDapper.Add("Id".ToSnakeCase(currentTree.Id),
-                                        entityTypes.FirstOrDefault(e => e.Name.Matches(child)));
+                                        entityTypes.FirstOrDefault(e => e.Name.Matches(entityTrees[child].Name)));
                                     aliases.Add(currentTree.Name, currentTree.Alias);
                                 }
                             }
@@ -243,7 +243,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                             if (!splitOnDapper.ContainsKey("Id".ToSnakeCase(currentTree.Id)))
                             {
                                 splitOnDapper.Add("Id".ToSnakeCase(currentTree.Id),
-                                    entityTypes.FirstOrDefault(e => e.Name.Matches(childAlias)));
+                                    entityTypes.FirstOrDefault(e => e.Name.Matches(entityTrees[childAlias].Name)));
                                 aliases.Add(currentTree.Name, currentTree.Alias);
                             }
                         }
@@ -312,7 +312,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
             ));
             
             currentColumns.AddRange(sqlStatementNodes
-                .Where(k => k.Key.Split('~')[0].Matches(currentTree.Name) &&
+                .Where(k => k.Key.Split('~')[1].Matches(currentTree.Name) &&
                             !k.Value.LinkKeys.Any(b => b.From.Matches(k.Key)) 
                             // (currentTree.Mapping.Any(m => m.DestinationName.Matches(k.Key.Split('~')[1])) &&
                             //  !k.Key.Matches($"{currentTree.Name}Id"))).ToList()
@@ -381,9 +381,9 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                 //     continue;
                 // }
                 
-                queryBuilder +=$" {(childQuery.Value.SqlNodeType == SqlNodeType.Edge ? " JOIN ( " : " LEFT JOIN  ( ") } {
-                    childQuery.Value.Query
-                }";
+                // queryBuilder +=$" {(childQuery.Value.SqlNodeType == SqlNodeType.Edge ? " JOIN ( " : " LEFT JOIN  ( ") } {
+                //     childQuery.Value.Query
+                // }";
                 
                 childQuery.Value.Visited = true;
                 var joinChildKey = $"\"{currentTree.ParentName}{"Id2".ToSnakeCase(childQuery.Value.Id)}\"";

@@ -51,8 +51,6 @@ public class CustomerCustomerRelationshipMapping : IMappingRegistration
             DestinationName = nameof(DataEntity.Customer.CustomerKey)
         });
         
-        
-
         ccr.FieldMaps.Add(new FieldMap
         {
             SourceName = nameof(CustomerCustomerRelationship.CustomerCustomerRelationshipKey),

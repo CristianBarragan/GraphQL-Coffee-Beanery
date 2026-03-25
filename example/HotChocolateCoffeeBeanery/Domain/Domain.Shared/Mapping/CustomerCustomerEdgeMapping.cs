@@ -12,9 +12,7 @@ public class CustomerCustomerEdgeMapping
     {
         var customerCustomerEdge = new NodeMap
         {
-            Schema = nameof(CustomerCustomerEdge),
-            IsModel = true,
-            IsEntity = true
+            IsModel = true
         };
         
         customerCustomerEdge.Children.Add(nameof(DataEntity.CustomerCustomerRelationship.InnerCustomer));
