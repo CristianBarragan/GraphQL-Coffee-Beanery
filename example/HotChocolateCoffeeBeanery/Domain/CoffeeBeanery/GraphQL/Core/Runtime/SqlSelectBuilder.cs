@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using CoffeeBeanery.GraphQL.Core.GraphQL;
 using CoffeeBeanery.GraphQL.Core.Sql;
@@ -23,12 +24,14 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
             var childrenSqlStatement = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             var entityOrder          = new List<string>();
 
+            // Merge edge nodes into node dictionary
             foreach (var edgeKey in edgeDict)
             {
                 if (!nodeDict.ContainsKey(edgeKey.Key))
                     nodeDict.Add(edgeKey.Key, edgeKey.Value);
             }
 
+            // Generate the SQL recursively
             GenerateQuery(
                 SqlNodeRegistry.EntityTrees,
                 SqlNodeRegistry.EntityTypes,
@@ -50,9 +53,8 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
             if (sqlQueryStructures.Count == 0)
                 return (string.Empty, default, default);
 
-            var aliasesOrdered = new List<string>();
-            foreach (var alias in aliases.Reverse())
-                aliasesOrdered.Add(alias.Value);
+            // Reverse alias ordering
+            var aliasesOrdered = aliases.Reverse().Select(a => a.Value).ToList();
 
             var rootQuery = sqlQueryStructures.TryGetValue(wrapperEntityName, out var rootStructure)
                 ? rootStructure.Query
@@ -79,9 +81,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
             List<string> childVisitedEntities,
             List<string> generatedQueries)
         {
-            var alias = string.IsNullOrEmpty(currentTree.Alias)
-                ? currentTree.Name
-                : currentTree.Alias;
+            var alias = string.IsNullOrEmpty(currentTree.Alias) ? currentTree.Name : currentTree.Alias;
 
             if (parentVisitedEntities.Contains(alias) ||
                 sqlQueryStructures.Any(a => a.Value.Alias == currentTree.Alias))
@@ -95,7 +95,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                 .Concat(currentTree.RelatedChildren ?? new List<LinkKey>())
                 .ToList();
 
-            // ── POST-ORDER: recurse into all children first ───────────────────
+            // ── Recurse into children first (post-order) ─────────────────────
             foreach (var treeAlias in entityTrees.Where(a => a.Value.Name.Matches(currentTree.Name)))
             {
                 if (sqlQueryStructures.Any(a => a.Value.Alias.Matches(treeAlias.Value.Alias)))
@@ -122,68 +122,142 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                         childVisitedEntities.Add(currentTree.RelatedParents[0].To);
 
                     GenerateQuery(
-                        entityTrees, entityTypes,
-                        linkEntityDictionaryTree, linkModelDictionaryTree,
-                        sqlStatementNodes, sqlWhereStatement,
+                        entityTrees,
+                        entityTypes,
+                        linkEntityDictionaryTree,
+                        linkModelDictionaryTree,
+                        sqlStatementNodes,
+                        sqlWhereStatement,
                         entityTrees[child.To],
-                        childrenSqlStatement, rootEntityName,
-                        sqlQueryStructures, splitOnDapper, aliases,
-                        entityOrder, parentVisitedEntities,
-                        childVisitedEntities, generatedQueries);
+                        childrenSqlStatement,
+                        rootEntityName,
+                        sqlQueryStructures,
+                        splitOnDapper,
+                        aliases,
+                        entityOrder,
+                        parentVisitedEntities,
+                        childVisitedEntities,
+                        generatedQueries);
                 }
             }
 
             // ── Generate columns for current node ─────────────────────────────
-            var (ownColumns, parentQueryColumns, currentColumns) = GenerateEntityQuery(
-                entityTrees, linkEntityDictionaryTree, sqlStatementNodes,
-                currentTree, sqlQueryStructures, sqlWhereStatement,
-                childrenSqlStatement, rootEntityName, generatedQueries);
+            var (ownColumns, parentColumns, currentColumns) = GenerateEntityQuery(
+                entityTrees,
+                linkEntityDictionaryTree,
+                sqlStatementNodes,
+                currentTree,
+                sqlQueryStructures,
+                sqlWhereStatement,
+                childrenSqlStatement,
+                rootEntityName,
+                generatedQueries);
 
             if (ownColumns.Count == 0)
                 return;
 
-            // ── Build SELECT list starting with own columns ───────────────────
             var allSelectColumns = new List<string>(ownColumns);
-
-            // ── JOIN children ─────────────────────────────────────────────────
             var joinClauses = new List<string>();
 
+            // ── Bubble up child columns into parentColumns ───────────────────
+            foreach (var child in allChildren)
+            {
+                if (string.IsNullOrEmpty(child.To) || !sqlQueryStructures.TryGetValue(child.To, out var childStructure))
+                    continue;
+                
+                var childAlias = childStructure.Alias;
+                var childTree  = entityTrees[child.To];
+                var childIdSnake = "Id".ToSnakeCase(childTree.Id);
+                
+                // bubble up all the columns from child to parent
+                foreach (var col in childStructure.Columns)
+                {
+                    // skip the child Id column if you want only the “data” columns
+                    if (col.Contains($"\"{childIdSnake}\"")) 
+                        continue;
+
+                    if (!parentColumns.Contains(col))
+                        parentColumns.Add(col);
+                }
+
+                // Only propagate if this child actually belongs to the current parent
+                bool isRelevantChild = child.From.Matches(currentTree.Alias);
+                if (!isRelevantChild) continue;
+
+                foreach (var propagatedColumn in childStructure.ParentColumns)
+                {
+                    // Only add columns that originate from this child alias
+                    if (!propagatedColumn.StartsWith(childAlias + "."))
+                        continue;
+
+                    // Avoid duplicates
+                    if (!parentColumns.Contains(propagatedColumn))
+                        parentColumns.Add(propagatedColumn);
+                }
+            }
+
+            // ── Build JOIN clauses and propagate columns ─────────────────────
             foreach (var child in allChildren)
             {
                 if (string.IsNullOrEmpty(child.To) ||
-                    !sqlQueryStructures.ContainsKey(child.To) ||
-                    generatedQueries.Contains(sqlQueryStructures[child.To].Query))
+                    !sqlQueryStructures.TryGetValue(child.To, out var childStructure) ||
+                    generatedQueries.Contains(childStructure.Query))
                     continue;
 
-                var childStructure = sqlQueryStructures[child.To];
-                sqlQueryStructures[child.To].Visited = true;
+                childStructure.Visited = true;
                 generatedQueries.Add(childStructure.Query);
 
                 var childTree  = entityTrees[child.To];
                 var childAlias = childStructure.Alias;
                 var joinType   = childStructure.SqlNodeType == SqlNodeType.Edge ? "JOIN" : "LEFT JOIN";
 
-                // JOIN ON:
-                // parent side: parent alias . FromColumn  (e.g. CustomerCustomerRelationship."InnerCustomerId")
-                // child side:  child alias  . "Id" snake-cased at child's own ID level
-                //              (e.g. InnerCustomer."Id____" where InnerCustomer.Id = 4 underscores)
                 var childIdSnake = "Id".ToSnakeCase(childTree.Id);
 
+                // Build the JOIN with the child's full query (including all nested selects)
                 joinClauses.Add(
                     $" {joinType} ( {childStructure.Query} ) {childAlias}" +
                     $" ON {alias}.\"{child.FromColumn}\" = {childAlias}.\"{childIdSnake}\"");
 
-                // Pull child ParentColumns into this SELECT — replace ~ placeholder with child alias
-                allSelectColumns.AddRange(
-                    childStructure.ParentColumns
-                        .Select(s => s.Replace("~", childAlias))
-                        .Where(s => !allSelectColumns.Contains(s)));
+                // --- Propagate child columns for parent SELECT ---
+                foreach (var col in childStructure.Columns)
+                {
+                    // Column string looks like: TableName."ColumnName" AS "Alias"
+                    // Example: Account."Id" AS "Id______"
+
+                    var parts = col.Split(new[] { " AS " }, StringSplitOptions.None);
+                    if (parts.Length != 2)
+                        continue; // skip if format is unexpected
+
+                    var originalColumn = parts[0]; // e.g., Account."Id"
+                    var aliasSelect = parts[1];           // e.g., "Id______"
+
+                    // Extract column name inside quotes
+                    var quoteStart = originalColumn.IndexOf('"');
+                    var quoteEnd = originalColumn.LastIndexOf('"');
+                    if (quoteStart < 0 || quoteEnd <= quoteStart)
+                        continue;
+
+                    // Rebuild column with child alias and correct AS
+                    var columnWithAlias = $"{childAlias}.\"{aliasSelect.Trim('"')}\" AS {aliasSelect}";
+
+                    if (!allSelectColumns.Contains(columnWithAlias))
+                        allSelectColumns.Add(columnWithAlias);
+                }
+
+                // --- Add explicit ParentColumns if needed for further bubbling ---
+                foreach (var parentCol in childStructure.ParentColumns)
+                {
+                    var columnWithAlias = parentCol.Replace("~", childAlias);
+                    if (!parentColumns.Contains(columnWithAlias))
+                        parentColumns.Add(columnWithAlias);
+                }
             }
 
-            // ── WHERE clause ──────────────────────────────────────────────────
+            var idSnake = "Id".ToSnakeCase(currentTree.Id);
+
+            // ── WHERE clause ────────────────────────────────────────────────
             var whereClause = string.Empty;
-            sqlWhereStatement.TryGetValue(currentTree.Name, out var whereStatement);
-            if (!string.IsNullOrEmpty(whereStatement))
+            if (sqlWhereStatement.TryGetValue(currentTree.Name, out var whereStatement) && !string.IsNullOrEmpty(whereStatement))
             {
                 whereStatement = whereStatement.Replace("~", currentTree.Name);
                 foreach (var field in whereStatement.Split("\""))
@@ -197,27 +271,26 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                 whereClause = $" WHERE {whereStatement}";
             }
 
-            // ── Assemble final query ──────────────────────────────────────────
-            var select      = string.Join(",", allSelectColumns.Distinct());
+            // ── Assemble final query ────────────────────────────────────────
+            var select = string.Join(",", allSelectColumns.Distinct());
             var queryBuilder =
-                $"SELECT {select}" +
-                $" FROM \"{currentTree.Schema}\".\"{currentTree.Name}\" {alias}" +
+                $"SELECT {select} FROM \"{currentTree.Schema}\".\"{currentTree.Name}\" {alias}" +
                 string.Join("", joinClauses) +
                 whereClause;
 
-            // ── SplitOn registration ──────────────────────────────────────────
-            if (!splitOnDapper.ContainsKey("Id".ToSnakeCase(currentTree.Id)))
+            // ── SplitOn registration ───────────────────────────────────────
+            if (!splitOnDapper.ContainsKey(idSnake))
             {
                 var entityType = entityTypes.FirstOrDefault(e => e.Name.Matches(currentTree.Name));
                 if (splitOnDapper.Values.Any(a => a.Name.Matches(currentTree.Name)))
                 {
-                    splitOnDapper.Insert(0, "Id".ToSnakeCase(currentTree.Id), entityType);
-                    aliases.Insert(0, "Id".ToSnakeCase(currentTree.Id), currentTree.Alias);
+                    splitOnDapper.Insert(0, idSnake, entityType);
+                    aliases.Insert(0, idSnake, currentTree.Alias);
                 }
                 else
                 {
-                    splitOnDapper.Add("Id".ToSnakeCase(currentTree.Id), entityType);
-                    aliases.Add("Id".ToSnakeCase(currentTree.Id), currentTree.Alias);
+                    splitOnDapper.Add(idSnake, entityType);
+                    aliases.Add(idSnake, currentTree.Alias);
                 }
             }
 
@@ -235,22 +308,14 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                 Query         = queryBuilder,
                 Alias         = currentTree.Alias,
                 Columns       = allSelectColumns.Distinct().ToList(),
-                ParentColumns = parentQueryColumns.Distinct().ToList(),
+                ParentColumns = parentColumns.Distinct().ToList(),
+                LinkKeys      = currentNode.Value?.LinkKeys?.ToList() ?? new List<LinkKey>(),
             };
 
-            if (!sqlQueryStructures.TryGetValue(currentTree.Alias, out _))
+            if (!sqlQueryStructures.ContainsKey(currentTree.Alias))
                 sqlQueryStructures.Add(currentTree.Alias, sqlStructure);
         }
 
-        /// <summary>
-        /// Returns own SELECT columns, parent propagation columns, and raw column pairs.
-        /// Key format: "{model}~{entity}~{field}" → [0]=model [1]=entity [2]=field
-        ///
-        /// Own columns:    what this node SELECTs from its own table
-        /// Parent columns: what this node exposes upward (with ~ as alias placeholder)
-        ///                 Always includes "Id" at this node's snake level so parent
-        ///                 can JOIN ON child."Id__" = parent."FKColumn"
-        /// </summary>
         private static (List<string> ownColumns, List<string> parentColumns,
             List<KeyValuePair<string, SqlNode>> currentColumns)
             GenerateEntityQuery(
@@ -286,8 +351,9 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                 {
                     var parts = k.Key.Split('~');
                     if (parts.Length < 3) return false;
-                    return (parts[0].Matches(currentTree.Alias) || parts[1].Matches(currentTree.Name))
-                           && !k.Value.LinkKeys.Any(b => b.From.Matches(k.Key));
+                    return (parts[1].Matches(currentTree.Name))
+                           && k.Value.LinkKeys.Any(b => b.From.Matches(parts[0]) &&
+                                                        b.FromColumn.Matches(parts[2]));
                 }));
 
             var allChildren = (currentTree.Children ?? new List<LinkKey>())
@@ -304,7 +370,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
 
             var idSnake = "Id".ToSnakeCase(currentTree.Id);
 
-            // ── Own SELECT columns ────────────────────────────────────────────
+            // ── Own SELECT columns ───────────────────────────────────────────
             foreach (var col in currentColumns.DistinctBy(c => c.Key))
             {
                 var parts = col.Key.Split('~');
@@ -316,12 +382,9 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                 ownColumns.Add($"{currentTree.Alias}.\"{fieldName}\" AS \"{snakeField}\"");
             }
 
-            // ── Parent columns: expose Id at this node's snake level ──────────
-            // Parent JOINs ON child."Id__" so we must expose it in ParentColumns
-            // as "~."Id__" AS "Id__"" (~ is replaced with child alias by parent)
+            // ── Parent columns: always expose Id ─────────────────────────────
             parentColumns.Add($"~.\"{idSnake}\" AS \"{idSnake}\"");
 
-            // Also propagate any requested field columns upward
             foreach (var col in currentColumns.DistinctBy(c => c.Key).Skip(1))
             {
                 var parts = col.Key.Split('~');

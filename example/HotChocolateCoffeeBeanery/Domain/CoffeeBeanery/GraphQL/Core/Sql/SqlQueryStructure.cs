@@ -21,6 +21,8 @@ public class SqlQueryStructure
     public bool Visited { get; set; }
 
     public Dictionary<string, string> ChildrenJoinColumns { get; set; } = new Dictionary<string, string>();
+    
+    public List<LinkKey> LinkKeys { get; set; } = new();
 
     public string WhereClause { get; set; } = string.Empty;
 
