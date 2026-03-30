@@ -36,12 +36,12 @@ public static class MappingRegistry
             {
                 if (seen.Contains(parentAlias)) continue;
 
-                foreach (var childName in parentMap.Children)
+                foreach (var childName in parentMap.ModelParents)
                 {
-                    var dottedAlias = $"{parentAlias}.{childName}";
+                    var dottedAlias = $"{parentAlias}.{childName.From}";
                     if (Registry.ContainsKey(dottedAlias)) continue;
 
-                    if (!Registry.TryGetValue(childName, out var childMap)) continue;
+                    if (!Registry.TryGetValue(childName.From, out var childMap)) continue;
 
                     Registry[dottedAlias] = childMap;
                     added = true;

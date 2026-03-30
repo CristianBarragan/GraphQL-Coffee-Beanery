@@ -11,13 +11,51 @@ public class AccountMapping : IMappingRegistration
     {
         var acct = new NodeMap
         {
-            Schema = nameof(DataEntity.Schema.Account)
+            Schema = nameof(DataEntity.Schema.Account),
+            EntityRelatedParents = new List<LinkKey>()
+            {
+                new LinkKey()
+                {
+                    From = nameof(DataEntity.Account),
+                    FromColumn = nameof(DataEntity.Account.Id),
+                    To = nameof(DataEntity.Contract),
+                    ToColumn = nameof(DataEntity.Contract.AccountId)
+                }
+            },
+            EntityChildren = new List<LinkKey>()
+            {
+                new LinkKey()
+                {
+                    From = nameof(DataEntity.Account),
+                    FromColumn = nameof(DataEntity.Account.Id),
+                    To = nameof(DataEntity.Transaction),
+                    ToColumn = nameof(DataEntity.Transaction.AccountId)
+                }
+            },
+            ModelParents = new List<LinkKey>()
+            {
+                new LinkKey()
+                {
+                    From = nameof(Account),
+                    FromColumn = nameof(DataEntity.Account.AccountKey),
+                    To = nameof(Product),
+                    ToColumn = nameof(Product.AccountKey)
+                } 
+            },
+            ModelToEntityLinks =
+            {
+                new LinkKey()
+                {
+                    From = nameof(Account),
+                    FromColumn = nameof(Account.AccountKey),
+                    To = nameof(DataEntity.Account),
+                    ToColumn = nameof(DataEntity.Account.AccountKey)
+                }
+            }
         };
 
         acct.IsEntity = true;
-
-        acct.Children.Add(nameof(DataEntity.Contract));
-        acct.Children.Add(nameof(DataEntity.Transaction));
+        acct.IsModel = true;
 
         acct.UpsertKeys.Add(new UpsertKey(nameof(DataEntity.Account), nameof(DataEntity.Account.AccountKey)));
 

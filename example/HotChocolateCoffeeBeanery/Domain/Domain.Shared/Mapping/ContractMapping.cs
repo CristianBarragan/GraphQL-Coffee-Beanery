@@ -11,13 +11,61 @@ public class ContractMapping : IMappingRegistration
     {
         var contract = new NodeMap
         {
-            Schema = nameof(DataEntity.Schema.Lending)
+            Schema = nameof(DataEntity.Schema.Lending),
+            EntityParents = new List<LinkKey>()
+            {
+                new LinkKey()
+                {
+                    From = nameof(DataEntity.Contract),
+                    FromColumn = nameof(DataEntity.Contract.CustomerBankingRelationshipId),
+                    To = nameof(DataEntity.CustomerBankingRelationship),
+                    ToColumn = nameof(DataEntity.CustomerBankingRelationship.Id)
+                }
+            },
+            EntityRelatedChildren = new List<LinkKey>()
+            {
+                new LinkKey()
+                {
+                    From = nameof(DataEntity.Contract),
+                    FromColumn = nameof(DataEntity.Contract.AccountId),
+                    To = nameof(DataEntity.Account),
+                    ToColumn = nameof(DataEntity.Account.Id)
+                }
+            },
+            ModelParents = new List<LinkKey>()
+            {
+                new LinkKey()
+                {
+                    From = nameof(Contract),
+                    FromColumn = nameof(Contract.CustomerBankingRelationshipKey),
+                    To = nameof(CustomerBankingRelationship),
+                    ToColumn = nameof(CustomerBankingRelationship.CustomerBankingRelationshipKey)
+                }
+            },
+            ModelChildren = new List<LinkKey>()
+            {
+                new LinkKey()
+                {
+                    From = nameof(Contract),
+                    FromColumn = nameof(Contract.ContractKey),
+                    To = nameof(Transaction),
+                    ToColumn = nameof(Transaction.ContractKey)
+                }
+            },
+            ModelToEntityLinks =
+            {
+                new LinkKey()
+                {
+                    From = nameof(Contract),
+                    FromColumn = nameof(Contract.ContractKey),
+                    To = nameof(DataEntity.Contract),
+                    ToColumn = nameof(DataEntity.Contract.ContractKey)
+                }
+            }
         };
 
         contract.IsEntity = true;
-
-        contract.Children.Add(nameof(DataEntity.Account));
-        contract.Children.Add(nameof(DataEntity.Transaction));
+        contract.IsModel = true;
 
         contract.UpsertKeys.Add(new UpsertKey(nameof(DataEntity.Contract),
             nameof(DataEntity.Contract.ContractKey)));

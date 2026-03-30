@@ -16,21 +16,27 @@ public class ProcessQuery<M> : IQuery<ProcessQueryParameters,
 
     public ProcessQuery(ILoggerFactory loggerFactory, NpgsqlConnection dbConnection)
     {
-        _logger = loggerFactory.CreateLogger<ProcessQuery<M>>();
+        _logger      = loggerFactory.CreateLogger<ProcessQuery<M>>();
         _dbConnection = dbConnection;
-        _models = new List<M>();
+        _models       = new List<M>();
     }
 
-    public async Task<(List<M> list, int? startCursor, int? endCursor, int? totalCount, 
-            int? totalPageRecords)>
+    public async Task<(List<M> list, int? startCursor, int? endCursor, int? totalCount, int? totalPageRecords)>
         ExecuteAsync(ProcessQueryParameters parameters, CancellationToken cancellationToken)
     {
-        
-        var types = parameters.SqlStructure.SplitOnDapper.Values.Distinct().ToList();
-        var splitOn = parameters.SqlStructure.SplitOnDapper
-            .Select(a => a.Key).ToList();
-        
-        if (parameters != null && parameters.Pagination.TotalRecordCount.RecordCount > 0 && parameters.Pagination.TotalPageRecords.PageRecords > 0)
+        // Build types list — reversed so Dapper receives them in SQL column order
+        var types  = parameters.SqlStructure.SplitOnDapper.Values.Reverse().ToList();
+        var splitOnDict = parameters.SqlStructure.SplitOnDapper;
+
+        // Remove last entry before building splitOn string (last type has no split column)
+        if (splitOnDict.Count > 0)
+            splitOnDict.RemoveAt(splitOnDict.Count - 1);
+
+        var splitOn = splitOnDict.Reverse().Select(a => a.Key).ToList();
+
+        // Append pagination meta-types when counts are known
+        if (parameters.Pagination.TotalRecordCount.RecordCount > 0
+            && parameters.Pagination.TotalPageRecords.PageRecords > 0)
         {
             types.Add(typeof(TotalPageRecords));
             types.Add(typeof(TotalRecordCount));
@@ -38,51 +44,52 @@ public class ProcessQuery<M> : IQuery<ProcessQueryParameters,
             parameters.SqlStructure.Aliases.Add("RowNumber");
         }
 
-        var query = parameters.SqlStructure.SqlUpsert + " ; " + parameters.SqlStructure.SqlQuery;
-
+        var query      = parameters.SqlStructure.SqlUpsert + " ; " + parameters.SqlStructure.SqlQuery;
         var connection = _dbConnection;
+
         await connection.OpenAsync(cancellationToken);
-        var dbTransaction = await _dbConnection.BeginTransactionAsync(cancellationToken);
+        var dbTransaction = await connection.BeginTransactionAsync(cancellationToken);
 
         try
         {
-            // splitOn.Reverse();
-            // parameters.SqlStructure.Aliases.Reverse();
-            // types.Reverse();
-            var result =
-                await connection
-                    .QueryAsync<(int? startCursor, int? endCursor, int? totalCount, int? totalPageRecords)>(
-                        query, types.ToArray(), map =>
-                        {
-                            var set = MappingConfiguration(_models, parameters.SqlStructure, map, types,
-                                parameters.SqlStructure.Aliases);
-                            _models = set.models;
-                            return (set.startCursor, set.endCursor, set.totalCount, set.totalPageRecords);
-                        }, splitOn: string.Join(",", splitOn), transaction: dbTransaction,
-                        commandType: CommandType.Text);
+            var result = await connection
+                .QueryAsync<(int? startCursor, int? endCursor, int? totalCount, int? totalPageRecords)>(
+                    query,
+                    types.ToArray(),
+                    map =>
+                    {
+                        var set  = MappingConfiguration(_models, parameters.SqlStructure, map, types,
+                                       parameters.SqlStructure.Aliases);
+                        _models = set.models;
+                        return (set.startCursor, set.endCursor, set.totalCount, set.totalPageRecords);
+                    },
+                    splitOn:     string.Join(",", splitOn),
+                    transaction: dbTransaction,
+                    commandType: CommandType.Text);
 
             await dbTransaction.CommitAsync(cancellationToken);
 
-            if (result == null || result.Count() == 0)
-            {
+            if (result == null || !result.Any())
                 return ([], 0, 0, 0, 0);
-            }
 
-            return (_models,
+            var resultList = result.ToList();
+
+            return (
+                _models,
                 parameters.Pagination.StartCursor > 0
                     ? parameters.Pagination.StartCursor
-                    : result.Select(s => s.startCursor).FirstOrDefault(),
+                    : resultList.Select(s => s.startCursor).FirstOrDefault(),
                 parameters.Pagination.EndCursor > 0
                     ? parameters.Pagination.EndCursor
-                    : result.Select(s => s.endCursor).FirstOrDefault(),
-                result.Select(s => s.totalCount).FirstOrDefault(),
-                result.Select(s => s.totalPageRecords)
-                    .FirstOrDefault());
+                    : resultList.Select(s => s.endCursor).FirstOrDefault(),
+                resultList.Select(s => s.totalCount).FirstOrDefault(),
+                resultList.Select(s => s.totalPageRecords).FirstOrDefault()
+            );
         }
         catch (Exception ex)
         {
             await dbTransaction.RollbackAsync(cancellationToken);
-            _logger.LogError(ex, "Error upserting Process");
+            _logger.LogError(ex, "Error executing ProcessQuery");
         }
         finally
         {

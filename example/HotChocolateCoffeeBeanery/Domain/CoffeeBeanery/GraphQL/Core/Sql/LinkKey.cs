@@ -6,14 +6,5 @@
         public string FromColumn { get; set; }
         public string To { get; set; } = "";
         public string ToColumn { get; set; }
-        public RelationshipType RelationshipType { get; set; }
-    }
-
-    public enum RelationshipType
-    {
-        OneToOne,
-        OneToMany,
-        ManyToMany,
-        Graph
     }
 }

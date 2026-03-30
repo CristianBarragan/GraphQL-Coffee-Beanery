@@ -12,11 +12,50 @@ public class CustomerCustomerEdgeMapping
     {
         var customerCustomerEdge = new NodeMap
         {
-            IsModel = true
+            ModelChildren = new List<LinkKey>()
+            {
+                new LinkKey()
+                {
+                    From = nameof(CustomerCustomerEdge),
+                    FromColumn = nameof(CustomerCustomerEdge.OuterCustomerKey),
+                    To = nameof(Customer),
+                    ToColumn = nameof(Customer.CustomerKey)
+                },
+                new LinkKey()
+                {
+                    From = nameof(CustomerCustomerEdge),
+                    FromColumn = nameof(CustomerCustomerEdge.InnerCustomerKey),
+                    To = nameof(Customer),
+                    ToColumn = nameof(Customer.CustomerKey)
+                }
+            },
+            ModelToEntityLinks =
+            {
+                new LinkKey()
+                {
+                    From = nameof(CustomerCustomerEdge),
+                    FromColumn = nameof(CustomerCustomerEdge.CustomerCustomerRelationshipKey),
+                    To = nameof(DataEntity.CustomerCustomerRelationship),
+                    ToColumn = nameof(DataEntity.CustomerCustomerRelationship.CustomerCustomerRelationshipKey)
+                },
+                new LinkKey()
+                {
+                    From = nameof(CustomerCustomerEdge),
+                    FromColumn = nameof(CustomerCustomerEdge.InnerCustomerKey),
+                    To = nameof(DataEntity.Customer),
+                    ToColumn = nameof(DataEntity.Customer.CustomerKey)
+                },
+                new LinkKey()
+                {
+                    From = nameof(CustomerCustomerEdge),
+                    FromColumn = nameof(CustomerCustomerEdge.OuterCustomerKey),
+                    To = nameof(DataEntity.Customer),
+                    ToColumn = nameof(DataEntity.Customer.CustomerKey)
+                }
+            }
         };
         
-        customerCustomerEdge.Children.Add(nameof(DataEntity.CustomerCustomerRelationship.InnerCustomer));
-        customerCustomerEdge.Children.Add(nameof(DataEntity.CustomerCustomerRelationship.OuterCustomer));
+        customerCustomerEdge.IsModel = true;
         
         customerCustomerEdge.UpsertKeys.Add(new UpsertKey(nameof(DataEntity.CustomerBankingRelationship),
             nameof(DataEntity.CustomerCustomerRelationship.InnerCustomer)));

@@ -1,5 +1,8 @@
 ﻿using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Reflection;
 using CoffeeBeanery.GraphQL.Core.Mapping;
 
@@ -8,14 +11,16 @@ public interface IMapper
     object MapToEntity<TModel>(TModel model);
     TModel MapToModel<TModel>(object entity);
 
+    object MapByAlias(Type entityType, object entity, string alias);
+
     TModel MapToUpdatedModel<TModel, TEntity, TKey>(
         TModel current,
         TEntity from,
         Func<TModel, TKey> modelKeySelector,
         params object[] nestedEntities)
-        where TModel : class        
+        where TModel : class
         where TEntity : class;
-    
+
     object MapDynamicToModel(
         dynamic source,
         Type targetType,
@@ -25,32 +30,111 @@ public interface IMapper
 
 public class Mapper : IMapper
 {
-    private readonly Dictionary<string, NodeMap> _mappings = new Dictionary<string, NodeMap>();
+    private readonly Dictionary<string, NodeMap> _mappings;
+
+    // ─── Reflection caches ────────────────────────────────────────────────────
+
+    // Raw PropertyInfo arrays keyed by type full name
+    private readonly ConcurrentDictionary<string, PropertyInfo[]> _propCache = new();
+
+    // Compiled getter delegates: "{TypeFullName}.{PropertyName}" → Func<object, object>
+    private readonly ConcurrentDictionary<string, Func<object, object>> _getterCache = new();
+
+    // Compiled setter delegates: "{TypeFullName}.{PropertyName}" → Action<object, object>
+    private readonly ConcurrentDictionary<string, Action<object, object>> _setterCache = new();
+
+    // MemberwiseClone method info — looked up once
+    private static readonly MethodInfo MemberwiseCloneMethod =
+        typeof(object).GetMethod("MemberwiseClone", BindingFlags.Instance | BindingFlags.NonPublic)!;
 
     public Mapper(Dictionary<string, NodeMap> mappings)
     {
         _mappings = mappings;
     }
 
+    // ─── Cache helpers ────────────────────────────────────────────────────────
+
+    private PropertyInfo[] GetCachedProperties(Type type) =>
+        _propCache.GetOrAdd(type.FullName!,
+            _ => type.GetProperties(BindingFlags.Public | BindingFlags.Instance));
+
+    private Func<object, object> GetCachedGetter(Type type, string propertyName)
+    {
+        var key = $"{type.FullName}.{propertyName}";
+        return _getterCache.GetOrAdd(key, _ =>
+        {
+            var prop = type.GetProperty(propertyName, BindingFlags.Public | BindingFlags.Instance);
+            if (prop?.GetGetMethod() == null) return _ => null!;
+
+            var target = Expression.Parameter(typeof(object), "target");
+            var getter = Expression.Lambda<Func<object, object>>(
+                Expression.Convert(
+                    Expression.Call(Expression.Convert(target, type), prop.GetGetMethod()!),
+                    typeof(object)),
+                target).Compile();
+
+            return getter;
+        });
+    }
+
+    private Action<object, object> GetCachedSetter(Type type, string propertyName)
+    {
+        var key = $"{type.FullName}.{propertyName}";
+        return _setterCache.GetOrAdd(key, _ =>
+        {
+            var prop = type.GetProperty(propertyName, BindingFlags.Public | BindingFlags.Instance);
+            if (prop?.GetSetMethod() == null) return (_, __) => { };
+
+            var target = Expression.Parameter(typeof(object), "target");
+            var value  = Expression.Parameter(typeof(object), "value");
+            var setter = Expression.Lambda<Action<object, object>>(
+                Expression.Call(
+                    Expression.Convert(target, type),
+                    prop.GetSetMethod()!,
+                    Expression.Convert(value, prop.PropertyType)),
+                target, value).Compile();
+
+            return setter;
+        });
+    }
+
+    // ─── IsScalarType helper ──────────────────────────────────────────────────
+
+    private static bool IsScalarOrNullable(Type t) =>
+        t.IsPrimitive
+        || t == typeof(string)
+        || t == typeof(Guid)
+        || t == typeof(Guid?)
+        || t == typeof(decimal)
+        || t == typeof(decimal?)
+        || t == typeof(DateTime)
+        || t == typeof(DateTime?)
+        || t == typeof(DateTimeOffset)
+        || t == typeof(DateTimeOffset?)
+        || (t.IsGenericType && t.GetGenericTypeDefinition() == typeof(Nullable<>));
+
+    // ─── Public API ───────────────────────────────────────────────────────────
+
     public object MapToEntity<TModel>(TModel model)
     {
-        if (model == null) return null;
+        if (model == null) return null!;
 
         var nodeMap = _mappings[typeof(TModel).Name];
-        var entity = Activator.CreateInstance(nodeMap.EntityType);
+        var entity  = Activator.CreateInstance(nodeMap.EntityType)!;
+        var modelType = typeof(TModel);
 
         foreach (var fieldMap in nodeMap.FieldMaps)
         {
             if (!nodeMap.ModelProperties.TryGetValue(fieldMap.SourceName, out var sourceProp))
                 continue;
 
-            var value = sourceProp.GetValue(model);
+            var value = GetCachedGetter(modelType, sourceProp.Name)(model!);
 
             if (value != null && nodeMap.FromEnum != null && sourceProp.PropertyType.IsEnum)
-                value = nodeMap.FromEnum[value.ToString()];
+                value = nodeMap.FromEnum[value.ToString()!];
 
             if (nodeMap.EntityProperties.TryGetValue(fieldMap.DestinationName, out var destProp))
-                destProp.SetValue(entity, value);
+                GetCachedSetter(nodeMap.EntityType, destProp.Name)(entity, value!);
         }
 
         return entity;
@@ -58,35 +142,33 @@ public class Mapper : IMapper
 
     public TModel MapToModel<TModel>(object entity)
     {
-        if (entity == null) return default(TModel);
+        if (entity == null) return default!;
 
         var modelType = typeof(TModel);
-        var nodeMap = _mappings[modelType.Name];
 
-        if (nodeMap == null)
+        if (!_mappings.TryGetValue(modelType.Name, out var nodeMap))
             throw new InvalidOperationException($"No mapping registered for {modelType.Name}");
 
-        var model = Activator.CreateInstance<TModel>();
+        var model      = Activator.CreateInstance<TModel>()!;
         var entityType = entity.GetType();
 
         foreach (var fieldMap in nodeMap.FieldMaps)
         {
-            var sourceProp = entityType.GetProperty(fieldMap.DestinationName);
-            if (sourceProp == null) continue;
+            var value = GetCachedGetter(entityType, fieldMap.DestinationName)(entity);
+            if (value == null) continue;
 
-            var value = sourceProp.GetValue(entity);
+            var sourceProp = GetCachedProperties(entityType)
+                .FirstOrDefault(p => p.Name == fieldMap.DestinationName);
 
-            if (value != null && nodeMap.ToEnum != null && sourceProp.PropertyType.IsEnum)
-                value = nodeMap.ToEnum[value.ToString()];
+            if (value != null && nodeMap.ToEnum != null && sourceProp?.PropertyType.IsEnum == true)
+                value = nodeMap.ToEnum[value.ToString()!];
 
-            var destProp = modelType.GetProperty(fieldMap.SourceName);
-            if (destProp != null)
-                destProp.SetValue(model, value);
+            GetCachedSetter(modelType, fieldMap.SourceName)(model!, value!);
         }
 
         return model;
     }
-    
+
     public TModel MapToUpdatedModel<TModel, TEntity, TKey>(
         TModel current,
         TEntity from,
@@ -95,104 +177,93 @@ public class Mapper : IMapper
         where TModel : class
         where TEntity : class
     {
-        if (current == null) throw new ArgumentNullException(nameof(current));
-        if (from == null) throw new ArgumentNullException(nameof(from));
+        if (current == null)          throw new ArgumentNullException(nameof(current));
+        if (from == null)             throw new ArgumentNullException(nameof(from));
         if (modelKeySelector == null) throw new ArgumentNullException(nameof(modelKeySelector));
 
-        var modelType = typeof(TModel);
+        var modelType  = typeof(TModel);
         var entityType = typeof(TEntity);
 
-        // Identify the target TModel via the key selector
-        var id = modelKeySelector(current);
-
         if (!_mappings.TryGetValue(modelType.Name, out var nodeMap))
-            throw new InvalidOperationException(
-                $"No mapping registered for {modelType.Name}.");
+            throw new InvalidOperationException($"No mapping registered for {modelType.Name}.");
 
-        // Clone current TModel as base so we only overwrite FieldMaps-defined fields
         var updatedModel = ShallowClone(current);
 
-        // 1. Map flat fields from TEntity onto TModel via FieldMaps
-        foreach (var fieldMap in nodeMap.FieldMaps)
+        // 1. Map flat fields — only where DestinationEntity matches TEntity
+        foreach (var fieldMap in nodeMap.FieldMaps
+            .Where(f => f.DestinationEntity == entityType.Name))
         {
-            var sourceProp = entityType.GetProperty(fieldMap.DestinationName);
-            if (sourceProp == null) continue;
+            var value = GetCachedGetter(entityType, fieldMap.DestinationName)(from);
+            if (value == null) continue;
 
-            var value = sourceProp.GetValue(from);
+            var sourceProp = GetCachedProperties(entityType)
+                .FirstOrDefault(p => p.Name == fieldMap.DestinationName);
 
-            if (value != null && nodeMap.ToEnum != null && sourceProp.PropertyType.IsEnum)
-                value = nodeMap.ToEnum[value.ToString()];
+            if (nodeMap.ToEnum != null && sourceProp?.PropertyType.IsEnum == true)
+                value = nodeMap.ToEnum[value.ToString()!];
 
-            if (nodeMap.ModelProperties.TryGetValue(fieldMap.SourceName, out var destProp))
-                destProp.SetValue(updatedModel, value);
+            if (nodeMap.ModelProperties.ContainsKey(fieldMap.SourceName))
+                GetCachedSetter(modelType, fieldMap.SourceName)(updatedModel, value);
         }
 
-        // 2. Map nested inner objects from each additional entity in nestedEntities
+        // 2. Map nested entities
         foreach (var nestedEntity in nestedEntities ?? Array.Empty<object>())
         {
             if (nestedEntity == null) continue;
 
             var nestedEntityType = nestedEntity.GetType();
 
-            // Find the NodeMap registered for this nested entity type
-            var nestedNodeMap = _mappings.Values
-                .FirstOrDefault(m => m.EntityType == nestedEntityType);
-
-            if (nestedNodeMap == null) continue;
-
-            // Find the matching nested property on TModel (e.g. CustomerCustomerEdge.Customer)
-            var nestedModelProperty = modelType
-                .GetProperties(BindingFlags.Public | BindingFlags.Instance)
-                .FirstOrDefault(p => _mappings.ContainsKey(p.PropertyType.Name)
-                    && _mappings[p.PropertyType.Name].EntityType == nestedEntityType);
+            var nestedModelProperty = GetCachedProperties(modelType)
+                .FirstOrDefault(p =>
+                    _mappings.TryGetValue(p.PropertyType.Name, out var m) &&
+                    m.EntityType == nestedEntityType);
 
             if (nestedModelProperty == null) continue;
 
-            // Instantiate the nested model and map fields from the nested entity
-            var nestedModel = Activator.CreateInstance(nestedModelProperty.PropertyType);
+            if (!_mappings.TryGetValue(nestedModelProperty.PropertyType.Name, out var nestedNodeMap))
+                continue;
 
-            foreach (var fieldMap in nestedNodeMap.FieldMaps)
+            var nestedModel = Activator.CreateInstance(nestedModelProperty.PropertyType)!;
+
+            foreach (var fieldMap in nestedNodeMap.FieldMaps
+                .Where(f => f.DestinationEntity == nestedEntityType.Name))
             {
-                var sourceProp = nestedEntityType.GetProperty(fieldMap.DestinationName);
-                if (sourceProp == null) continue;
+                var value = GetCachedGetter(nestedEntityType, fieldMap.DestinationName)(nestedEntity);
+                if (value == null) continue;
 
-                var value = sourceProp.GetValue(nestedEntity);
+                var sourceProp = GetCachedProperties(nestedEntityType)
+                    .FirstOrDefault(p => p.Name == fieldMap.DestinationName);
 
-                if (value != null && nestedNodeMap.ToEnum != null && sourceProp.PropertyType.IsEnum)
-                    value = nestedNodeMap.ToEnum[value.ToString()];
+                if (nestedNodeMap.ToEnum != null && sourceProp?.PropertyType.IsEnum == true)
+                    value = nestedNodeMap.ToEnum[value.ToString()!];
 
-                if (nestedNodeMap.ModelProperties.TryGetValue(fieldMap.SourceName, out var destProp))
-                    destProp.SetValue(nestedModel, value);
+                if (nestedNodeMap.ModelProperties.ContainsKey(fieldMap.SourceName))
+                    GetCachedSetter(nestedModelProperty.PropertyType, fieldMap.SourceName)(nestedModel, value);
             }
 
-            // Set the populated nested model onto the updated TModel
-            nestedModelProperty.SetValue(updatedModel, nestedModel);
+            GetCachedSetter(modelType, nestedModelProperty.Name)(updatedModel, nestedModel);
         }
 
         return updatedModel;
     }
-    
+
     public object MapDynamicToModel(
         dynamic source,
         Type targetType,
         object current,
         string idPropertyName)
     {
-        if (source == null) throw new ArgumentNullException(nameof(source));
-        if (targetType == null) throw new ArgumentNullException(nameof(targetType));
-        if (current == null) throw new ArgumentNullException(nameof(current));
+        if (source == null)                            throw new ArgumentNullException(nameof(source));
+        if (targetType == null)                        throw new ArgumentNullException(nameof(targetType));
+        if (current == null)                           throw new ArgumentNullException(nameof(current));
         if (string.IsNullOrWhiteSpace(idPropertyName)) throw new ArgumentNullException(nameof(idPropertyName));
 
-        var sourceModelType = ((object)source).GetType();
+        var sourceModelType    = ((object)source).GetType();
         var incomingEntityType = current.GetType();
 
-        // Step 1 — resolve NodeMap for the incoming entity type
         if (!_mappings.TryGetValue(targetType.Name, out var nodeMap))
-            throw new InvalidOperationException(
-                $"No mapping registered for {targetType.Name}.");
+            throw new InvalidOperationException($"No mapping registered for {targetType.Name}.");
 
-        // Step 2 — infer the TModel property name from FieldMaps using idPropertyName
-        // idPropertyName is on the entity side (DestinationName), we need the model side (SourceName)
         var idFieldMap = nodeMap.FieldMaps
             .FirstOrDefault(f => f.DestinationName.Equals(idPropertyName, StringComparison.OrdinalIgnoreCase));
 
@@ -201,116 +272,120 @@ public class Mapper : IMapper
                 $"No FieldMap found with DestinationName '{idPropertyName}' in mapping for {targetType.Name}.");
 
         var modelIdPropertyName = idFieldMap.SourceName;
+        var incomingIdValue     = GetCachedGetter(incomingEntityType, idPropertyName)(current);
 
-        // Step 3 — read the unique ID value from the incoming entity via reflection
-        var incomingIdProp = incomingEntityType
-            .GetProperty(idPropertyName, BindingFlags.Public | BindingFlags.Instance);
-
-        if (incomingIdProp == null)
-            throw new InvalidOperationException(
-                $"Property '{idPropertyName}' not found on incoming entity {incomingEntityType.Name}.");
-
-        var incomingIdValue = incomingIdProp.GetValue(current);
-
-        // Step 4 — fully map the incoming entity to its TModel type via FieldMaps
-        var mappedModel = Activator.CreateInstance(targetType);
+        // Map incoming entity → model
+        var mappedModel = Activator.CreateInstance(targetType)!;
 
         foreach (var fieldMap in nodeMap.FieldMaps)
         {
-            var sourceProp = incomingEntityType
-                .GetProperty(fieldMap.DestinationName, BindingFlags.Public | BindingFlags.Instance);
+            var value = GetCachedGetter(incomingEntityType, fieldMap.DestinationName)(current);
+            if (value == null) continue;
 
-            if (sourceProp == null) continue;
+            var sourceProp = GetCachedProperties(incomingEntityType)
+                .FirstOrDefault(p => p.Name == fieldMap.DestinationName);
 
-            var value = sourceProp.GetValue(current);
+            if (nodeMap.ToEnum != null && sourceProp?.PropertyType.IsEnum == true)
+                value = nodeMap.ToEnum[value.ToString()!];
 
-            if (value != null && nodeMap.ToEnum != null && sourceProp.PropertyType.IsEnum)
-                value = nodeMap.ToEnum[value.ToString()];
-
-            if (nodeMap.ModelProperties.TryGetValue(fieldMap.SourceName, out var destProp))
-                destProp.SetValue(mappedModel, value);
+            if (nodeMap.ModelProperties.ContainsKey(fieldMap.SourceName))
+                GetCachedSetter(targetType, fieldMap.SourceName)(mappedModel, value);
         }
 
-        // Step 5 — find the List<T> property on the source TModel that holds items of targetType
-        var listProperty = sourceModelType
-            .GetProperties(BindingFlags.Public | BindingFlags.Instance)
+        // Clone source model
+        var mergedModel = Activator.CreateInstance(sourceModelType)!;
+        foreach (var prop in GetCachedProperties(sourceModelType).Where(p => p.CanRead && p.CanWrite))
+            GetCachedSetter(sourceModelType, prop.Name)(mergedModel,
+                GetCachedGetter(sourceModelType, prop.Name)(source));
+
+        // Find List<T> property on source model
+        var listProperty = GetCachedProperties(sourceModelType)
             .FirstOrDefault(p =>
                 p.PropertyType.IsGenericType &&
                 p.PropertyType.GetGenericTypeDefinition() == typeof(List<>) &&
                 p.PropertyType.GetGenericArguments()[0] == targetType);
 
-        // Step 6 — clone the source TModel as base
-        var mergedModel = Activator.CreateInstance(sourceModelType);
-        foreach (var prop in sourceModelType
-                     .GetProperties(BindingFlags.Public | BindingFlags.Instance)
-                     .Where(p => p.CanRead && p.CanWrite))
-        {
-            prop.SetValue(mergedModel, prop.GetValue(source));
-        }
-
         if (listProperty != null)
         {
-            // Step 7a — get or create the List<T> on the merged model
-            var existingList = listProperty.GetValue(mergedModel);
+            var existingList = GetCachedGetter(sourceModelType, listProperty.Name)(mergedModel);
             if (existingList == null)
             {
-                existingList = Activator.CreateInstance(listProperty.PropertyType);
-                listProperty.SetValue(mergedModel, existingList);
+                existingList = Activator.CreateInstance(listProperty.PropertyType)!;
+                GetCachedSetter(sourceModelType, listProperty.Name)(mergedModel, existingList);
             }
 
-            var list = existingList as System.Collections.IList;
-
-            // Step 8 — find existing item in the list by the inferred model ID property
-            var modelIdProp = targetType
-                .GetProperty(modelIdPropertyName, BindingFlags.Public | BindingFlags.Instance);
+            var list       = (System.Collections.IList)existingList;
+            var modelIdProp = GetCachedProperties(targetType)
+                .FirstOrDefault(p => p.Name == modelIdPropertyName);
 
             var existingIndex = -1;
             for (int i = 0; i < list.Count; i++)
             {
-                var itemIdValue = modelIdProp?.GetValue(list[i]);
-                if (Equals(itemIdValue, incomingIdValue))
-                {
-                    existingIndex = i;
-                    break;
-                }
+                var itemIdValue = modelIdProp != null
+                    ? GetCachedGetter(targetType, modelIdProp.Name)(list[i]!)
+                    : null;
+
+                if (Equals(itemIdValue, incomingIdValue)) { existingIndex = i; break; }
             }
 
-            // Step 9 — update existing item or add new one
-            if (existingIndex >= 0)
-                list[existingIndex] = mappedModel;
-            else
-                list.Add(mappedModel);
+            if (existingIndex >= 0) list[existingIndex] = mappedModel;
+            else                    list.Add(mappedModel);
         }
         else
         {
-            // Step 7b — no List<T> found, fall back to overlaying flat fields directly onto mergedModel
             foreach (var fieldMap in nodeMap.FieldMaps)
             {
-                if (!nodeMap.ModelProperties.TryGetValue(fieldMap.SourceName, out var mappedProp))
-                    continue;
+                if (!nodeMap.ModelProperties.ContainsKey(fieldMap.SourceName)) continue;
 
-                var mappedValue = mappedProp.GetValue(mappedModel);
-                var defaultValue = mappedProp.PropertyType.IsValueType
+                var mappedValue  = GetCachedGetter(targetType, fieldMap.SourceName)(mappedModel);
+                var mappedProp   = GetCachedProperties(targetType).FirstOrDefault(p => p.Name == fieldMap.SourceName);
+                var defaultValue = mappedProp?.PropertyType.IsValueType == true
                     ? Activator.CreateInstance(mappedProp.PropertyType)
                     : null;
 
                 if (!Equals(mappedValue, defaultValue))
-                {
-                    var mergedProp = sourceModelType
-                        .GetProperty(fieldMap.SourceName, BindingFlags.Public | BindingFlags.Instance);
-                    mergedProp?.SetValue(mergedModel, mappedValue);
-                }
+                    GetCachedSetter(sourceModelType, fieldMap.SourceName)(mergedModel, mappedValue!);
             }
         }
 
         return mergedModel;
     }
-    
-    private TModel ShallowClone<TModel>(TModel source) where TModel : class
-    {
-        var memberwiseClone = typeof(object)
-            .GetMethod("MemberwiseClone", BindingFlags.Instance | BindingFlags.NonPublic);
 
-        return (TModel)memberwiseClone.Invoke(source, null);
+    public object MapByAlias(Type entityType, object entity, string alias)
+    {
+        if (entity == null)                           throw new ArgumentNullException(nameof(entity));
+        if (entityType == null)                       throw new ArgumentNullException(nameof(entityType));
+        if (string.IsNullOrWhiteSpace(alias))         throw new ArgumentNullException(nameof(alias));
+
+        if (!_mappings.TryGetValue(alias, out var nodeMap) &&
+            !_mappings.TryGetValue(entityType.Name, out nodeMap))
+            throw new InvalidOperationException(
+                $"No mapping registered for alias '{alias}' or type '{entityType.Name}'.");
+
+        // Always create from the registered ModelType to avoid Domain vs Entity mismatch
+        var mappedModel = Activator.CreateInstance(nodeMap.ModelType)!;
+
+        foreach (var fieldMap in nodeMap.FieldMaps
+            .Where(f => f.DestinationEntity == entityType.Name))
+        {
+            var value = GetCachedGetter(entityType, fieldMap.DestinationName)(entity);
+            if (value == null) continue;
+
+            var sourceProp = GetCachedProperties(entityType)
+                .FirstOrDefault(p => p.Name == fieldMap.DestinationName);
+
+            if (nodeMap.ToEnum != null && sourceProp?.PropertyType.IsEnum == true)
+                value = nodeMap.ToEnum[value.ToString()!];
+
+            if (nodeMap.ModelProperties.ContainsKey(fieldMap.SourceName))
+                GetCachedSetter(nodeMap.ModelType, fieldMap.SourceName)(mappedModel, value);
+        }
+
+        return mappedModel;
     }
+
+    // ─── Private helpers ──────────────────────────────────────────────────────
+
+    private TModel ShallowClone<TModel>(TModel source) where TModel : class =>
+        (TModel)MemberwiseCloneMethod.Invoke(source, null)!;
 }

@@ -1,4 +1,5 @@
 ﻿using CoffeeBeanery.GraphQL.Core.Mapping;
+using CoffeeBeanery.GraphQL.Core.Sql;
 using Domain.Model;
 using DataEntity = Database.Entity;
 using DataGraph = Database.Graph;
@@ -14,7 +15,79 @@ public class CustomerCustomerRelationshipEdgeMapping
             Schema = nameof(DataGraph.CustomerCustomerRelationshipEdge),
             IsGraph = true,
             IsEntity = true,
-            IsModel = true
+            IsModel = true,
+            EntityChildren = new List<LinkKey>()
+            {
+                new LinkKey()
+                {
+                    From = nameof(DataGraph.CustomerCustomerRelationshipEdge),
+                    FromColumn = nameof(DataGraph.CustomerCustomerRelationshipEdge.InnerCustomerId),
+                    To = nameof(DataEntity.Customer),
+                    ToColumn = nameof(DataEntity.Customer.Id)
+                },
+                new LinkKey()
+                {
+                    From = nameof(DataGraph.CustomerCustomerRelationshipEdge),
+                    FromColumn = nameof(DataGraph.CustomerCustomerRelationshipEdge.OuterCustomerId),
+                    To = nameof(DataEntity.Customer),
+                    ToColumn = nameof(DataEntity.Customer.Id)
+                },
+                new LinkKey()
+                {
+                    From = nameof(DataGraph.CustomerCustomerRelationshipEdge),
+                    FromColumn = nameof(DataGraph.CustomerCustomerRelationshipEdge.Id),
+                    To = nameof(DataEntity.CustomerCustomerRelationship),
+                    ToColumn = nameof(DataEntity.CustomerCustomerRelationship.Id)
+                }
+            },
+            ModelChildren = new List<LinkKey>()
+            {
+                new LinkKey()
+                {
+                    From = nameof(CustomerCustomerRelationshipEdge),
+                    FromColumn = nameof(CustomerCustomerRelationshipEdge.CustomerCustomerRelationshipKey),
+                    To = nameof(CustomerCustomerRelationship),
+                    ToColumn = nameof(CustomerCustomerRelationship.CustomerCustomerRelationshipKey)
+                },
+                new LinkKey()
+                {
+                    From = nameof(CustomerCustomerRelationshipEdge),
+                    FromColumn = nameof(CustomerCustomerEdge.OuterCustomerKey),
+                    To = nameof(Customer),
+                    ToColumn = nameof(Customer.CustomerKey)
+                },
+                new LinkKey()
+                {
+                    From = nameof(CustomerCustomerRelationshipEdge),
+                    FromColumn = nameof(CustomerCustomerEdge.InnerCustomerKey),
+                    To = nameof(Customer),
+                    ToColumn = nameof(Customer.CustomerKey)
+                }
+            },
+            ModelToEntityLinks =
+            {
+                new LinkKey()
+                {
+                    From = nameof(CustomerCustomerRelationshipEdge),
+                    FromColumn = nameof(CustomerCustomerRelationshipEdge.CustomerCustomerRelationshipKey),
+                    To = nameof(DataEntity.CustomerCustomerRelationship),
+                    ToColumn = nameof(DataEntity.CustomerCustomerRelationship.CustomerCustomerRelationshipKey)
+                },
+                new LinkKey()
+                {
+                    From = nameof(CustomerCustomerRelationshipEdge),
+                    FromColumn = nameof(CustomerCustomerRelationshipEdge.InnerCustomerKey),
+                    To = nameof(DataEntity.Customer),
+                    ToColumn = nameof(DataEntity.Customer.CustomerKey)
+                },
+                new LinkKey()
+                {
+                    From = nameof(CustomerCustomerRelationshipEdge),
+                    FromColumn = nameof(CustomerCustomerRelationshipEdge.OuterCustomerKey),
+                    To = nameof(DataEntity.Customer),
+                    ToColumn = nameof(DataEntity.Customer.CustomerKey)
+                }
+            }
         };
         
         // customerCustomerRelationshipEdge.FieldMaps.Add(new FieldMap
@@ -40,9 +113,6 @@ public class CustomerCustomerRelationshipEdgeMapping
         //     // ,
         //     // DestinationName = nameof(DataEntity.CustomerCustomerRelationship.Id)
         // });
-        
-        customerCustomerRelationshipEdge.Children.Add(nameof(DataEntity.CustomerCustomerRelationship.InnerCustomer));
-        customerCustomerRelationshipEdge.Children.Add(nameof(DataEntity.CustomerCustomerRelationship.OuterCustomer));
         
         customerCustomerRelationshipEdge.FieldMaps.Add(new FieldMap
         {

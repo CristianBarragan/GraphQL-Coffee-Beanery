@@ -26,11 +26,11 @@ namespace Domain.Shared.Extension
             //         totalPageRecords)>,
             //     CustomerCustomerEdgeQueryHandler<dynamic>>();
 
-            services.AddScoped<IProcessService<Wrapper>, ProcessService<Wrapper>>();
+            services.AddScoped<IProcessService<CustomerCustomerEdge>, ProcessService<CustomerCustomerEdge>>();
             services.AddScoped<IQuery<ProcessQueryParameters,
-                    (List<Wrapper> list, int? startCursor, int? endCursor, int? totalCount, int?
+                    (List<CustomerCustomerEdge> list, int? startCursor, int? endCursor, int? totalCount, int?
                     totalPageRecords)>,
-                CustomerCustomerEdgeQueryHandler<Wrapper>>();
+                CustomerCustomerEdgeQueryHandler<CustomerCustomerEdge>>();
 
             // services.AddScoped<IQuery<ProcessQueryParameters,
             //         (List<CustomerCustomerEdge> list, int? startCursor, int? endCursor, int? totalCount,

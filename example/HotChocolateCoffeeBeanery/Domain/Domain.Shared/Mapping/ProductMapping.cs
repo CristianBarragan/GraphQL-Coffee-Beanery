@@ -11,13 +11,67 @@ public class ProductMapping : IMappingRegistration
     {
         var product = new NodeMap
         {
-            Schema = nameof(DataEntity.Schema.Banking)
+            ModelChildren = new List<LinkKey>()
+            {
+                new LinkKey()
+                {
+                    From = nameof(Product),
+                    FromColumn = nameof(Product.ContractKey),
+                    To = nameof(Contract),
+                    ToColumn = nameof(Contract.ContractKey)
+                },
+                new LinkKey()
+                {
+                    From = nameof(Product),
+                    FromColumn = nameof(Product.AccountKey),
+                    To = nameof(Account),
+                    ToColumn = nameof(Account.AccountKey)
+                },
+                new LinkKey()
+                {
+                    From = nameof(Product),
+                    FromColumn = nameof(Product.CustomerBankingRelationshipKey),
+                    To = nameof(CustomerBankingRelationship),
+                    ToColumn = nameof(CustomerBankingRelationship.CustomerBankingRelationshipKey)
+                }
+            },
+            ModelParents = new List<LinkKey>()
+            {
+                new LinkKey()
+                {
+                    From = nameof(Product),
+                    FromColumn = nameof(Product.CustomerKey),
+                    To = nameof(Customer),
+                    ToColumn = nameof(Customer.CustomerKey)
+                }
+            },
+            ModelToEntityLinks =
+            {
+                new LinkKey()
+                {
+                    From = nameof(Product),
+                    FromColumn = nameof(Product.CustomerBankingRelationshipKey),
+                    To = nameof(DataEntity.CustomerBankingRelationship),
+                    ToColumn = nameof(DataEntity.CustomerBankingRelationship.CustomerBankingRelationshipKey)
+                },
+                new LinkKey()
+                {
+                    From = nameof(Product),
+                    FromColumn = nameof(Product.ContractKey),
+                    To = nameof(DataEntity.Contract),
+                    ToColumn = nameof(DataEntity.Contract.ContractKey)
+                },
+                new LinkKey()
+                {
+                    From = nameof(Product),
+                    FromColumn = nameof(Product.AccountKey),
+                    To = nameof(DataEntity.Account),
+                    ToColumn = nameof(DataEntity.Account.AccountKey)
+                }
+            }
         };
 
         product.IsModel = true;
-
-        product.Children.Add(nameof(Contract));
-        product.Children.Add(nameof(Account));
 
         product.FieldMaps.Add(new FieldMap
         {

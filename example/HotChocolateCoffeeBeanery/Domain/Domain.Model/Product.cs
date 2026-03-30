@@ -5,7 +5,8 @@ namespace Domain.Model;
 
 public class Product
 {
-
+    public Guid? CustomerCustomerRelationship { get; set; }
+    
     public Guid? CustomerBankingRelationshipKey { get; set; }
     
 

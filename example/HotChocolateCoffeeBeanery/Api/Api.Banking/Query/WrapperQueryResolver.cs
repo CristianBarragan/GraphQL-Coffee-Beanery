@@ -18,7 +18,6 @@ namespace Api.Banking.Query;
 public class WrapperQueryResolver
 {
     private readonly ILogger<WrapperQueryResolver> _logger;
-    private IProcessService<Wrapper> _service;
 
     public WrapperQueryResolver(
         ILogger<WrapperQueryResolver> logger)
@@ -30,13 +29,12 @@ public class WrapperQueryResolver
     [UseFiltering]
     [UseSorting]
     public async Task<Connection<Wrapper>> GetWrapper(
-        [Service] IProcessService<Wrapper> service,
+        [Service] IProcessService<CustomerCustomerEdge> service,
         [SchemaService] IResolverContext resolverContext,
         CancellationToken cancellationToken)
     {
         try
         {
-            _service = service;
             var cacheKey = string.Empty;
             
             var set = await service.QueryProcessAsync(

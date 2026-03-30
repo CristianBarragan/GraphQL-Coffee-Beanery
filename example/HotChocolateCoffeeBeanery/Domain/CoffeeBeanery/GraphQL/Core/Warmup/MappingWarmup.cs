@@ -1,5 +1,4 @@
-﻿using System.Linq.Expressions;
-using System.Reflection;
+﻿using System.Reflection;
 using CoffeeBeanery.GraphQL.Core.GraphQL;
 using CoffeeBeanery.GraphQL.Core.Helper;
 using CoffeeBeanery.GraphQL.Core.Mapping;
@@ -11,14 +10,39 @@ public static class MappingWarmup
     public static void Warmup(IReadOnlyDictionary<string, NodeMap> mapping)
     {
         var nodeTrees = new Dictionary<string, NodeTree>();
-        var nodeIds = new List<KeyValuePair<string, int>>();
+        var nodeIds   = new List<KeyValuePair<string, int>>();
+        var counter   = 0;
 
-        foreach (var map in mapping.Values)
+        // Pass 1 — warmup property caches and compile mappers for every map
+        foreach (var (_, map) in mapping)
         {
             if (map.ModelType == null || map.EntityType == null)
                 continue;
 
-            // Dynamically create an instance of the model type
+            WarmupMap(map);
+            BulkMapper.Compile(map);
+        }
+
+        // Pass 2 — build trees only for ROOT maps
+        // Since all list properties default to new List<LinkKey>() (never null),
+        // we check Count > 0 to detect non-roots.
+        // A root has:
+        //   - NO EntityParents       (no direct parent entity)
+        //   - NO EntityRelatedParents (no related parent entity)
+        foreach (var (registeredKey, map) in mapping)
+        {
+            if (map.ModelType == null || map.EntityType == null)
+                continue;
+
+            if (map.EntityParents.Count > 0 || map.EntityRelatedParents.Count > 0)
+                continue;
+
+            var rootAlias = !string.IsNullOrWhiteSpace(map.Alias)
+                ? map.Alias
+                : registeredKey;
+
+            if (nodeTrees.ContainsKey(rootAlias)) continue;
+
             object? modelInstance = null;
             try
             {
@@ -32,20 +56,23 @@ public static class MappingWarmup
                 continue;
             }
 
-            // Generate tree for this node
-            NodeTreeIterator.GenerateTree(
-                nodeTrees,
-                modelInstance,
-                map.ModelType.Name,
-                nodeIds,
-                isModel: true
-            );
-
-            // Warmup properties for mapping
-            WarmupMap(map);
-
-            // Compile the mapper
-            BulkMapper.Compile(map);
+            try
+            {
+                NodeTreeIterator.GenerateTree(
+                    nodeTrees,
+                    modelInstance,
+                    rootAlias,
+                    nodeIds,
+                    isModel: true,
+                    ref counter
+                );
+            }
+            catch (Exception ex)
+            {
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine($"[WARNING] GenerateTree failed for alias '{rootAlias}': {ex.Message}");
+                Console.ResetColor();
+            }
         }
     }
 
@@ -53,7 +80,7 @@ public static class MappingWarmup
     {
         foreach (var field in map.FieldMaps.Where(a => a.DestinationName != "Id"))
         {
-            var modelProp = map.ModelType.GetProperty(field.SourceName);
+            var modelProp  = map.ModelType.GetProperty(field.SourceName);
             var entityProp = map.EntityType.GetProperty(field.DestinationName);
 
             if (modelProp != null)

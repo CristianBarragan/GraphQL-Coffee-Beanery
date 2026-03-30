@@ -11,62 +11,98 @@ public class CustomerCustomerRelationshipMapping : IMappingRegistration
     {
         var ccr = new NodeMap
         {
-            Schema = nameof(DataEntity.Schema.Banking)
+            Schema = nameof(DataEntity.Schema.Banking),
+
+            // To must match the key used in mappings.TryAdd() in each child mapping:
+            //   InnerCustomerMapping  → mappings.TryAdd("InnerCustomer", ...)
+            //   OuterCustomerMapping  → mappings.TryAdd("OuterCustomer", ...)
+            EntityChildren = new List<LinkKey>()
+            {
+                new LinkKey()
+                {
+                    From       = nameof(DataEntity.CustomerCustomerRelationship),
+                    FromColumn = nameof(DataEntity.CustomerCustomerRelationship.InnerCustomerId),
+                    To         = nameof(DataEntity.CustomerCustomerRelationship.InnerCustomer), // "InnerCustomer"
+                    ToColumn   = nameof(DataEntity.Customer.Id)
+                },
+                new LinkKey()
+                {
+                    From       = nameof(DataEntity.CustomerCustomerRelationship),
+                    FromColumn = nameof(DataEntity.CustomerCustomerRelationship.OuterCustomerId),
+                    To         = nameof(DataEntity.CustomerCustomerRelationship.OuterCustomer), // "OuterCustomer"
+                    ToColumn   = nameof(DataEntity.Customer.Id)
+                }
+            },
+
+            ModelParents = new List<LinkKey>()
+            {
+                new LinkKey()
+                {
+                    From       = nameof(CustomerCustomerRelationship),
+                    FromColumn = nameof(CustomerCustomerRelationship.CustomerCustomerRelationshipKey),
+                    To         = nameof(CustomerCustomerEdge),
+                    ToColumn   = nameof(CustomerCustomerEdge.CustomerCustomerRelationshipKey)
+                }
+            },
+            ModelToEntityLinks =
+            {
+                new LinkKey()
+                {
+                    From       = nameof(CustomerCustomerRelationship),
+                    FromColumn = nameof(CustomerCustomerRelationship.CustomerCustomerRelationshipKey),
+                    To         = nameof(DataEntity.CustomerCustomerRelationship),
+                    ToColumn   = nameof(DataEntity.CustomerCustomerRelationship.CustomerCustomerRelationshipKey)
+                }
+            }
         };
 
         ccr.IsEntity = true;
-        ccr.IsModel = true;
+        ccr.IsModel  = true;
 
-        ccr.Children.Add(nameof(DataEntity.CustomerCustomerRelationship.InnerCustomer));
-        ccr.Children.Add(nameof(DataEntity.CustomerCustomerRelationship.OuterCustomer));
-
-        ccr.UpsertKeys.Add(new UpsertKey(nameof(DataEntity.CustomerCustomerRelationship),
+        ccr.UpsertKeys.Add(new UpsertKey(
+            nameof(DataEntity.CustomerCustomerRelationship),
             nameof(DataEntity.CustomerCustomerRelationship.CustomerCustomerRelationshipKey)));
 
         ccr.FieldMaps.Add(new FieldMap
         {
-            SourceName = nameof(DataEntity.CustomerCustomerRelationship.Id),
+            SourceName        = nameof(DataEntity.CustomerCustomerRelationship.Id),
             DestinationEntity = nameof(DataEntity.CustomerCustomerRelationship),
-            DestinationName = nameof(DataEntity.CustomerCustomerRelationship.Id)
+            DestinationName   = nameof(DataEntity.CustomerCustomerRelationship.Id)
         });
 
         ccr.FieldMaps.Add(new FieldMap
         {
-            SourceName = nameof(DataEntity.CustomerCustomerRelationship.InnerCustomerKey),
-            DestinationEntity = nameof(DataEntity.Customer),
-            DestinationName = nameof(DataEntity.Customer.CustomerKey)
-        });
-            
-        ccr.FieldMaps.Add(new FieldMap
-        {
-            SourceName = nameof(DataEntity.Customer.CustomerKey),
-            DestinationEntity = nameof(DataEntity.Customer),
-            DestinationName = nameof(DataEntity.Customer.CustomerKey)
-        });
-        
-        ccr.FieldMaps.Add(new FieldMap
-        {
-            SourceName = nameof(DataEntity.CustomerCustomerRelationship.OuterCustomerKey),
-            DestinationEntity = nameof(DataEntity.Customer),
-            DestinationName = nameof(DataEntity.Customer.CustomerKey)
-        });
-        
-        ccr.FieldMaps.Add(new FieldMap
-        {
-            SourceName = nameof(CustomerCustomerRelationship.CustomerCustomerRelationshipKey),
+            SourceName        = nameof(DataEntity.CustomerCustomerRelationship.InnerCustomerKey),
             DestinationEntity = nameof(DataEntity.CustomerCustomerRelationship),
-            DestinationName = nameof(DataEntity.CustomerCustomerRelationship.CustomerCustomerRelationshipKey)
+            DestinationName   = nameof(DataEntity.CustomerCustomerRelationship.InnerCustomerKey)
         });
 
         ccr.FieldMaps.Add(new FieldMap
         {
-            SourceName = nameof(CustomerCustomerRelationship.CustomerCustomerRelationshipType),
+            SourceName        = nameof(DataEntity.CustomerCustomerRelationship.OuterCustomerKey),
             DestinationEntity = nameof(DataEntity.CustomerCustomerRelationship),
-            DestinationName = nameof(DataEntity.CustomerCustomerRelationship.CustomerCustomerRelationshipType)
+            DestinationName   = nameof(DataEntity.CustomerCustomerRelationship.OuterCustomerKey)
         });
 
-        mappings.TryAdd(nameof(CustomerCustomerRelationship), MappingRegistry.Register(typeof(CustomerCustomerRelationship),
-            typeof(DataEntity.CustomerCustomerRelationship), ccr));
+        ccr.FieldMaps.Add(new FieldMap
+        {
+            SourceName        = nameof(CustomerCustomerRelationship.CustomerCustomerRelationshipKey),
+            DestinationEntity = nameof(DataEntity.CustomerCustomerRelationship),
+            DestinationName   = nameof(DataEntity.CustomerCustomerRelationship.CustomerCustomerRelationshipKey)
+        });
+
+        ccr.FieldMaps.Add(new FieldMap
+        {
+            SourceName        = nameof(CustomerCustomerRelationship.CustomerCustomerRelationshipType),
+            DestinationEntity = nameof(DataEntity.CustomerCustomerRelationship),
+            DestinationName   = nameof(DataEntity.CustomerCustomerRelationship.CustomerCustomerRelationshipType)
+        });
+
+        mappings.TryAdd(nameof(CustomerCustomerRelationship),
+            MappingRegistry.Register(
+                typeof(CustomerCustomerRelationship),
+                typeof(DataEntity.CustomerCustomerRelationship),
+                ccr));
     }
 
     public void Register(Dictionary<string, NodeMap> mappings)

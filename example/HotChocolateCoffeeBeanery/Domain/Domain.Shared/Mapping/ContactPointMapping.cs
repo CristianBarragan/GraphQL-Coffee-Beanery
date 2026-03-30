@@ -11,7 +11,37 @@ public class ContactPointMapping : IMappingRegistration
     {
         var cp = new NodeMap
         {
-            Schema = nameof(DataEntity.Schema.Banking)
+            Schema = nameof(DataEntity.Schema.Banking),
+            EntityParents = new List<LinkKey>()
+            {
+                new LinkKey()
+                {
+                    From = nameof(DataEntity.ContactPoint),
+                    FromColumn = nameof(DataEntity.ContactPoint.CustomerId),
+                    To = nameof(DataEntity.Customer),
+                    ToColumn = nameof(DataEntity.Customer.Id)
+                }
+            },
+            ModelParents = new List<LinkKey>()
+            {
+                new LinkKey()
+                {
+                    From = nameof(ContactPoint),
+                    FromColumn = nameof(ContactPoint.CustomerKey),
+                    To = nameof(Customer),
+                    ToColumn = nameof(Customer.CustomerKey)
+                }
+            },
+            ModelToEntityLinks =
+            {
+                new LinkKey()
+                {
+                    From = nameof(ContactPoint),
+                    FromColumn = nameof(ContactPoint.ContactPointKey),
+                    To = nameof(DataEntity.ContactPoint),
+                    ToColumn = nameof(DataEntity.ContactPoint.ContactPointKey)
+                }
+            }
         };
 
         cp.IsEntity = true;

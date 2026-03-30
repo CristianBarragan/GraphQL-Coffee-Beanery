@@ -41,13 +41,8 @@ namespace CoffeeBeanery.Service
         {
             var ctx = new SqlCompilationContext();
             var transformedToParent = false;
-            var entityName = string.Empty;
             
-            while (!SqlNodeRegistry.EntityNames.Contains(entityName) || entityName.Matches(wrapperName))
-            {
-                entityName = SqlNodeRegistry.ModelTrees[modelName].ParentName;
-                transformedToParent = true;
-            }
+            var entityName = SqlNodeRegistry.EntityTrees.FirstOrDefault(a => a.Value.ModelToEntityLinks.Any(b=> b.From.Matches(modelName))).Value.Parents[0].To;
 
             var rootTree = SqlNodeRegistry.EntityTrees[modelName];
 
@@ -132,32 +127,18 @@ namespace CoffeeBeanery.Service
         {
             var ctx = new SqlCompilationContext();
             var transformedToParent = false;
-            var entityName = modelName;
+
+            var modelToEntityLink = SqlNodeRegistry.ModelTrees[modelName].ModelToEntityLinks[0];
+
+            var entityName = modelToEntityLink.To;
             
-            while (!SqlNodeRegistry.EntityNames.Contains(entityName) || entityName.Matches(wrapperName))
-            {
-                if (SqlNodeRegistry.ModelTrees.ContainsKey(entityName))
-                {
-                    entityName = SqlNodeRegistry.ModelTrees[entityName].ParentName;
-
-                    if (string.IsNullOrEmpty(entityName))
-                    {
-                        entityName = SqlNodeRegistry.ModelTrees[modelName].Mapping.First().DestinationEntity;
-                    }
-                
-                    transformedToParent = true;    
-                }
-                else
-                {
-                    return new QueryResult();
-                }
-            }
-
             var rootTree = SqlNodeRegistry.ModelTrees[modelName];
 
             var mutationStatementNodes = new Dictionary<string, SqlNode>();
 
             var argument = selection.SyntaxNode.Arguments.FirstOrDefault(a => a.Name.Value.Matches(wrapperName));
+            wrapperName = argument.GetNodes().Last().GetNodes().Last().GetNodes().Last().ToString().Replace("_","");
+            wrapperName = SqlNodeRegistry.ModelTrees[wrapperName].ModelToEntityLinks[0].To;
 
             if (
                 argument.GetNodes().ToList()[1].ToString().StartsWith("["))

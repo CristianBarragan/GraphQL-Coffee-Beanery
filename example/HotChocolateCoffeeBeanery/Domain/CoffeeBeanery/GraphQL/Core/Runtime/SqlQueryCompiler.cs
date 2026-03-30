@@ -19,8 +19,8 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
             bool transformedToParent)
         {
             var ctx = new SqlCompilationContext();
-            var splitOnDapper = new Dictionary<string, Type>();
-            var aliases = new Dictionary<string, string>();
+            var splitOnDapper = new OrderedDictionary<string, Type>();
+            var aliases = new OrderedDictionary<string, string>();
             
             if (sqlWhereStatement.Count == 0)
             {

@@ -11,7 +11,54 @@ using DataEntity = Database.Entity;
         {
             var transaction = new NodeMap
             {
-                Schema = nameof(DataEntity.Schema.Lending)
+                Schema = nameof(DataEntity.Schema.Lending),
+                EntityParents = new List<LinkKey>()
+                {
+                    new LinkKey()
+                    {
+                        From = nameof(DataEntity.Transaction),
+                        FromColumn = nameof(DataEntity.Transaction.ContractId),
+                        To = nameof(DataEntity.Contract),
+                        ToColumn = nameof(DataEntity.Contract.Id)
+                    }
+                },
+                EntityRelatedChildren = new List<LinkKey>()
+                {
+                    new LinkKey()
+                    {
+                        From = nameof(DataEntity.Transaction),
+                        FromColumn = nameof(DataEntity.Transaction.AccountId),
+                        To = nameof(DataEntity.Account),
+                        ToColumn = nameof(DataEntity.Account.Id)
+                    }
+                },
+                ModelParents = new List<LinkKey>()
+                {
+                    new LinkKey()
+                    {
+                        From = nameof(Transaction),
+                        FromColumn = nameof(Transaction.ContractKey),
+                        To = nameof(Contract),
+                        ToColumn = nameof(Contract.ContractKey)
+                    },
+                    new LinkKey()
+                    {
+                        From = nameof(Transaction),
+                        FromColumn = nameof(Transaction.AccountKey),
+                        To = nameof(Account),
+                        ToColumn = nameof(Account.AccountKey)
+                    }
+                },
+                ModelToEntityLinks =
+                {
+                    new LinkKey()
+                    {
+                        From = nameof(Transaction),
+                        FromColumn = nameof(Transaction.TransactionKey),
+                        To = nameof(DataEntity.Transaction),
+                        ToColumn = nameof(DataEntity.Transaction.TransactionKey)
+                    }
+                }
             };
 
             transaction.IsEntity = true;

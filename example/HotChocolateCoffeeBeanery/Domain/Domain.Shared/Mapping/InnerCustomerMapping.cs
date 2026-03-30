@@ -11,14 +11,56 @@ public class InnerCustomerMapping : IMappingRegistration
     {
         var cust = new NodeMap
         {
-            Schema = nameof(DataEntity.Schema.Banking)
+            Alias = nameof(DataEntity.CustomerCustomerRelationship.InnerCustomer),
+            Schema = nameof(DataEntity.Schema.Banking),
+            EntityChildren = new List<LinkKey>()
+            {
+                new LinkKey()
+                {
+                    From = nameof(DataEntity.Customer),
+                    FromColumn = nameof(DataEntity.Customer.Id),
+                    To = nameof(DataEntity.ContactPoint),
+                    ToColumn = nameof(DataEntity.ContactPoint.CustomerId)
+                },
+                new LinkKey()
+                {
+                    From = nameof(DataEntity.Customer),
+                    FromColumn = nameof(DataEntity.Customer.Id),
+                    To = nameof(DataEntity.CustomerBankingRelationship),
+                    ToColumn = nameof(DataEntity.CustomerBankingRelationship.CustomerId)
+                }
+            },
+            EntityParents = new List<LinkKey>()
+            {
+                new LinkKey()
+                {
+                    From = nameof(DataEntity.Customer),
+                    FromColumn = nameof(DataEntity.Customer.Id),
+                    To = nameof(DataEntity.CustomerCustomerRelationship),
+                    ToColumn = nameof(DataEntity.CustomerCustomerRelationship.InnerCustomerId)
+                },
+                new LinkKey()
+                {
+                    From = nameof(DataEntity.Customer),
+                    FromColumn = nameof(DataEntity.Customer.Id),
+                    To = nameof(DataEntity.CustomerCustomerRelationship),
+                    ToColumn = nameof(DataEntity.CustomerCustomerRelationship.InnerCustomerId)
+                }
+            },
+            ModelToEntityLinks =
+            {
+                new LinkKey()
+                {
+                    From = nameof(Customer),
+                    FromColumn = nameof(Customer.CustomerKey),
+                    To = nameof(DataEntity.Customer),
+                    ToColumn = nameof(DataEntity.Customer.CustomerKey)
+                }
+            }
         };
 
         cust.IsEntity = true;
         cust.IsModel = true;
-
-        cust.Children.Add(nameof(DataEntity.ContactPoint));
-        cust.Children.Add(nameof(DataEntity.CustomerBankingRelationship));
 
         cust.UpsertKeys.Add(new UpsertKey(nameof(DataEntity.Customer), nameof(DataEntity.Customer.CustomerKey)));
 

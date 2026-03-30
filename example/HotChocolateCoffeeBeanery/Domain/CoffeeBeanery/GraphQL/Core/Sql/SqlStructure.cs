@@ -12,7 +12,7 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
         public string SqlUpsert { get; set; } = "";
         public string SqlQuery { get; set; } = "";
 
-        public Dictionary<string, Type> SplitOnDapper { get; set; } = new();
+        public OrderedDictionary<string, Type> SplitOnDapper { get; set; } = new();
 
         public List<string> Aliases { get; set; }
     }

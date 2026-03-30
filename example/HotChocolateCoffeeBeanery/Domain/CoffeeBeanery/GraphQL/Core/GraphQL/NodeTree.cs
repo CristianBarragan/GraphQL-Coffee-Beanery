@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using CoffeeBeanery.GraphQL.Core.Mapping;
+using CoffeeBeanery.GraphQL.Core.Sql;
 
 namespace CoffeeBeanery.GraphQL.Core.GraphQL
 {
@@ -12,8 +13,15 @@ namespace CoffeeBeanery.GraphQL.Core.GraphQL
         public string Schema { get; set; } = "public";
         public int Id { get; init; }
 
-        public string ParentName { get; set; } = "";
-        public List<string> Children { get; set; } = new();
+        public List<LinkKey> Parents { get; set; } = new();
+        
+        public List<LinkKey> RelatedParents { get; set; } = new();
+        
+        public List<LinkKey> RelatedChildren { get; set; } = new();
+        
+        public List<LinkKey> Children { get; set; } = new();
+
+        public List<LinkKey> ModelToEntityLinks { get; set; } = new();
 
         public List<FieldMap> Mapping { get; set; } = new();
         

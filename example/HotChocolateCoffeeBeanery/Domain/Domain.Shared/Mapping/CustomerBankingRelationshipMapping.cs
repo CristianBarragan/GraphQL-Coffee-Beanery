@@ -11,12 +11,61 @@ public class CustomerBankingRelationshipMapping : IMappingRegistration
     {
         var cbr = new NodeMap
         {
-            Schema = nameof(DataEntity.Schema.Banking)
+            Schema = nameof(DataEntity.Schema.Banking),
+            EntityParents = new List<LinkKey>()
+            {
+                new LinkKey()
+                {
+                    From = nameof(DataEntity.CustomerBankingRelationship),
+                    FromColumn = nameof(DataEntity.CustomerBankingRelationship.CustomerId),
+                    To = nameof(DataEntity.Customer),
+                    ToColumn = nameof(DataEntity.Customer.Id)
+                }
+            },
+            EntityChildren = new List<LinkKey>()
+            {
+                new LinkKey()
+                {
+                    From = nameof(DataEntity.CustomerBankingRelationship),
+                    FromColumn = nameof(DataEntity.CustomerBankingRelationship.Id),
+                    To = nameof(DataEntity.Contract),
+                    ToColumn = nameof(DataEntity.Contract.CustomerBankingRelationshipId)
+                }
+            },
+            ModelParents = new List<LinkKey>()
+            {
+                new LinkKey()
+                {
+                    From = nameof(CustomerBankingRelationship),
+                    FromColumn = nameof(CustomerBankingRelationship.CustomerKey),
+                    To = nameof(Customer),
+                    ToColumn = nameof(Customer.CustomerKey)
+                }
+            },
+            ModelChildren = new List<LinkKey>()
+            {
+                new LinkKey()
+                {
+                    From = nameof(CustomerBankingRelationship),
+                    FromColumn = nameof(CustomerBankingRelationship.CustomerBankingRelationshipKey),
+                    To = nameof(Contract),
+                    ToColumn = nameof(Contract.CustomerBankingRelationshipKey)
+                }
+            },
+            ModelToEntityLinks =
+            {
+                new LinkKey()
+                {
+                    From = nameof(CustomerBankingRelationship),
+                    FromColumn = nameof(CustomerBankingRelationship.CustomerBankingRelationshipKey),
+                    To = nameof(DataEntity.CustomerBankingRelationship),
+                    ToColumn = nameof(DataEntity.CustomerBankingRelationship.CustomerBankingRelationshipKey)
+                }
+            }
         };
 
         cbr.IsEntity = true;
-
-        cbr.Children.Add(nameof(DataEntity.Contract));
+        cbr.IsModel = true;
 
         cbr.UpsertKeys.Add(new UpsertKey(nameof(DataEntity.CustomerBankingRelationship),
             nameof(DataEntity.CustomerBankingRelationship.CustomerBankingRelationshipKey)));
