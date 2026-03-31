@@ -17,16 +17,20 @@
         public string Value { get; set; } = "";
         public List<string> UpsertKeys { get; set; } = new();
         public List<LinkKey> LinkKeys { get; set; } = new();
+        
+        public List<LinkKey> EntityChildren { get; set; } = new();
+        
+        public List<LinkKey> EntityParents { get; set; } = new();
+        
+        public List<LinkKey> EntityRelatedChildren { get; set; } = new();
+        
+        public List<LinkKey> EntityRelatedParents { get; set; } = new();
+        
         public string Graph { get; set; } = "";
         public bool IsColumnGraph { get; set; } = false;
 
 
         public List<SqlNodeType> SqlNodeTypes { get; set; }
-
-        // Used for joins
-        public string JoinTable { get; set; } = "";
-        public string JoinColumnFrom { get; set; } = "";
-        public string JoinColumnTo { get; set; } = "";
 
         // For edges
         public string RelationshipKey { get; set; } = "";
@@ -54,7 +58,11 @@
                 SqlNodeTypes = this.SqlNodeTypes,
                 RelationshipKey = this.RelationshipKey,
                 FromEnumeration = this.FromEnumeration,
-                ToEnumeration = this.ToEnumeration
+                ToEnumeration = this.ToEnumeration,
+                EntityChildren = this.EntityChildren,
+                EntityParents = this.EntityParents,
+                EntityRelatedChildren = this.EntityRelatedChildren,
+                EntityRelatedParents = this.EntityRelatedParents
             };
         }
     }

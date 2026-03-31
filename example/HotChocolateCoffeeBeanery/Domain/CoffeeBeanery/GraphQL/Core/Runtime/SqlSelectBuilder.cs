@@ -167,17 +167,21 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                 
                 var childAlias = childStructure.Alias;
                 var childTree  = entityTrees[child.To];
-                var childIdSnake = "Id".ToSnakeCase(childTree.Id);
                 
                 // bubble up all the columns from child to parent
                 foreach (var col in childStructure.Columns)
                 {
-                    // skip the child Id column if you want only the “data” columns
-                    if (col.Contains($"\"{childIdSnake}\"")) 
-                        continue;
-
                     if (!parentColumns.Contains(col))
                         parentColumns.Add(col);
+                }
+
+                // Also expose the FK column needed by the parent join
+                if (!string.IsNullOrEmpty(child.ToColumn))
+                {
+                    var fkColumn = $"{childAlias}.\"{child.ToColumn}\" AS \"{child.ToColumn}{childTree.Id}\"";
+
+                    if (!parentColumns.Contains(fkColumn))
+                        parentColumns.Add(fkColumn);
                 }
 
                 // Only propagate if this child actually belongs to the current parent
@@ -211,12 +215,11 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                 var childAlias = childStructure.Alias;
                 var joinType   = childStructure.SqlNodeType == SqlNodeType.Edge ? "JOIN" : "LEFT JOIN";
 
-                var childIdSnake = "Id".ToSnakeCase(childTree.Id);
+                var exportedChildColumn = child.ToColumn.ToSnakeCase(childTree.Id);
 
-                // Build the JOIN with the child's full query (including all nested selects)
                 joinClauses.Add(
                     $" {joinType} ( {childStructure.Query} ) {childAlias}" +
-                    $" ON {alias}.\"{child.FromColumn}\" = {childAlias}.\"{childIdSnake}\"");
+                    $" ON {alias}.\"{child.FromColumn}\" = {childAlias}.\"{exportedChildColumn}\"");
 
                 // --- Propagate child columns for parent SELECT ---
                 foreach (var col in childStructure.Columns)
@@ -380,6 +383,25 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                 var snakeField = fieldName.ToSnakeCase(currentTree.Id);
 
                 ownColumns.Add($"{currentTree.Alias}.\"{fieldName}\" AS \"{snakeField}\"");
+            }
+
+            // Export FK columns needed by parent joins
+            foreach (var parent in (currentTree.Parents ?? new List<LinkKey>())
+                     .Concat(currentTree.RelatedParents ?? new List<LinkKey>()))
+            {
+                if (string.IsNullOrEmpty(parent.FromColumn))
+                    continue;
+
+                var fkAlias = parent.FromColumn.ToSnakeCase(currentTree.Id);
+
+                var fkColumn =
+                    $"{currentTree.Alias}.\"{parent.FromColumn}\" AS \"{fkAlias}\"";
+
+                if (!ownColumns.Contains(fkColumn))
+                    ownColumns.Add(fkColumn);
+
+                if (!parentColumns.Contains($"~.\"{fkAlias}\" AS \"{fkAlias}\""))
+                    parentColumns.Add($"~.\"{fkAlias}\" AS \"{fkAlias}\"");
             }
 
             // ── Parent columns: always expose Id ─────────────────────────────

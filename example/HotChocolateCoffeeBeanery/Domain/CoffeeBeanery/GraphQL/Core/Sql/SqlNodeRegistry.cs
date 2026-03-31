@@ -39,7 +39,7 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
             
             if (!ModelTypes.Contains(modelType))
             {
-                ModelTypes.Add(modelType);    
+                ModelTypes.Add(modelType);
             }
             
             if (!EntityTypes.Contains(entityType) && isEntity)
@@ -47,7 +47,7 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
                 EntityTypes.Add(entityType);    
             }
             
-            if (!EntityNodes.ContainsKey(entityKey))
+            if (!EntityNodes.ContainsKey(entityKey) && isEntity)
             {
                 EntityNodes[entityKey] = node;
             }

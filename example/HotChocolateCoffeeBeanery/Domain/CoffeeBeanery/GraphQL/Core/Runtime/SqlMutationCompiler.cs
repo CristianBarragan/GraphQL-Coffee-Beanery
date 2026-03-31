@@ -161,9 +161,8 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
             var currentColumns = sqlUpsertStatementNodes
                 .Where(k =>
                     k.Key.Split('~')[0].Matches(currentAlias) &&
-                    !string.IsNullOrEmpty(k.Value.Value) &&
-                    !k.Value.LinkKeys.Any(b => b.From.Matches(k.Key)) &&
-                    !k.Value.LinkKeys.Any(b => trees.Keys.Any(a => a.Matches(k.Key.Split('~')[1]))))
+                    !string.IsNullOrEmpty(k.Value.Value)
+                    )
                 .ToList();
 
             if (currentColumns.Count == 0)
@@ -174,7 +173,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
             var upsertKeyMatch = currentColumns.FirstOrDefault(a =>
                 a.Value.UpsertKeys.Any(u =>
                     currentColumns.Any(c =>
-                        u.Split('~').Last().Matches(c.Key.Split('~')[1]))));
+                        u.Split('~').Last().Matches(c.Key.Split('~')[2]))));
 
             if (upsertKeyMatch.Value == null)
                 return sqlUpsertAux;
@@ -240,15 +239,24 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                 return sqlUpsertAux;
 
             foreach (var linkKey in columnValue.LinkKeys
-                .Where(j => !j.To.Split('~')[0].Matches(currentAlias)))
+                .Where(j => j.To.Matches(currentAlias)))
             {
-                var linkedAlias = linkKey.To.Split('~')[0];
+                var linkedAlias = linkKey.To;
 
                 if (!trees.TryGetValue(linkedAlias, out var linkedTree))
                     continue;
 
                 var columns = columnsQuery.ToList();
-                columns.Add(new KeyValuePair<string, SqlNode>(linkKey.To, currentColumns.Last().Value));
+
+                var linkedCustomerColumn = sqlUpsertStatementNodes
+                    .FirstOrDefault(k =>
+                        k.Key.Split('~')[0].Matches(linkKey.To) &&
+                        k.Key.Split('~')[1].Matches(linkKey.ToColumn));
+
+                if (!string.IsNullOrEmpty(linkedCustomerColumn.Key))
+                {
+                    columns.Add(linkedCustomerColumn);
+                }
 
                 var parentColumns = sqlUpsertStatementNodes
                     .Where(k =>
@@ -300,15 +308,6 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                         u.Split('~').Last().Matches(a.Key.Split('~')[1])))
                 .Select(s => $"{linkedAlias}.\"{s.Value.Column}\" = '{s.Value.Value}'")
                 .ToList();
-
-            if (currentColumns.Count == 0 ||
-                !currentColumns.Any(a =>
-                    a.Value.UpsertKeys.Any(u =>
-                        u.Split('~').Last().Matches(a.Value.Column)) &&
-                    a.Value.SqlNodeTypes.Contains(SqlNodeType.Mutation) &&
-                    !string.IsNullOrEmpty(a.Value.Value)) ||
-                where.Count == 0)
-                return string.Empty;
 
             var sqlUpsertAux =
                 $" ; INSERT INTO \"{currentTree.Schema}\".\"{currentTree.Name}\" ( " +

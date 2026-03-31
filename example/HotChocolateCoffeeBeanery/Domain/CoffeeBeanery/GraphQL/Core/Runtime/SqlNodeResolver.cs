@@ -12,6 +12,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
         // ----------------------------------------------------------
         public static void GetMutations(
             Dictionary<string, NodeTree> trees,
+            Dictionary<string, NodeTree> entityTrees,
             ISyntaxNode node,
             Dictionary<string, SqlNode> linkEntityDictionaryTree,
             Dictionary<string, SqlNode> linkModelDictionaryTree,
@@ -28,107 +29,58 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                         $"{currentTree.Alias}~{currentTree.Name}~{node.ToString()}",
                         out var sqlNodeFrom))
                 {
-                    if (linkEntityDictionaryTree.TryGetValue(sqlNodeFrom.RelationshipKey,
+                    if (linkEntityDictionaryTree.TryGetValue($"{sqlNodeFrom.RelationshipKey.Split('~')[1]}~{sqlNodeFrom.RelationshipKey.Split('~')[1]}~{node.ToString()}",
                             out var sqlNodeTo))
                     {
-                        var value = string.Empty;
+                        HandleEntityNode(sqlNodeTo, previousNode, linkModelDictionaryTree, currentTree,
+                            node, sqlStatementNodes, trees, linkEntityDictionaryTree, $"{currentTree.Alias}~{currentTree.Name}~{node.ToString()}",
+                            node.ToString().Split(':')[0]);
+                        
+                        var modelToEntityTree = entityTrees[sqlNodeFrom.RelationshipKey.Split('~')[1]];
 
-                        if (previousNode.Split(':').Length == 2)
+                        foreach (var linkKey in modelToEntityTree.ModelToEntityLinks.Where(a => a.FromColumn.Matches(node.ToString().Split(':')[0])))
                         {
-                            if (sqlNodeTo.FromEnumeration.TryGetValue(
-                                    previousNode.Split(':')[1].Sanitize().Replace("_", ""),
-                                    out var enumValue))
+                            var entityTreeFrom = entityTrees[linkKey.From];
+                            var entityTreeTo = entityTrees[sqlNodeFrom.RelationshipKey.Split('~')[1]];
+
+                            foreach (var linkKeyChildren in entityTreeFrom.Children)
                             {
-                                value = sqlNodeTo.FromEnumeration
-                                    .FirstOrDefault(e => e.Value.Matches(enumValue)).Value;
-                            }
-                            else
-                            {
-                                value = previousNode.Split(':')[1].Sanitize();
-                            }
-                        }
+                                var linkKeyChildrenTo = entityTreeTo.ModelToEntityLinks.FirstOrDefault(a => a
+                                    .To.Matches(linkKey.To));
 
-                        var key = linkModelDictionaryTree
-                            .First(a => a.Key.Matches(
-                                $"{currentTree.Alias}~{currentTree.Name}~{node.ToString()}")).Key;
-
-                        var fieldName = key.Split('~')[2];
-
-                        // Add the field onto the current entity
-                        // e.g. CustomerCustomerRelationship~InnerCustomerKey
-                        AddEntity(sqlStatementNodes, sqlNodeTo,
-                            $"{sqlNodeTo.Table}~{fieldName}", value);
-
-                        // ── Propagate FK value into the ONE matching child entity ──────
-                        // Each FK field (e.g. InnerCustomerKey, OuterCustomerKey) must
-                        // map to exactly one aliased child tree.
-                        // Strategy: match by alias name contained in field name first
-                        // (e.g. "InnerCustomerKey" contains "InnerCustomer")
-                        // Fallback: use declaration order index to disambiguate
-                        foreach (var childLink in currentTree.Children
-                            .Concat(currentTree.RelatedChildren ?? new List<LinkKey>()))
-                        {
-                            if (!childLink.FromColumn.Matches(fieldName) &&
-                                !childLink.FromColumn.Matches(node.ToString()))
-                                continue;
-
-                            // Primary: find the ONE tree whose alias is contained in fieldName
-                            // e.g. "InnerCustomerKey" contains "InnerCustomer" → InnerCustomer tree
-                            //      "OuterCustomerKey" contains "OuterCustomer" → OuterCustomer tree
-                            var matchingChildTrees = trees
-                                .Where(t =>
-                                    t.Value.Name.Matches(childLink.To) &&
-                                    fieldName.Contains(t.Key, StringComparison.OrdinalIgnoreCase))
-                                .ToList();
-
-                            // Fallback: alias name not in field name — use declaration index
-                            // e.g. links declared as [InnerCustomerId, OuterCustomerId]
-                            //      trees ordered as  [InnerCustomer, OuterCustomer]
-                            //      InnerCustomerId is at index 0 → InnerCustomer (index 0)
-                            //      OuterCustomerId is at index 1 → OuterCustomer (index 1)
-                            if (!matchingChildTrees.Any())
-                            {
-                                var allSameEntityTrees = trees
-                                    .Where(t => t.Value.Name.Matches(childLink.To))
-                                    .OrderBy(t => t.Key)
-                                    .ToList();
-
-                                var sameEntityLinks = currentTree.Children
-                                    .Concat(currentTree.RelatedChildren ?? new List<LinkKey>())
-                                    .Where(l => l.To == childLink.To)
-                                    .ToList();
-
-                                var idx = sameEntityLinks
-                                    .FindIndex(l => l.FromColumn.Matches(fieldName));
-
-                                if (idx >= 0 && idx < allSameEntityTrees.Count)
-                                    matchingChildTrees.Add(allSameEntityTrees[idx]);
-                            }
-
-                            foreach (var (childAlias, childTree) in matchingChildTrees)
-                            {
-                                var childUpsertKey = $"{childAlias}~{childLink.ToColumn}";
-
-                                if (sqlStatementNodes.ContainsKey(childUpsertKey))
-                                    continue;
-
-                                if (linkEntityDictionaryTree.TryGetValue(
-                                        $"{childAlias}~{childTree.Name}~{childLink.ToColumn}",
-                                        out var childEntityNode))
+                                if (linkKeyChildrenTo == null)
                                 {
-                                    AddEntity(sqlStatementNodes, childEntityNode,
-                                        childUpsertKey, value);
+                                    break;
                                 }
-                                else if (linkModelDictionaryTree.TryGetValue(
-                                             $"{childAlias}~{childTree.Name}~{childLink.ToColumn}",
-                                             out var childModelNode) &&
-                                         linkEntityDictionaryTree.TryGetValue(
-                                             childModelNode.RelationshipKey,
-                                             out var childEntityNodeViaModel))
+                                
+                                if (linkEntityDictionaryTree.TryGetValue($"{entityTreeFrom.Alias}~{linkKeyChildren.From}~{
+                                    linkKeyChildrenTo.ToColumn}",
+                                        out sqlNodeTo))
                                 {
-                                    AddEntity(sqlStatementNodes, childEntityNodeViaModel,
-                                        childUpsertKey, value);
+                                    HandleEntityNode(sqlNodeTo, previousNode, linkModelDictionaryTree, currentTree,
+                                        node, sqlStatementNodes, trees, linkEntityDictionaryTree, $"{entityTreeFrom.Alias}~{linkKeyChildren.From}~{
+                                            linkKeyChildrenTo.ToColumn}", node.ToString().Split(':')[0]);
+                                }    
+                            }
+                            
+                            foreach (var linkKeyChildren in entityTreeFrom.RelatedChildren)
+                            {
+                                var linkKeyChildrenTo = entityTreeTo.ModelToEntityLinks.FirstOrDefault(a => a
+                                    .To.Matches(linkKey.To));
+
+                                if (linkKeyChildrenTo == null)
+                                {
+                                    break;
                                 }
+                                
+                                if (linkEntityDictionaryTree.TryGetValue($"{entityTreeFrom.Alias}~{linkKeyChildren.From}~{
+                                    linkKeyChildrenTo.ToColumn}",
+                                        out sqlNodeTo))
+                                {
+                                    HandleEntityNode(sqlNodeTo, previousNode, linkModelDictionaryTree, currentTree,
+                                        node, sqlStatementNodes, trees, linkEntityDictionaryTree, $"{entityTreeFrom.Alias}~{linkKeyChildren.From}~{
+                                            linkKeyChildrenTo.ToColumn}", linkKeyChildrenTo.FromColumn);
+                                }    
                             }
                         }
                     }
@@ -159,10 +111,38 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                         : trees[currentTree.Parents[0].To];
                 }
 
-                GetMutations(trees, childNode, linkEntityDictionaryTree, linkModelDictionaryTree,
+                GetMutations(trees, entityTrees, childNode, linkEntityDictionaryTree, linkModelDictionaryTree,
                     sqlStatementNodes, currentTree, node.ToString(),
                     parentTree, models, visitedModels);
             }
+        }
+
+        private static void HandleEntityNode(SqlNode sqlNodeTo, string previousNode, 
+            Dictionary<string, SqlNode> linkModelDictionaryTree, NodeTree currentTree, ISyntaxNode node,
+            Dictionary<string, SqlNode> sqlStatementNodes, Dictionary<string, NodeTree> trees,
+            Dictionary<string, SqlNode> linkEntityDictionaryTree, string key, string column)
+        {
+            var value = string.Empty;
+
+            if (previousNode.Split(':').Length == 2)
+            {
+                if (sqlNodeTo.FromEnumeration.TryGetValue(
+                        previousNode.Split(':')[1].Sanitize().Replace("_", ""),
+                        out var enumValue))
+                {
+                    value = sqlNodeTo.FromEnumeration
+                        .FirstOrDefault(e => e.Value.Matches(enumValue)).Value;
+                }
+                else
+                {
+                    value = previousNode.Split(':')[1].Sanitize();
+                }
+            }
+
+            // Add the field onto the current entity
+            // e.g. CustomerCustomerRelationship~InnerCustomerKey
+            AddEntity(sqlStatementNodes, sqlNodeTo,
+                key, value);
         }
 
         private static void AddEntity(
@@ -171,12 +151,13 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
             string key,
             string value)
         {
-            if (sqlStatementNodes.ContainsKey(key))
+            if (sqlStatementNodes.ContainsKey(sqlNodeTo.RelationshipKey))
                 return;
 
-            var keyValue = new KeyValuePair<string, SqlNode>(key, sqlNodeTo.Clone() as SqlNode);
-            keyValue.Value.Value = value;
-            sqlStatementNodes.Add(keyValue.Key, keyValue.Value);
+            var cloned = sqlNodeTo.Clone() as SqlNode;
+            cloned.Value = value;
+            
+            sqlStatementNodes[cloned.RelationshipKey] = cloned;
         }
 
         /// <summary>
@@ -222,11 +203,23 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                         if (!visitedModels.Contains(currentTree.Alias))
                             visitedModels.Add(currentTree.Alias);
                     }
+                    else
+                    {
+                        foreach (var entityLinked in currentTree.ModelToEntityLinks)
+                        {
+                            if (linkEntityDictionaryTree.TryGetValue(
+                                    $"{entityLinked.To}~{entityLinked.To}~{node.ToString()}", out sqlNodeTo))
+                            {
+                                AddField(linkEntityDictionaryTree, sqlStatementNodes,
+                                    currentTree, sqlNodeTo, isEdge);
+
+                                if (!visitedModels.Contains(currentTree.Alias))
+                                    visitedModels.Add(currentTree.Alias);
+                            }
+                        }   
+                    }
 
                     visitedEntities.Add(sqlNodeFrom.Table);
-
-                    AddField(linkEntityDictionaryTree, sqlStatementNodes,
-                        currentTree, sqlNodeFrom, isEdge);
                 }
 
                 return;

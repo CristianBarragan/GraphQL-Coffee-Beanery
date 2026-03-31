@@ -148,14 +148,14 @@ namespace CoffeeBeanery.Service
 
                 foreach (var mutationNode in mutationNodeToProcess.GetNodes().ToList()[1].GetNodes())
                 {
-                    SqlNodeResolver.GetMutations(SqlNodeRegistry.ModelTrees, mutationNode, SqlNodeRegistry.EntityNodes,
+                    SqlNodeResolver.GetMutations(SqlNodeRegistry.ModelTrees, SqlNodeRegistry.EntityTrees, mutationNode, SqlNodeRegistry.EntityNodes,
                         SqlNodeRegistry.ModelNodes, mutationStatementNodes,
                         rootTree, string.Empty, rootTree, SqlNodeRegistry.ModelTrees.Keys.ToList(), new List<string>());
                 }
             }
             else
             {
-                SqlNodeResolver.GetMutations(SqlNodeRegistry.ModelTrees, selection.SyntaxNode.Arguments[0], SqlNodeRegistry.EntityNodes,
+                SqlNodeResolver.GetMutations(SqlNodeRegistry.ModelTrees, SqlNodeRegistry.EntityTrees, selection.SyntaxNode.Arguments[0], SqlNodeRegistry.EntityNodes,
                     SqlNodeRegistry.ModelNodes, mutationStatementNodes,
                     rootTree, string.Empty, rootTree, SqlNodeRegistry.ModelTrees.Keys.ToList(), new List<string>());
             }

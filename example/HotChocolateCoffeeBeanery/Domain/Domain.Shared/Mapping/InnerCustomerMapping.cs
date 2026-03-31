@@ -51,8 +51,15 @@ public class InnerCustomerMapping : IMappingRegistration
             {
                 new LinkKey()
                 {
-                    From = nameof(Customer),
-                    FromColumn = nameof(Customer.CustomerKey),
+                    From = nameof(CustomerCustomerEdge.InnerCustomer),
+                    FromColumn = nameof(CustomerCustomerEdge.InnerCustomerKey),
+                    To = nameof(DataEntity.Customer),
+                    ToColumn = nameof(DataEntity.Customer.CustomerKey)
+                },
+                new LinkKey()
+                {
+                    From = nameof(CustomerCustomerEdge.OuterCustomer),
+                    FromColumn = nameof(CustomerCustomerEdge.OuterCustomerKey),
                     To = nameof(DataEntity.Customer),
                     ToColumn = nameof(DataEntity.Customer.CustomerKey)
                 }
