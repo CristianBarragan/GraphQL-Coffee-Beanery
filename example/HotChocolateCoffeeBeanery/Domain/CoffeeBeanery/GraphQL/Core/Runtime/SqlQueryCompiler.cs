@@ -33,6 +33,13 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
             ctx.SelectSql = selectResult.Item1;
             SqlPagingCompiler.Compile(rootTree, ctx, rootSelection);
 
+            var entityMapping = new Dictionary<string, Type>();
+            
+            for (var i = 0; i < selectResult.splitOnDapper.Count; i++)
+            {
+                entityMapping.Add(selectResult.aliasesOrdered[i], selectResult.splitOnDapper.ElementAt(selectResult.splitOnDapper.Count - 1 - i).Value);
+            }
+
             return new SqlStructure
             {
                 SqlQuery = ctx.SelectSql,
@@ -41,7 +48,10 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                 HasTotalCount = ctx.Pagination.TotalRecordCount.RecordCount > 0,
                 HasPagination = ctx.Pagination.TotalPageRecords.PageRecords > 0,
                 SplitOnDapper = selectResult.Item2,
-                Aliases = selectResult.Item3
+                Aliases = selectResult.Item3,
+                SqlNodes = [..edgeDict.Values, ..nodeDict.Values],
+                EntityMapping = entityMapping,
+                Trees = trees
             };
         }
     }

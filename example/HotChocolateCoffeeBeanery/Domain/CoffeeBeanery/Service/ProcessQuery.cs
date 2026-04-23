@@ -8,100 +8,91 @@ namespace CoffeeBeanery.Service;
 
 public class ProcessQuery<M> : IQuery<ProcessQueryParameters,
     (List<M> list, int? startCursor, int? endCursor, int? totalCount, int? totalPageRecords)>
-    where M : class
+    where M : class, new()
 {
     private readonly ILogger<ProcessQuery<M>> _logger;
     private readonly NpgsqlConnection _dbConnection;
-    private List<M> _models;
+
+    private readonly Dictionary<string, M> _edgeDict = new();
 
     public ProcessQuery(ILoggerFactory loggerFactory, NpgsqlConnection dbConnection)
     {
-        _logger      = loggerFactory.CreateLogger<ProcessQuery<M>>();
+        _logger = loggerFactory.CreateLogger<ProcessQuery<M>>();
         _dbConnection = dbConnection;
-        _models       = new List<M>();
     }
 
     public async Task<(List<M> list, int? startCursor, int? endCursor, int? totalCount, int? totalPageRecords)>
         ExecuteAsync(ProcessQueryParameters parameters, CancellationToken cancellationToken)
     {
-        // Build types list — reversed so Dapper receives them in SQL column order
-        var types  = parameters.SqlStructure.SplitOnDapper.Values.Reverse().ToList();
+        var types = parameters.SqlStructure.SplitOnDapper.Values.Reverse().ToList();
         var splitOnDict = parameters.SqlStructure.SplitOnDapper;
 
-        // Remove last entry before building splitOn string (last type has no split column)
         if (splitOnDict.Count > 0)
             splitOnDict.RemoveAt(splitOnDict.Count - 1);
 
         var splitOn = splitOnDict.Reverse().Select(a => a.Key).ToList();
 
-        // Append pagination meta-types when counts are known
-        if (parameters.Pagination.TotalRecordCount.RecordCount > 0
-            && parameters.Pagination.TotalPageRecords.PageRecords > 0)
+        if (parameters.Pagination.TotalRecordCount.RecordCount > 0 &&
+            parameters.Pagination.TotalPageRecords.PageRecords > 0)
         {
             types.Add(typeof(TotalPageRecords));
             types.Add(typeof(TotalRecordCount));
+
             splitOn.Insert(0, "RowNumber");
             parameters.SqlStructure.Aliases.Add("RowNumber");
         }
 
-        var query      = parameters.SqlStructure.SqlUpsert + " ; " + parameters.SqlStructure.SqlQuery;
-        var connection = _dbConnection;
+        var query = parameters.SqlStructure.SqlUpsert + " ; " + parameters.SqlStructure.SqlQuery;
 
-        await connection.OpenAsync(cancellationToken);
-        var dbTransaction = await connection.BeginTransactionAsync(cancellationToken);
+        int? totalCount = null;
+        int? totalPageRecords = null;
+        int? startCursor = null;
+        int? endCursor = null;
+
+        // 🔥 BUILD MAPPER ONCE
+        var mapper = GraphMaterializer.BuildMapper<M>(
+            parameters.SqlStructure.SqlNodes,
+            parameters.SqlStructure.Trees,
+            parameters.SqlStructure.EntityMapping);
+
+        await _dbConnection.OpenAsync(cancellationToken);
+        var transaction = await _dbConnection.BeginTransactionAsync(cancellationToken);
 
         try
         {
-            var result = await connection
-                .QueryAsync<(int? startCursor, int? endCursor, int? totalCount, int? totalPageRecords)>(
-                    query,
-                    types.ToArray(),
-                    map =>
-                    {
-                        var set  = MappingConfiguration(_models, parameters.SqlStructure, map, types,
-                                       parameters.SqlStructure.Aliases);
-                        _models = set.models;
-                        return (set.startCursor, set.endCursor, set.totalCount, set.totalPageRecords);
-                    },
-                    splitOn:     string.Join(",", splitOn),
-                    transaction: dbTransaction,
-                    commandType: CommandType.Text);
+            await _dbConnection.QueryAsync(
+                query,
+                types.ToArray(),
+                (object[] map) =>
+                {
+                    GraphMaterializer.MergeRow(
+                        map,
+                        parameters.SqlStructure.SqlNodes,
+                        parameters.SqlStructure.Trees,
+                        parameters.SqlStructure.EntityMapping,
+                        mapper,
+                        _edgeDict,
+                        ref totalCount,
+                        ref totalPageRecords);
 
-            await dbTransaction.CommitAsync(cancellationToken);
+                    return 0;
+                },
+                splitOn: string.Join(",", splitOn),
+                transaction: transaction,
+                commandType: CommandType.Text);
 
-            if (result == null || !result.Any())
-                return ([], 0, 0, 0, 0);
-
-            var resultList = result.ToList();
-
-            return (
-                _models,
-                parameters.Pagination.StartCursor > 0
-                    ? parameters.Pagination.StartCursor
-                    : resultList.Select(s => s.startCursor).FirstOrDefault(),
-                parameters.Pagination.EndCursor > 0
-                    ? parameters.Pagination.EndCursor
-                    : resultList.Select(s => s.endCursor).FirstOrDefault(),
-                resultList.Select(s => s.totalCount).FirstOrDefault(),
-                resultList.Select(s => s.totalPageRecords).FirstOrDefault()
-            );
+            return (_edgeDict.Values.ToList(), startCursor, endCursor, totalCount, totalPageRecords);
         }
         catch (Exception ex)
         {
-            await dbTransaction.RollbackAsync(cancellationToken);
+            await transaction.RollbackAsync(cancellationToken);
             _logger.LogError(ex, "Error executing ProcessQuery");
         }
         finally
         {
-            await connection.CloseAsync();
+            await _dbConnection.CloseAsync();
         }
 
         return ([], 0, 0, 0, 0);
-    }
-
-    public virtual (List<M> models, int? startCursor, int? endCursor, int? totalCount, int? totalPageRecords)
-        MappingConfiguration(List<M> models, SqlStructure sqlStructure, object[] map, List<Type> types, List<string> aliases)
-    {
-        throw new NotImplementedException();
     }
 }

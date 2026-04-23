@@ -2,7 +2,7 @@
 using CoffeeBeanery.GraphQL.Core.Sql;
 using CoffeeBeanery.Service;
 using Domain.Model;
-using Domain.Shared.Query;
+// using Domain.Shared.Query;
 using FASTER.core;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
@@ -26,11 +26,17 @@ namespace Domain.Shared.Extension
             //         totalPageRecords)>,
             //     CustomerCustomerEdgeQueryHandler<dynamic>>();
 
-            services.AddScoped<IProcessService<CustomerCustomerEdge>, ProcessService<CustomerCustomerEdge>>();
-            services.AddScoped<IQuery<ProcessQueryParameters,
-                    (List<CustomerCustomerEdge> list, int? startCursor, int? endCursor, int? totalCount, int?
-                    totalPageRecords)>,
-                CustomerCustomerEdgeQueryHandler<CustomerCustomerEdge>>();
+            services.AddScoped<IProcessService<Wrapper>, ProcessService<Wrapper>>();
+            // services.AddScoped<IQuery<ProcessQueryParameters,
+            //         (List<CustomerCustomerEdge> list, int? startCursor, int? endCursor, int? totalCount, int?
+            //         totalPageRecords)>,
+            //     CustomerCustomerEdgeQueryHandler<CustomerCustomerEdge>>();
+            
+            services.AddScoped<
+                IQuery<ProcessQueryParameters,
+                    (List<Wrapper>, int?, int?, int?, int?)>,
+                ProcessQuery<Wrapper>
+            >();
 
             // services.AddScoped<IQuery<ProcessQueryParameters,
             //         (List<CustomerCustomerEdge> list, int? startCursor, int? endCursor, int? totalCount,

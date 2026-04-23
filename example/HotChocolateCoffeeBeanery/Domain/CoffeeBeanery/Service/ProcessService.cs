@@ -9,11 +9,18 @@ using Npgsql;
 
 namespace CoffeeBeanery.Service
 {
-    public interface IProcessService<M>
+    // IProcessService.cs
+    public interface IProcessService<M> where M : class
     {
-        Task<QueryResult> QueryProcessAsync(string cacheKey, ISelection selection, string modelName, string wrapperName, CancellationToken cancellationToken);
+        Task<QueryResult<M>> QueryProcessAsync(
+            string cacheKey, ISelection selection,
+            string modelName, string wrapperName,
+            CancellationToken cancellationToken);
 
-        Task<QueryResult> MutationProcessAsync(string cacheKey, ISelection selection, string modelName, string wrapperName, CancellationToken cancellationToken);
+        Task<QueryResult<M>> MutationProcessAsync(
+            string cacheKey, ISelection selection,
+            string modelName, string wrapperName,
+            CancellationToken cancellationToken);
     }
 
     public class ProcessService<M> : IProcessService<M>
@@ -36,7 +43,7 @@ namespace CoffeeBeanery.Service
             _cache = cache;
         }
 
-        public async Task<QueryResult> QueryProcessAsync(
+        public async Task<QueryResult<M>> QueryProcessAsync(
             string cacheKey, ISelection selection, string modelName, string wrapperName, CancellationToken cancellationToken)
         {
             var ctx = new SqlCompilationContext();
@@ -109,10 +116,10 @@ namespace CoffeeBeanery.Service
 
             var (models, startCursor, endCursor, totalCount, totalPageRecords) =
                 await _queryDispatcher
-                    .DispatchAsync<ProcessQueryParameters, (List<M> Process, int? startCursor, int? endCursor, int?
-                        totalCount, int? totalPageRecords)>(parameters, cancellationToken);
+                    .DispatchAsync<ProcessQueryParameters, (List<M>, int?, int?, int?, int?)>(
+                        parameters, cancellationToken);
 
-            return new QueryResult
+            return new QueryResult<M>
             {
                 Models = models,
                 StartCursor = startCursor,
@@ -122,7 +129,7 @@ namespace CoffeeBeanery.Service
             };
         }
 
-        public async Task<QueryResult> MutationProcessAsync(
+        public async Task<QueryResult<M>> MutationProcessAsync(
             string cacheKey, ISelection selection, string modelName, string wrapperName, CancellationToken cancellationToken)
         {
             var ctx = new SqlCompilationContext();
@@ -227,6 +234,7 @@ namespace CoffeeBeanery.Service
             );
             
             sqlStructure.SqlUpsert = mutationStructure.SqlUpsert;
+            sqlStructure.ModelMapping = SqlNodeRegistry.ModelTypes;
 
             var parameters = new ProcessQueryParameters
             {
@@ -236,10 +244,10 @@ namespace CoffeeBeanery.Service
 
             var (models, startCursor, endCursor, totalCount, totalPageRecords) =
                 await _queryDispatcher
-                    .DispatchAsync<ProcessQueryParameters, (List<M> Process, int? startCursor, int? endCursor, int?
-                        totalCount, int? totalPageRecords)>(parameters, cancellationToken);
+                    .DispatchAsync<ProcessQueryParameters, (List<M>, int?, int?, int?, int?)>(
+                        parameters, cancellationToken);
 
-            return new QueryResult
+            return new QueryResult<M> 
             {
                 Models = models,
                 StartCursor = startCursor,

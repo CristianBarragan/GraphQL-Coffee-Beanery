@@ -10,7 +10,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
 {
     internal static class SqlSelectBuilder
     {
-        public static (string, OrderedDictionary<string, Type>, List<string>) Build(
+        public static (string rootQuery, OrderedDictionary<string, Type> splitOnDapper, List<string> aliasesOrdered) Build(
             NodeTree nodeTree,
             Dictionary<string, SqlNode> nodeDict,
             Dictionary<string, SqlNode> edgeDict,

@@ -29,7 +29,7 @@ public class WrapperQueryResolver
     [UseFiltering]
     [UseSorting]
     public async Task<Connection<Wrapper>> GetWrapper(
-        [Service] IProcessService<CustomerCustomerEdge> service,
+        [Service] IProcessService<Wrapper> service,
         [SchemaService] IResolverContext resolverContext,
         CancellationToken cancellationToken)
     {
@@ -44,8 +44,12 @@ public class WrapperQueryResolver
                 nameof(Wrapper),
                 cancellationToken);
 
+            var entityNodes = set.Models
+                .Where(a => a is not null)                // guard against null rows
+                .Select(a => new EntityNode<Wrapper>(a, nameof(Wrapper)));
+
             var connection = ContextResolverHelper.GenerateConnection<Wrapper>(
-                set.Models.Select(a => new EntityNode<Wrapper>((Wrapper)a, nameof(Wrapper))),
+                entityNodes,
                 new Pagination
                 {
                     TotalRecordCount = new TotalRecordCount { RecordCount = set.TotalCount },

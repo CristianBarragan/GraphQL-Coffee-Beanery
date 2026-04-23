@@ -301,7 +301,13 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
                     RelatedParents     = map.EntityRelatedParents,
                     RelatedChildren    = map.EntityRelatedChildren,
                     ModelToEntityLinks = map.ModelToEntityLinks,
-                    Mapping            = map.FieldMaps,
+                    Mapping            = map.FieldMaps.Select(a => new FieldMap
+                    {
+                        DestinationEntity = a.DestinationEntity,
+                        DestinationName = a.DestinationName,
+                        SourceModel = map.ModelType.Name,
+                        SourceName = a.SourceName
+                    }).ToList(),
                     IsGraph            = map.IsGraph,
                     UpsertKeys         = map.UpsertKeys.Select(b => b.Key).ToList()
                 };
@@ -320,7 +326,13 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
                     RelatedParents     = map.EntityRelatedParents,
                     RelatedChildren    = map.EntityRelatedChildren,
                     ModelToEntityLinks = map.ModelToEntityLinks,
-                    Mapping            = map.FieldMaps,
+                    Mapping            = map.FieldMaps.Select(a => new FieldMap
+                    {
+                        DestinationEntity = a.DestinationEntity,
+                        DestinationName = a.DestinationName,
+                        SourceModel = map.ModelType.Name,
+                        SourceName = a.SourceName
+                    }).ToList(),
                     IsGraph            = map.IsGraph,
                     UpsertKeys         = map.UpsertKeys.Select(b => b.Key).ToList()
                 };

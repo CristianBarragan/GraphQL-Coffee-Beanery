@@ -5,7 +5,8 @@ using Api.Banking.Query;
 using CoffeeBeanery.GraphQL.Core.Sql;
 using Domain.Model;
 using Domain.Shared.Extension;
-using Domain.Shared.Query;
+using Domain.Shared.Mapping;
+// using Domain.Shared.Query;
 using HotChocolate.AspNetCore;
 using HotChocolate.Types.Pagination;
 
@@ -40,7 +41,7 @@ public class Program
         var connectionString = configuration.GetConnectionString("BankingConnectionString");
 
         services.AddBankingDomainModelServiceCollection(connectionString);
-        services.Init(typeof(CustomerCustomerEdgeQueryHandler<>).Assembly);
+        services.Init(typeof(ModelMappingRegistration).Assembly);
         SqlNodeBuilder.BuildFromMappings();
        
         var isRds = false;

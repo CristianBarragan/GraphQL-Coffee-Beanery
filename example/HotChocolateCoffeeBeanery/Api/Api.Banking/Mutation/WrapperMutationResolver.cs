@@ -7,6 +7,8 @@ using HotChocolate.Types.Pagination;
 
 namespace Api.Banking.Mutation;
 
+// WrapperMutationResolver.cs
+
 [ExtendObjectType("WrapperMutation")]
 public class WrapperMutationResolver : IInputType, IOutputType
 {
@@ -16,22 +18,28 @@ public class WrapperMutationResolver : IInputType, IOutputType
     {
         _logger = logger;
     }
-    
+
     [UsePaging]
     [UseFiltering]
     [UseSorting]
     public async Task<Connection<Wrapper>> UpsertWrapper(
-        [Service] IProcessService<CustomerCustomerEdge> service,
-        [SchemaService] IResolverContext resolverContext, Wrapper wrapper)
+        [Service] IProcessService<Wrapper> service,       // ← was CustomerCustomerEdge
+        [SchemaService] IResolverContext resolverContext,
+        Wrapper wrapper)
     {
         try
         {
             var set = await service.MutationProcessAsync(
-                wrapper.CacheKey, resolverContext.Selection, 
+                wrapper.CacheKey, resolverContext.Selection,
                 wrapper.Model.ToString(), nameof(Wrapper), CancellationToken.None);
 
+            // set.Models is now IEnumerable<Wrapper> — no cast needed
+            var entityNodes = set.Models
+                .Where(a => a is not null)                // guard against null rows
+                .Select(a => new EntityNode<Wrapper>(a, nameof(Wrapper)));
+
             var connection = ContextResolverHelper.GenerateConnection<Wrapper>(
-                set.Models.Select(a => new EntityNode<Wrapper>((Wrapper)a, nameof(Wrapper))),
+                entityNodes,
                 new Pagination
                 {
                     TotalRecordCount = new TotalRecordCount { RecordCount = set.TotalCount },
@@ -39,15 +47,17 @@ public class WrapperMutationResolver : IInputType, IOutputType
                     StartCursor = set.StartCursor,
                     After = set.EndCursor?.ToString(),
                 });
-            
+
             return connection;
         }
         catch (Exception ex)
         {
-            _logger.LogError($"Exception: {ex.Message} with inner exception {ex.InnerException}");
+            _logger.LogError(
+                ex,                                       // pass ex directly so the stack trace is captured
+                "UpsertWrapper failed: {Message}", ex.Message);
         }
 
-        return default;
+        return default!;
     }
 
     public TypeKind Kind { get; }
