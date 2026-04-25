@@ -17,7 +17,9 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
 
         public SqlNode[] SqlNodes { get; set; }
 
-        public Dictionary<string, NodeTree> Trees { get; set; }
+        public Dictionary<string, NodeTree> EntityTrees { get; set; }
+        
+        public Dictionary<string, NodeTree> ModelTrees { get; set; }
 
         public Dictionary<string, Type> EntityMapping { get; set; }
         

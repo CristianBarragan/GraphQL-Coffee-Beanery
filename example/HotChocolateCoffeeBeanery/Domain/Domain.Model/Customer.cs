@@ -15,8 +15,6 @@ public class Customer
 
     public CustomerType? CustomerType { get; set; }
 
-    public string? CustomerCustomerEdgeKey { get; set; }
-
     // [LinkBusinessKey("Product","ProductId")]
     public List<Product>? Product { get; set; }
 

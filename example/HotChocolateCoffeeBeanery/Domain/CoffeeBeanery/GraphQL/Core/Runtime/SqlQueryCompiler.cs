@@ -14,7 +14,8 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
             Dictionary<string, SqlNode> edgeDict,
             Dictionary<string, SqlNode> nodeDict,
             string wrapperEntityName,
-            Dictionary<string, NodeTree> trees,
+            Dictionary<string, NodeTree> entityTrees,
+            Dictionary<string, NodeTree> modelTrees,
             Dictionary<string, string> sqlWhereStatement,
             bool transformedToParent)
         {
@@ -28,7 +29,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
             }
             
             //Refactor with new alias feature
-            SqlOrderCompiler.Compile(ctx, trees, rootSelection, rootTree.Name, nodeDict);
+            SqlOrderCompiler.Compile(ctx, entityTrees, rootSelection, rootTree.Name, nodeDict);
             var selectResult = SqlSelectBuilder.Build(rootTree, nodeDict, edgeDict, wrapperEntityName, sqlWhereStatement, splitOnDapper, aliases, transformedToParent);
             ctx.SelectSql = selectResult.Item1;
             SqlPagingCompiler.Compile(rootTree, ctx, rootSelection);
@@ -51,7 +52,8 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                 Aliases = selectResult.Item3,
                 SqlNodes = [..edgeDict.Values, ..nodeDict.Values],
                 EntityMapping = entityMapping,
-                Trees = trees
+                EntityTrees = entityTrees,
+                ModelTrees = modelTrees
             };
         }
     }

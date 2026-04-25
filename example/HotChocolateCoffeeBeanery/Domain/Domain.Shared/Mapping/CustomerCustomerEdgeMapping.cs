@@ -57,12 +57,17 @@ public class CustomerCustomerEdgeMapping
         
         customerCustomerEdge.IsModel = true;
         
-        customerCustomerEdge.UpsertKeys.Add(new UpsertKey(nameof(DataEntity.CustomerBankingRelationship),
-            nameof(DataEntity.CustomerCustomerRelationship.InnerCustomer)));
-        customerCustomerEdge.UpsertKeys.Add(new UpsertKey(nameof(DataEntity.CustomerBankingRelationship),
-            nameof(DataEntity.CustomerCustomerRelationship.OuterCustomerId)));
-        customerCustomerEdge.UpsertKeys.Add(new UpsertKey(nameof(DataEntity.CustomerBankingRelationship),
-            nameof(DataEntity.CustomerCustomerRelationship.CustomerCustomerRelationshipKey)));
+        customerCustomerEdge.UpsertKeys.Add(
+            new UpsertKey(nameof(DataEntity.CustomerCustomerRelationship),
+                nameof(DataEntity.CustomerCustomerRelationship.InnerCustomerKey)));
+
+        customerCustomerEdge.UpsertKeys.Add(
+            new UpsertKey(nameof(DataEntity.CustomerCustomerRelationship),
+                nameof(DataEntity.CustomerCustomerRelationship.OuterCustomerKey)));
+
+        customerCustomerEdge.UpsertKeys.Add(
+            new UpsertKey(nameof(DataEntity.CustomerCustomerRelationship),
+                nameof(DataEntity.CustomerCustomerRelationship.CustomerCustomerRelationshipKey)));
         
         customerCustomerEdge.FieldMaps.Add(new FieldMap
         {

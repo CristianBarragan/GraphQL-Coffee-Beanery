@@ -1,5 +1,7 @@
 ﻿using System.Data;
 using CoffeeBeanery.CQRS;
+using CoffeeBeanery.GraphQL.Core.GraphQL;
+using CoffeeBeanery.GraphQL.Core.Mapping;
 using CoffeeBeanery.GraphQL.Core.Sql;
 using Dapper;
 using Npgsql;
@@ -11,56 +13,36 @@ public class ProcessQuery<M> : IQuery<ProcessQueryParameters,
     where M : class, new()
 {
     private readonly ILogger<ProcessQuery<M>> _logger;
-    private readonly NpgsqlConnection _dbConnection;
+    private readonly NpgsqlConnection _db;
 
-    private readonly Dictionary<string, M> _edgeDict = new();
-
-    public ProcessQuery(ILoggerFactory loggerFactory, NpgsqlConnection dbConnection)
+    public ProcessQuery(ILoggerFactory loggerFactory, NpgsqlConnection db)
     {
         _logger = loggerFactory.CreateLogger<ProcessQuery<M>>();
-        _dbConnection = dbConnection;
+        _db = db;
     }
 
-    public async Task<(List<M> list, int? startCursor, int? endCursor, int? totalCount, int? totalPageRecords)>
-        ExecuteAsync(ProcessQueryParameters parameters, CancellationToken cancellationToken)
+    public async Task<(List<M>, int?, int?, int?, int?)> ExecuteAsync(
+        ProcessQueryParameters parameters,
+        CancellationToken ct)
     {
         var types = parameters.SqlStructure.SplitOnDapper.Values.Reverse().ToList();
-        var splitOnDict = parameters.SqlStructure.SplitOnDapper;
+        var splitOn = parameters.SqlStructure.SplitOnDapper.Keys.Reverse().ToList();
 
-        if (splitOnDict.Count > 0)
-            splitOnDict.RemoveAt(splitOnDict.Count - 1);
+        var query = parameters.SqlStructure.SqlUpsert + ";" + parameters.SqlStructure.SqlQuery;
 
-        var splitOn = splitOnDict.Reverse().Select(a => a.Key).ToList();
-
-        if (parameters.Pagination.TotalRecordCount.RecordCount > 0 &&
-            parameters.Pagination.TotalPageRecords.PageRecords > 0)
-        {
-            types.Add(typeof(TotalPageRecords));
-            types.Add(typeof(TotalRecordCount));
-
-            splitOn.Insert(0, "RowNumber");
-            parameters.SqlStructure.Aliases.Add("RowNumber");
-        }
-
-        var query = parameters.SqlStructure.SqlUpsert + " ; " + parameters.SqlStructure.SqlQuery;
+        var edgeDict = new Dictionary<string, M>();
 
         int? totalCount = null;
         int? totalPageRecords = null;
         int? startCursor = null;
         int? endCursor = null;
 
-        // 🔥 BUILD MAPPER ONCE
-        var mapper = GraphMaterializer.BuildMapper<M>(
-            parameters.SqlStructure.SqlNodes,
-            parameters.SqlStructure.Trees,
-            parameters.SqlStructure.EntityMapping);
-
-        await _dbConnection.OpenAsync(cancellationToken);
-        var transaction = await _dbConnection.BeginTransactionAsync(cancellationToken);
+        await _db.OpenAsync(ct);
+        var tx = await _db.BeginTransactionAsync(ct);
 
         try
         {
-            await _dbConnection.QueryAsync(
+            await _db.QueryAsync(
                 query,
                 types.ToArray(),
                 (object[] map) =>
@@ -68,31 +50,37 @@ public class ProcessQuery<M> : IQuery<ProcessQueryParameters,
                     GraphMaterializer.MergeRow(
                         map,
                         parameters.SqlStructure.SqlNodes,
-                        parameters.SqlStructure.Trees,
+                        parameters.SqlStructure.ModelTrees,
                         parameters.SqlStructure.EntityMapping,
-                        mapper,
-                        _edgeDict,
+                        edgeDict,
+                        parameters.Model,
                         ref totalCount,
                         ref totalPageRecords);
 
                     return 0;
                 },
                 splitOn: string.Join(",", splitOn),
-                transaction: transaction,
-                commandType: CommandType.Text);
+                transaction: tx);
 
-            return (_edgeDict.Values.ToList(), startCursor, endCursor, totalCount, totalPageRecords);
+            await tx.CommitAsync(ct);
+
+            return (
+                edgeDict.Values.ToList(),
+                startCursor,
+                endCursor,
+                totalCount,
+                totalPageRecords
+            );
         }
         catch (Exception ex)
         {
-            await transaction.RollbackAsync(cancellationToken);
-            _logger.LogError(ex, "Error executing ProcessQuery");
+            await tx.RollbackAsync(ct);
+            _logger.LogError(ex, "ProcessQuery failed");
+            return ([], 0, 0, 0, 0);
         }
         finally
         {
-            await _dbConnection.CloseAsync();
+            await _db.CloseAsync();
         }
-
-        return ([], 0, 0, 0, 0);
     }
 }

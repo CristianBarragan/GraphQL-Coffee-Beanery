@@ -13,6 +13,8 @@ namespace CoffeeBeanery.GraphQL.Core.GraphQL
         public string Schema { get; set; } = "public";
         public int Id { get; init; }
 
+        public NodeMap NodeMap { get; set; }
+
         public List<LinkKey> Parents { get; set; } = new();
         
         public List<LinkKey> RelatedParents { get; set; } = new();

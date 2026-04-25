@@ -299,6 +299,7 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
                     Children           = map.EntityChildren,
                     Parents            = map.EntityParents,
                     RelatedParents     = map.EntityRelatedParents,
+                    NodeMap = map,
                     RelatedChildren    = map.EntityRelatedChildren,
                     ModelToEntityLinks = map.ModelToEntityLinks,
                     Mapping            = map.FieldMaps.Select(a => new FieldMap
@@ -324,6 +325,7 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
                     Children           = map.EntityChildren,
                     Parents            = map.EntityParents,
                     RelatedParents     = map.EntityRelatedParents,
+                    NodeMap = map,
                     RelatedChildren    = map.EntityRelatedChildren,
                     ModelToEntityLinks = map.ModelToEntityLinks,
                     Mapping            = map.FieldMaps.Select(a => new FieldMap

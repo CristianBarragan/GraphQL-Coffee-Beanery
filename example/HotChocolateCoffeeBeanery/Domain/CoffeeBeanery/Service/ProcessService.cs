@@ -104,6 +104,7 @@ namespace CoffeeBeanery.Service
                 nodeStatementNodes,
                 rootNodeEntity.Key,
                 SqlNodeRegistry.EntityTrees,
+                SqlNodeRegistry.ModelTrees,
                 sqlWhereStatement,
                 transformedToParent
             );
@@ -111,7 +112,8 @@ namespace CoffeeBeanery.Service
             var parameters = new ProcessQueryParameters
             {
                 SqlStructure = sqlStructure,
-                Pagination = ctx.Pagination
+                Pagination = ctx.Pagination,
+                Model = modelName
             };
 
             var (models, startCursor, endCursor, totalCount, totalPageRecords) =
@@ -229,6 +231,7 @@ namespace CoffeeBeanery.Service
                 nodeStatementNodes,
                 rootEntity,
                 SqlNodeRegistry.EntityTrees,
+                SqlNodeRegistry.ModelTrees,
                 sqlWhereStatement,
                 transformedToParent
             );
@@ -239,7 +242,8 @@ namespace CoffeeBeanery.Service
             var parameters = new ProcessQueryParameters
             {
                 SqlStructure = sqlStructure,
-                Pagination = ctx.Pagination
+                Pagination = ctx.Pagination,
+                Model = modelName
             };
 
             var (models, startCursor, endCursor, totalCount, totalPageRecords) =

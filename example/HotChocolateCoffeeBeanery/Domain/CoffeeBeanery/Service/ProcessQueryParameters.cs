@@ -6,5 +6,7 @@ namespace CoffeeBeanery.Service
     {
         public SqlStructure SqlStructure { get; set; } = new();
         public Pagination Pagination { get; set; } = new();
+
+        public string Model { get; set; }
     }
 }
