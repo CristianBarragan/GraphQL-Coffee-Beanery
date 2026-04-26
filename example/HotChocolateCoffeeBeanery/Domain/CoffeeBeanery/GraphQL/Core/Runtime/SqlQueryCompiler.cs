@@ -29,7 +29,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
             }
             
             //Refactor with new alias feature
-            SqlOrderCompiler.Compile(ctx, entityTrees, rootSelection, rootTree.Name, nodeDict);
+            SqlOrderCompiler.Compile(ctx, entityTrees, rootSelection, wrapperEntityName, nodeDict);
             var selectResult = SqlSelectBuilder.Build(rootTree, nodeDict, edgeDict, wrapperEntityName, sqlWhereStatement, splitOnDapper, aliases, transformedToParent);
             ctx.SelectSql = selectResult.Item1;
             SqlPagingCompiler.Compile(rootTree, ctx, rootSelection);
@@ -51,7 +51,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                 SplitOnDapper = selectResult.Item2,
                 Aliases = selectResult.Item3,
                 SqlNodes = [..edgeDict.Values, ..nodeDict.Values],
-                EntityMapping = entityMapping,
+                EntityMapping = entityMapping.Reverse().ToDictionary(),
                 EntityTrees = entityTrees,
                 ModelTrees = modelTrees
             };

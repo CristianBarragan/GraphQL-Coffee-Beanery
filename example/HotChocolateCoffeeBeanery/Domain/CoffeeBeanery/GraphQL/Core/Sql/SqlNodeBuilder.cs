@@ -22,6 +22,13 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
         public static void BuildModel(string model, NodeMap map)
         {
             var modelName = map.ModelType.Name;
+            var table = map.EntityType?.Name;
+
+            if (string.IsNullOrWhiteSpace(table))
+            {
+                
+            }
+            
             var linkKeys  = map.LinkKeys;
             
             var alias = map.Alias.Split('.').Last();
@@ -57,9 +64,9 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
                 {
                     Id              = map.Id.ToString(),
                     Schema          = map.Schema,
-                    Table           = field.DestinationEntity,
+                    Table           = (table ?? map.EntityType?.Name) ?? string.Empty,
                     Column          = field.DestinationName,
-                    RelationshipKey = $"{alias}~{field.DestinationEntity}~{field.DestinationName}",
+                    RelationshipKey = $"{alias}~{map.ModelType.Name}~{field.DestinationName}",
                     FromEnumeration = map.FromEnum,
                     ToEnumeration   = map.ToEnum,
                     EntityChildren = map.EntityChildren,
@@ -83,7 +90,7 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
                     
                 SqlNodeRegistry.RegisterNode(
                     $"{alias}~{map.ModelType.Name}~{field.DestinationName}", 
-                    $"{alias}~{field.DestinationEntity}~{field.DestinationName}",
+                    $"{alias}~{map.ModelType.Name}~{field.DestinationName}",
                     tempSqlNode, map.ModelType,
                     map.EntityType == null ? map.ModelType : map.EntityType,
                     map.IsEntity);
@@ -94,9 +101,9 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
                 {
                     Id              = map.Id.ToString(),
                     Schema          = map.Schema,
-                    Table           = field.DestinationEntity,
+                    Table           = (table ?? map.EntityType?.Name) ?? string.Empty,
                     Column          = field.DestinationName,
-                    RelationshipKey = $"{alias}~{field.DestinationEntity}~{field.DestinationName}",
+                    RelationshipKey = $"{alias}~{map.ModelType.Name}~{field.DestinationName}",
                     FromEnumeration = map.FromEnum,
                     ToEnumeration   = map.ToEnum,
                     EntityChildren = map.EntityChildren,
@@ -120,7 +127,7 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
                     
                 SqlNodeRegistry.RegisterNode(
                     $"{alias}~{map.ModelType.Name}~{field.DestinationName}", 
-                    $"{alias}~{field.DestinationEntity}~{field.DestinationName}",
+                    $"{alias}~{map.ModelType.Name}~{field.DestinationName}",
                     tempSqlNode, map.ModelType,
                     map.EntityType == null ? map.ModelType : map.EntityType,
                     map.IsEntity);
@@ -131,9 +138,9 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
                     {
                         Id              = map.Id.ToString(),
                         Schema          = map.Schema,
-                        Table           = map.EntityType.Name,
+                        Table           = (table ?? map.EntityType?.Name) ?? string.Empty,
                         Column          = map.UpsertKeys[i].Key,
-                        RelationshipKey = $"{alias}~{field.DestinationEntity}~{map.UpsertKeys[i].Entity}",
+                        RelationshipKey = $"{alias}~{map.ModelType.Name}~{map.UpsertKeys[i].Key}",
                         FromEnumeration = map.FromEnum,
                         ToEnumeration   = map.ToEnum,
                         EntityChildren = map.EntityChildren,
@@ -157,7 +164,7 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
                 
                     SqlNodeRegistry.RegisterNode(
                         $"{alias}~{map.ModelType.Name}~{map.UpsertKeys[i].Key}", 
-                        $"{alias}~{field.DestinationEntity}~{map.UpsertKeys[i].Entity}",
+                        $"{alias}~{map.ModelType.Name}~{map.UpsertKeys[i].Key}",
                         tempSqlNode, map.ModelType,
                         map.EntityType == null ? map.ModelType : map.EntityType,
                         map.IsEntity);
@@ -166,9 +173,9 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
                     {
                         Id              = map.Id.ToString(),
                         Schema          = map.Schema,
-                        Table           = map.EntityType.Name,
+                        Table           = (table ?? map.EntityType?.Name) ?? string.Empty,
                         Column          = map.UpsertKeys[i].Key,
-                        RelationshipKey = $"{alias}~{field.DestinationEntity}~{map.UpsertKeys[i].Entity}",
+                        RelationshipKey = $"{alias}~{map.ModelType.Name}~{map.UpsertKeys[i].Key}",
                         FromEnumeration = map.FromEnum,
                         ToEnumeration   = map.ToEnum,
                         EntityChildren = map.EntityChildren,
@@ -192,7 +199,7 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
                 
                     SqlNodeRegistry.RegisterNode(
                         $"{alias}~{map.ModelType.Name}~{map.UpsertKeys[i].Key}", 
-                        $"{alias}~{field.DestinationEntity}~{map.UpsertKeys[i].Entity}",
+                        $"{alias}~{map.ModelType.Name}~{map.UpsertKeys[i].Key}",
                         tempSqlNode, map.ModelType,
                         map.EntityType == null ? map.ModelType : map.EntityType,
                         map.IsEntity);
@@ -213,7 +220,7 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
                         Schema          = map.Schema,
                         Table           = fromKeyParts[0],
                         Column          = fromKeyParts[2],
-                        RelationshipKey = $"{alias}~{toKeyParts[1]}~{toKeyParts[2]}",
+                        RelationshipKey = $"{alias}~{toKeyParts[0]}~{toKeyParts[2]}",
                         FromEnumeration = map.FromEnum,
                         ToEnumeration   = map.ToEnum,
                         EntityChildren = map.EntityChildren,
@@ -237,7 +244,7 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
                     
                     SqlNodeRegistry.RegisterNode(
                         $"{alias}~{toKeyParts[0]}~{toKeyParts[2]}",
-                        $"{alias}~{toKeyParts[1]}~{toKeyParts[2]}",
+                        $"{alias}~{toKeyParts[0]}~{toKeyParts[2]}",
                         tempSqlNode, map.ModelType,
                         map.EntityType == null ? map.ModelType : map.EntityType,
                         map.IsEntity);
@@ -248,7 +255,7 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
                         Schema          = map.Schema,
                         Table           = fromKeyParts[0],
                         Column          = fromKeyParts[2],
-                        RelationshipKey = $"{alias}~{toKeyParts[1]}~{toKeyParts[2]}",
+                        RelationshipKey = $"{alias}~{toKeyParts[0]}~{toKeyParts[2]}",
                         FromEnumeration = map.FromEnum,
                         ToEnumeration   = map.ToEnum,
                         EntityChildren = map.EntityChildren,
@@ -272,7 +279,7 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
                     
                     SqlNodeRegistry.RegisterNode(
                         $"{alias}~{toKeyParts[0]}~{toKeyParts[2]}",
-                        $"{alias}~{toKeyParts[1]}~{toKeyParts[2]}",
+                        $"{alias}~{toKeyParts[0]}~{toKeyParts[2]}",
                         tempSqlNode, map.ModelType,
                         map.EntityType == null ? map.ModelType : map.EntityType,
                         map.IsEntity);

@@ -27,14 +27,14 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
             var modelKeyAux = modelKey.Split('~').Length > 1 ? ModelTrees.FirstOrDefault(a => a.Key.Matches(modelKey.Split('~')[0])).Value?.Alias ?? modelKey.Split('~')[0] : modelKey.Split('~')[1];
             var entityKeyAux = entityKey.Split('~').Length > 1 ? EntityTrees.FirstOrDefault(a => a.Key.Matches(entityKey.Split('~')[0])).Value?.Alias ?? entityKey.Split('~')[0] : entityKey.Split('~')[1];
             
-            if (!ModelNames.Contains(modelKeyAux))
+            if (!ModelNames.Contains(modelType.Name))
             {
-                ModelNames.Add(modelKeyAux);
+                ModelNames.Add(modelType.Name);
             }
             
-            if (!EntityNames.Contains(entityKeyAux) && isEntity)
+            if (!EntityNames.Contains(entityType.Name) && isEntity)
             {
-                EntityNames.Add(entityKeyAux);
+                EntityNames.Add(entityType.Name);
             }
             
             if (!ModelTypes.Contains(modelType))
@@ -47,7 +47,8 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
                 EntityTypes.Add(entityType);    
             }
             
-            if (!EntityNodes.ContainsKey(entityKey) && isEntity)
+            if (!EntityNodes.ContainsKey(entityKey))
+                // && isEntity)
             {
                 EntityNodes[entityKey] = node;
             }

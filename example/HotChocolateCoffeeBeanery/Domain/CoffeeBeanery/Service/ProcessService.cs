@@ -53,11 +53,11 @@ namespace CoffeeBeanery.Service
 
             var rootTree = SqlNodeRegistry.EntityTrees[modelName];
 
-            var edgeStatementNodes = new Dictionary<string, SqlNode>();
+            var edgeStatementNodes = new Dictionary<string, SqlNode>(StringComparer.OrdinalIgnoreCase);
             var visitedModels = new List<string>();
             visitedModels.Add(SqlNodeRegistry.ModelTrees.Values.OrderBy(a => a.Id).First().Name);
             var visitedEntities = new List<string>();
-            var nodeStatementNodes = new Dictionary<string, SqlNode>();
+            var nodeStatementNodes = new Dictionary<string, SqlNode>(StringComparer.OrdinalIgnoreCase);
 
             SqlNodeResolver.GetFields(SqlNodeRegistry.ModelTrees, SqlNodeRegistry.EntityTrees, selection.SyntaxNode, SqlNodeRegistry.EntityNodes,
                 SqlNodeRegistry.ModelNodes, edgeStatementNodes, rootTree, new NodeTree(), visitedModels, visitedEntities,
@@ -139,14 +139,14 @@ namespace CoffeeBeanery.Service
 
             var modelToEntityLink = SqlNodeRegistry.ModelTrees[modelName].ModelToEntityLinks[0];
 
-            var entityName = modelToEntityLink.To;
+            var entityName = modelToEntityLink.From;
             
             var rootTree = SqlNodeRegistry.ModelTrees[modelName];
 
-            var mutationStatementNodes = new Dictionary<string, SqlNode>();
+            var mutationStatementNodes = new Dictionary<string, SqlNode>(StringComparer.OrdinalIgnoreCase);
 
             var argument = selection.SyntaxNode.Arguments.FirstOrDefault(a => a.Name.Value.Matches(wrapperName));
-            wrapperName = argument.GetNodes().Last().GetNodes().Last().GetNodes().Last().ToString().Replace("_","");
+            wrapperName = argument.GetNodes().Last().GetNodes().FirstOrDefault(a => a.ToString().Contains("model")).ToString().Split(":")[1].Replace("_","").Trim(' ');
             wrapperName = SqlNodeRegistry.ModelTrees[wrapperName].ModelToEntityLinks[0].To;
 
             if (
@@ -170,14 +170,22 @@ namespace CoffeeBeanery.Service
             }
 
             var sqlWhereStatement = new Dictionary<string, string>();
-            
-            var mutationStructure = SqlMutationCompiler.Compile(selection, SqlNodeRegistry.EntityTrees[entityName], wrapperName, mutationStatementNodes, sqlWhereStatement);
 
-            var edgeStatementNodes = new Dictionary<string, SqlNode>();
+            var nodeTreeKeyValuePair =
+                SqlNodeRegistry.ModelTrees.FirstOrDefault(a => a.Value.ModelToEntityLinks[0].To.Matches(modelName));
+
+            if (nodeTreeKeyValuePair.Value == null)
+            {
+                nodeTreeKeyValuePair = SqlNodeRegistry.ModelTrees.FirstOrDefault(a => a.Value.ModelToEntityLinks[0].From.Matches(modelName));
+            }
+            
+            var mutationStructure = SqlMutationCompiler.Compile(selection, nodeTreeKeyValuePair.Value, wrapperName, mutationStatementNodes, sqlWhereStatement);
+
+            var edgeStatementNodes = new Dictionary<string, SqlNode>(StringComparer.OrdinalIgnoreCase);
             var visitedModels = new List<string>();
             visitedModels.Add(SqlNodeRegistry.ModelTrees.Values.OrderBy(a => a.Id).First().Name);
             var visitedEntities = new List<string>();
-            var nodeStatementNodes = new Dictionary<string, SqlNode>();
+            var nodeStatementNodes = new Dictionary<string, SqlNode>(StringComparer.OrdinalIgnoreCase);
 
             SqlNodeResolver.GetFields(SqlNodeRegistry.ModelTrees, SqlNodeRegistry.EntityTrees, selection.SyntaxNode.GetNodes().ToList()[2], SqlNodeRegistry.EntityNodes,
                 SqlNodeRegistry.ModelNodes, edgeStatementNodes, rootTree, new NodeTree(), visitedModels, visitedEntities,
@@ -219,8 +227,8 @@ namespace CoffeeBeanery.Service
             else if (rootNodeEntity.Key != null && rootEdgeEntity.Key != null)
             {
                 rootEntity = rootEdgeEntity.Value.Id > rootNodeEntity.Value.Id
-                    ? rootNodeEntity.Value.Name
-                    : rootEdgeEntity.Value.Name;
+                    ? rootNodeEntity.Key
+                    : rootEdgeEntity.Key;
             }
 
             // Compile SQL using your current compiler

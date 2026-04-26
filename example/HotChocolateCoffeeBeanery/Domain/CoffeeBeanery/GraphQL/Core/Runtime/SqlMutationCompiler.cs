@@ -29,18 +29,29 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                 SqlWhereCompiler.Compile(ctx, rootSelection, rootTree, wrapperEntityName, sqlWhereStatement);
 
             var entitiesProcessed = new List<string>();
+            
+            var nodeTreeKeyValuePair =
+                SqlNodeRegistry.ModelTrees.FirstOrDefault(a => a.Value.ModelToEntityLinks[0].To.Matches(wrapperEntityName));
 
-            GenerateUpsertStatements(
-                SqlNodeRegistry.EntityTrees,
-                SqlNodeRegistry.EntityNodes,
-                wrapperEntityName,
-                generatedQuery,
-                mutationDict,
-                SqlNodeRegistry.EntityTrees[wrapperEntityName],
-                sqlWhereStatement,
-                entitiesProcessed,
-                sqlUpsertBuilder,
-                sqlSelectUpsertBuilder);
+            if (nodeTreeKeyValuePair.Value == null)
+            {
+                nodeTreeKeyValuePair = SqlNodeRegistry.ModelTrees.FirstOrDefault(a => a.Value.ModelToEntityLinks[0].From.Matches(wrapperEntityName));
+            }
+
+            foreach (var fieldMap in nodeTreeKeyValuePair.Value.Mapping)
+            {
+                GenerateUpsertStatements(
+                    SqlNodeRegistry.EntityTrees,
+                    SqlNodeRegistry.EntityNodes,
+                    wrapperEntityName,
+                    generatedQuery,
+                    mutationDict,
+                    SqlNodeRegistry.EntityTrees[fieldMap.DestinationEntity],
+                    sqlWhereStatement,
+                    entitiesProcessed,
+                    sqlUpsertBuilder,
+                    sqlSelectUpsertBuilder);    
+            }
 
             ctx.UpsertSql = sqlUpsertBuilder.ToString() + " ; " + sqlSelectUpsertBuilder.ToString();
 
@@ -243,15 +254,8 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
             // if (columnValue == null)
             //     return sqlUpsertAux;
 
-            foreach (var linkKey in currentColumns.First().Value.LinkKeys)
+            foreach (var parent in currentTree.Parents)
             {
-                    var linkedAlias = linkKey.To;
-
-                    if (!trees.TryGetValue(linkedAlias, out var linkedTree))
-                        continue;
-
-                    var columns = currentColumns;
-
                     // var linkedCustomerColumn = sqlUpsertStatementNodes
                     //     .FirstOrDefault(k =>
                     //         k.Key.Split('~')[0].Matches(linkKey.To) &&
@@ -264,17 +268,17 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                     //
                     var parentColumns = sqlUpsertStatementNodes
                         .Where(k =>
-                            k.Key.Split('~')[0].Matches(linkedAlias) &&
+                            k.Key.Split('~')[0].Matches(parent.To) &&
                             !string.IsNullOrEmpty(k.Value.Value))
                         .ToList();
 
-                    var childColumns = sqlUpsertStatementNodes.Where(a => columns
+                    var childColumns = sqlUpsertStatementNodes.Where(a => currentColumns
                             .Any(b => b.Key.Split('~')[2].Matches(a.Key.Split('~')[2]) &&
                                       !a.Value.EntityParents.Any(a => a.ToColumn.Matches(b.Value.Column)))).ToList();
                     
                     sqlUpsertAux += GenerateCommand(
-                        columns, sqlUpsertStatementNodes, trees, currentTree,
-                        sqlWhereStatement, childColumns, linkedAlias);
+                        currentColumns, sqlUpsertStatementNodes, trees, currentTree,
+                        sqlWhereStatement, childColumns, parent.To);
                     
             }
 
@@ -292,68 +296,24 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
         {
             if (string.IsNullOrEmpty(linkedAlias) || !trees.TryGetValue(linkedAlias, out var parentTree))
                 return string.Empty;
-
-            var onConflictKey = currentColumns.FirstOrDefault(a =>
-                a.Value.UpsertKeys.Any(u =>
-                    u.Split('~').Last().Matches(a.Key.Split('~')[2])));
-
-            var onConflictKeys = currentColumns.Where(a =>
-                    a.Value.UpsertKeys.Any(u =>
-                        u.Split('~').Last().Matches(a.Key.Split('~')[2])));
-
-            if (!onConflictKeys.Any())
-                return string.Empty;
             
             var sqlUpsert = string.Empty;
+            var currentParentTree = trees[linkedAlias];
 
             foreach (var childColumn in childrenColumns)
             {
-                var childTree = trees[childrenColumns[0].Value.Table];
-                var entityLink =
-                    currentTree.ModelToEntityLinks.FirstOrDefault(a => a.FromColumn.Matches(childColumn.Value.Column));
-
+                var entityLink = currentParentTree.ModelToEntityLinks.FirstOrDefault(a => a.From.Matches(currentTree.Alias));
                 if (entityLink == null || !trees.TryGetValue(entityLink.From, out var entityTree))
                 {
                     continue;
                 }
 
-                var insertJoin = $"\"{entityTree.Alias}Id\", {string.Join(",", onConflictKeys.Select(c =>
-                    $"\"{c.Value.Column}\""))} ";
-                var selectJoin =
-                    $"{entityTree.Alias}.\"Id\" AS \"{entityTree.Alias}Id\", {string.Join(",", onConflictKeys.Select(c =>
-                        $"'{c.Value.Value}' AS \"{c.Value.Column}\""))}";
-
-            ;
-                    // $"\"{onConflictKey.Value.Column}\""))}";
-                
-                // insertJoin += string.Join(",", childrenColumns.Select(c => $"\"{c.Value.Column}\"").ToList());
-                // selectJoin += string.Join(",", childrenColumns.Select(c => $"'{c.Value.Value}' AS \"{c.Value.Column}\"").ToList());
-
-                var excludeJoin = $"\"{entityTree.Alias}Id\" = EXCLUDED.\"{entityTree.Alias}Id\"";
-                var sqlUpsertAux = string.Empty;
-                var where = $"{entityTree.Alias}.\"{entityLink.ToColumn}\" = '{childColumn.Value.Value}'";
-                    
-                    childrenColumns
-                    // .Where(a =>
-                    //     a.Key.Split('~')[0].Matches(linkedAlias) &&
-                    //     a.Value.UpsertKeys.Any(u =>
-                    //         u.Split('~').Last().Matches(a.Key.Split('~')[1])))
-                    .Select(s => $"{entityTree.Alias}.\"{s.Value.Column}\" = '{s.Value.Value}'")
-                    .ToList();
-
-                sqlUpsertAux =
-                    $" ; INSERT INTO \"{currentTree.Schema}\".\"{currentTree.Name}\" ( " +
-                    insertJoin +
-                    $" ) ( SELECT {selectJoin}" +
-                    $" FROM \"{entityTree.Schema}\".\"{entityTree.Name}\" {entityTree.Alias}" +
-                    $" WHERE {where}";
-
-                var exclude = new List<string> { excludeJoin };
-
-                sqlUpsertAux += $" ) ON CONFLICT (\"{onConflictKey.Value.Column}\") ";
-                sqlUpsertAux += exclude.Count > 0
-                    ? $" DO UPDATE SET {string.Join(",", exclude)}"
-                    : $" DO NOTHING";
+                var sqlUpsertAux =
+                    $" ; UPDATE \"{parentTree.Schema}\".\"{parentTree.Name}\" SET \"{currentTree.Alias}Id\" = ( SELECT {
+                        currentTree.Alias}.\"Id\" AS \"{currentTree.Alias}Id\"" +
+                    $" FROM \"{currentTree.Schema}\".\"{currentTree.Name}\" {currentTree.Alias}" +
+                    $" WHERE {currentTree.Alias}.\"{childColumn.Value.Column}\" = '{childColumn.Value.Value}') WHERE \"{
+                        entityLink.FromColumn}\" = '{childColumn.Value.Value}'";
 
                 sqlUpsert += sqlUpsertAux + " ; ";
             }

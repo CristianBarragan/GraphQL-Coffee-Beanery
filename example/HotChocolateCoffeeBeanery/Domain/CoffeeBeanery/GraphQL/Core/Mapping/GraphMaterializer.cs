@@ -1,6 +1,7 @@
 ﻿using System.Collections.Concurrent;
 using System.Reflection;
 using CoffeeBeanery.GraphQL.Core.GraphQL;
+using CoffeeBeanery.GraphQL.Core.Mapping;
 using CoffeeBeanery.GraphQL.Core.Sql;
 
 public static class GraphMaterializer
@@ -159,16 +160,15 @@ public static class GraphMaterializer
         foreach (var prop in edgeElement.GetType()
                      .GetProperties(BindingFlags.Public | BindingFlags.Instance))
         {
-            if (!prop.CanWrite)                                    continue;
-            if (prop.PropertyType.IsPrimitive)                    continue;
-            if (prop.PropertyType == typeof(string))               continue;
-            if (prop.PropertyType.IsEnum)                          continue;
+            if (!prop.CanWrite)                                      continue;
+            if (prop.PropertyType.IsPrimitive)                       continue;
+            if (prop.PropertyType == typeof(string))                 continue;
+            if (prop.PropertyType.IsEnum)                            continue;
             if (GetCollectionElementType(prop.PropertyType) != null) continue;
-            if (prop.GetValue(edgeElement) is not null)            continue;
+            if (prop.GetValue(edgeElement) is not null)              continue;
 
-            // Nullable<T> unwrap (e.g. Guid?)
-            var underlying = Nullable.GetUnderlyingType(prop.PropertyType);
-            if (underlying != null) continue;
+            // Skip Nullable<T> value types (Guid?, int?, etc.)
+            if (Nullable.GetUnderlyingType(prop.PropertyType) != null) continue;
 
             var typeName = prop.PropertyType.Name;
 
@@ -182,7 +182,7 @@ public static class GraphMaterializer
 
             MapFields(childTree, rootRowObj, childObj);
 
-            // Cache so Recurse doesn't create a duplicate.
+            // Cache so Recurse does not create a duplicate.
             var compositeKey = $"{childTree.Alias ?? childTree.Name}::scalar::{rootRowObj.GetHashCode()}";
             var cache        = _nodeCache.GetOrCreateValue(root);
             cache.TryAdd(compositeKey, childObj);
@@ -198,7 +198,7 @@ public static class GraphMaterializer
     //   SourceName      = model property name
     //   DestinationName = entity property name
     //
-    // Materializer reads from entity row → writes to domain model:
+    // Materializer reads entity row → writes domain model:
     //   read  using DestinationName (entity)  with SourceName as fallback
     //   write using SourceName      (model)   with DestinationName as fallback
     // =========================================================
@@ -223,6 +223,9 @@ public static class GraphMaterializer
 
     // =========================================================
     // RECURSIVE CHILD WALK
+    //
+    // `tree` is the PARENT tree — its NodeMap.ModelToEntityLinks
+    // describes how to copy FK values onto each child.
     // =========================================================
     private static void Recurse(
         NodeTree                              tree,
@@ -249,8 +252,8 @@ public static class GraphMaterializer
             if (childRow is null or DBNull) continue;
 
             // link.To is the exact property name on parent
-            // (e.g. "InnerCustomer", "OuterCustomer") — use it directly
-            // to avoid ambiguity when multiple properties share the same type.
+            // (e.g. "InnerCustomer", "OuterCustomer") — unambiguous even
+            // when multiple properties share the same type.
             var child = ResolveOrCreate(
                 parent, root, childTree, childNode, childRow,
                 propertyName: link.To,
@@ -259,11 +262,16 @@ public static class GraphMaterializer
 
             MapFields(childTree, childRow, child);
 
-            // Copy FK value from parent onto child via LinkKey.
-            // e.g. parent.InnerCustomerKey → child.CustomerKey
-            // link.FromColumn = source property on parent
-            // link.ToColumn   = destination property on child
-            CopyLinkKey(parent, child, link);
+            // Copy FK from parent → child using the PARENT tree's
+            // ModelToEntityLinks, matched by mel.From == link.To.
+            //
+            // e.g. CustomerCustomerRelationship.ModelToEntityLinks:
+            //   { From="InnerCustomer", FromColumn="InnerCustomerKey", ToColumn="CustomerKey" }
+            //   { From="OuterCustomer", FromColumn="OuterCustomerKey", ToColumn="CustomerKey" }
+            //
+            // When link.To = "InnerCustomer":  reads parent.InnerCustomerKey → child.CustomerKey
+            // When link.To = "OuterCustomer":  reads parent.OuterCustomerKey → child.CustomerKey
+            CopyLinkKey(parent, child, link, parentTree: tree);
 
             Recurse(childTree, slots, trees, child, root);
         }
@@ -272,26 +280,59 @@ public static class GraphMaterializer
     // =========================================================
     // COPY LINK KEY
     //
-    // Copies the FK value declared in a LinkKey from parent to child.
-    // Used when the child's JOIN slot does not re-select the key column
-    // (e.g. InnerCustomer slot only selects Id, not CustomerKey —
-    // but CustomerKey = InnerCustomerKey already set on the parent edge).
+    // Reads ModelToEntityLinks from the PARENT NodeMap.
+    // Matches by mel.From == link.To (the child alias) so the
+    // correct FK column is chosen for each child.
+    //
+    // Falls back to entity-level LinkKey columns if no match found.
     // =========================================================
-    private static void CopyLinkKey(object parent, object child, LinkKey link)
+    private static void CopyLinkKey(
+        object   parent,
+        object   child,
+        LinkKey  link,
+        NodeTree parentTree)
     {
+        // Primary: parent NodeMap ModelToEntityLinks, matched by From == link.To.
+        if (parentTree.NodeMap?.ModelToEntityLinks is { Count: > 0 } modelLinks)
+        {
+            foreach (var mel in modelLinks)
+            {
+                if (string.IsNullOrEmpty(mel.FromColumn) ||
+                    string.IsNullOrEmpty(mel.ToColumn))   continue;
+
+                // mel.From = child alias (e.g. "InnerCustomer" or "OuterCustomer")
+                // link.To  = the child we are currently attaching
+                if (!string.Equals(mel.From, link.To, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                var srcProp = GetProp(parent.GetType(), mel.FromColumn);
+                if (srcProp is null) continue;
+
+                var val = srcProp.GetValue(parent);
+                if (val is null) continue;
+
+                var dstProp = GetProp(child.GetType(), mel.ToColumn);
+                if (dstProp is null || !dstProp.CanWrite) continue;
+
+                SetSafe(child, dstProp, val);
+                return;
+            }
+        }
+
+        // Fallback: entity-level LinkKey columns.
         if (string.IsNullOrEmpty(link.FromColumn) ||
             string.IsNullOrEmpty(link.ToColumn)) return;
 
-        var srcProp = GetProp(parent.GetType(), link.FromColumn);
-        if (srcProp is null) return;
+        var sp = GetProp(parent.GetType(), link.FromColumn);
+        if (sp is null) return;
 
-        var val = srcProp.GetValue(parent);
-        if (val is null) return;
+        var v = sp.GetValue(parent);
+        if (v is null) return;
 
-        var dstProp = GetProp(child.GetType(), link.ToColumn);
-        if (dstProp is null || !dstProp.CanWrite) return;
+        var dp = GetProp(child.GetType(), link.ToColumn);
+        if (dp is null || !dp.CanWrite) return;
 
-        SetSafe(child, dstProp, val);
+        SetSafe(child, dp, v);
     }
 
     // =========================================================
@@ -339,8 +380,8 @@ public static class GraphMaterializer
     // PROPERTY SEARCH
     //
     // Pass 1: exact property name match (handles InnerCustomer vs
-    //         OuterCustomer which are both of type Customer).
-    // Pass 2: element type name match (for unambiguous cases like
+    //         OuterCustomer — both of type Customer).
+    // Pass 2: element type name match (unambiguous cases like
     //         List<CustomerBankingRelationship>).
     // =========================================================
     private static PropertyInfo? FindChildProp(Type parentType, string name, string alias)

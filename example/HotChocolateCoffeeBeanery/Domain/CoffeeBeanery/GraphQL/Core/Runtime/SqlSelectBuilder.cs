@@ -30,25 +30,36 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                 if (!nodeDict.ContainsKey(edgeKey.Key))
                     nodeDict.Add(edgeKey.Key, edgeKey.Value);
             }
+            
+            var nodeEntity =
+                SqlNodeRegistry.EntityTrees[wrapperEntityName];
 
-            // Generate the SQL recursively
-            GenerateQuery(
-                SqlNodeRegistry.EntityTrees,
-                SqlNodeRegistry.EntityTypes,
-                SqlNodeRegistry.EntityNodes,
-                SqlNodeRegistry.ModelNodes,
-                nodeDict,
-                sqlWhereStatement,
-                SqlNodeRegistry.EntityTrees[wrapperEntityName],
-                childrenSqlStatement,
-                wrapperEntityName,
-                sqlQueryStructures,
-                splitOnDapper,
-                aliases,
-                entityOrder,
-                new List<string>(),
-                new List<string>(),
-                new List<string>());
+            // if (nodeTreeKeyValuePair.Value == null)
+            // {
+            //     nodeTreeKeyValuePair = SqlNodeRegistry.EntityTrees.FirstOrDefault(a => a.Value.ModelToEntityLinks[0].From.Matches(wrapperEntityName));
+            // }
+            
+            foreach (var fieldMap in nodeEntity.Mapping)
+            {
+                // Generate the SQL recursively
+                GenerateQuery(
+                    SqlNodeRegistry.EntityTrees,
+                    SqlNodeRegistry.EntityTypes,
+                    SqlNodeRegistry.EntityNodes,
+                    SqlNodeRegistry.ModelNodes,
+                    nodeDict,
+                    sqlWhereStatement,
+                    SqlNodeRegistry.EntityTrees[fieldMap.DestinationEntity],
+                    childrenSqlStatement,
+                    wrapperEntityName,
+                    sqlQueryStructures,
+                    splitOnDapper,
+                    aliases,
+                    entityOrder,
+                    new List<string>(),
+                    new List<string>(),
+                    new List<string>());    
+            }
 
             if (sqlQueryStructures.Count == 0)
                 return (string.Empty, default, default);
@@ -113,13 +124,13 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                     if (!entityTrees.ContainsKey(child.To))
                         continue;
 
-                    childVisitedEntities = new List<string>(parentVisitedEntities) { currentTree.Name };
+                    parentVisitedEntities = new List<string>(parentVisitedEntities) { currentTree.Name };
 
                     if (currentTree.Parents?.Count > 0 && !string.IsNullOrEmpty(currentTree.Parents[0].To))
-                        childVisitedEntities.Add(currentTree.Parents[0].To);
+                        parentVisitedEntities.Add(currentTree.Parents[0].To);
 
                     if (currentTree.RelatedParents?.Count > 0 && !string.IsNullOrEmpty(currentTree.RelatedParents[0].To))
-                        childVisitedEntities.Add(currentTree.RelatedParents[0].To);
+                        parentVisitedEntities.Add(currentTree.RelatedParents[0].To);
 
                     GenerateQuery(
                         entityTrees,
@@ -282,19 +293,36 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                 whereClause;
 
             // ── SplitOn registration ───────────────────────────────────────
+            // ── SplitOn registration (ORDERED by idSnake length) ─────────────────────
             if (!splitOnDapper.ContainsKey(idSnake))
             {
                 var entityType = entityTypes.FirstOrDefault(e => e.Name.Matches(currentTree.Name));
-                if (splitOnDapper.Values.Any(a => a.Name.Matches(currentTree.Name)))
+
+                // 🔥 build temp list (preserves order)
+                var splitItems = splitOnDapper.ToList();
+                var aliasItems = aliases.ToList();
+
+                var index = splitItems.FindIndex(kvp => kvp.Key.Length > idSnake.Length);
+
+                if (index < 0)
                 {
-                    splitOnDapper.Insert(0, idSnake, entityType);
-                    aliases.Insert(0, idSnake, currentTree.Alias);
+                    splitItems.Add(new KeyValuePair<string, Type>(idSnake, entityType));
+                    aliasItems.Add(new KeyValuePair<string, string>(idSnake, currentTree.Alias));
                 }
                 else
                 {
-                    splitOnDapper.Add(idSnake, entityType);
-                    aliases.Add(idSnake, currentTree.Alias);
+                    splitItems.Insert(index, new KeyValuePair<string, Type>(idSnake, entityType));
+                    aliasItems.Insert(index, new KeyValuePair<string, string>(idSnake, currentTree.Alias));
                 }
+                
+                splitOnDapper.Clear();
+                aliases.Clear();
+
+                foreach (var item in splitItems)
+                    splitOnDapper.Add(item.Key, item.Value);
+
+                foreach (var item in aliasItems)
+                    aliases.Add(item.Key, item.Value);
             }
 
             var currentModelNode = linkModelDictionaryTree.FirstOrDefault(a => a.Key.Contains(currentTree.Name));
@@ -354,7 +382,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                 {
                     var parts = k.Key.Split('~');
                     if (parts.Length < 3) return false;
-                    return (parts[1].Matches(currentTree.Name))
+                    return (k.Value.Table.Matches(currentTree.Name))
                            && k.Value.LinkKeys.Any(b => b.From.Matches(parts[0]) &&
                                                         b.FromColumn.Matches(parts[2]));
                 }));
@@ -366,8 +394,8 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
             var existingSqlQueryStructure =
                 sqlQueryStructures.Values.FirstOrDefault(b => b.Alias.Matches(currentTree.Alias));
 
-            if ((!allChildren.Any(a => sqlQueryStructures.Values.Any(b => b.Alias.Matches(a.To)))
-                 && currentColumns.Count == 1) ||
+            if (existingSqlQueryStructure != null && (!allChildren.Any(a => sqlQueryStructures.Values.Any(b => b.Alias.Matches(a.To)))
+                                          && currentColumns.Count == 1) ||
                 existingSqlQueryStructure?.Visited == true)
                 return (ownColumns, parentColumns, currentColumns);
 

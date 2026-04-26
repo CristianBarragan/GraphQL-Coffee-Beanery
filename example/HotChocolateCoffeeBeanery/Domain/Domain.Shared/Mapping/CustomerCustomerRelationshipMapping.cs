@@ -33,7 +33,6 @@ public class CustomerCustomerRelationshipMapping : IMappingRegistration
                     ToColumn   = nameof(DataEntity.Customer.Id)
                 }
             },
-
             ModelParents = new List<LinkKey>()
             {
                 new LinkKey()

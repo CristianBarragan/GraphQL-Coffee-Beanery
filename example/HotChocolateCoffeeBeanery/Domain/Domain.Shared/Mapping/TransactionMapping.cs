@@ -22,7 +22,7 @@ using DataEntity = Database.Entity;
                         ToColumn = nameof(DataEntity.Contract.Id)
                     }
                 },
-                EntityRelatedChildren = new List<LinkKey>()
+                EntityRelatedParents = new List<LinkKey>()
                 {
                     new LinkKey()
                     {

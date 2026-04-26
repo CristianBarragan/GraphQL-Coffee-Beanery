@@ -29,19 +29,19 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                         $"{currentTree.Alias}~{currentTree.Name}~{node.ToString()}",
                         out var sqlNodeFrom))
                 {
-                    if (linkEntityDictionaryTree.TryGetValue($"{sqlNodeFrom.RelationshipKey.Split('~')[1]}~{sqlNodeFrom.RelationshipKey.Split('~')[1]}~{node.ToString()}",
+                    if (linkEntityDictionaryTree.TryGetValue(sqlNodeFrom.RelationshipKey,
                             out var sqlNodeTo))
                     {
                         HandleEntityNode(sqlNodeTo, previousNode, linkModelDictionaryTree, currentTree,
                             node, sqlStatementNodes, trees, linkEntityDictionaryTree, $"{currentTree.Alias}~{currentTree.Name}~{node.ToString()}",
                             node.ToString().Split(':')[0]);
                         
-                        var modelToEntityTree = entityTrees[sqlNodeFrom.RelationshipKey.Split('~')[1]];
+                        var modelToEntityTree = entityTrees[sqlNodeFrom.Table];
 
                         foreach (var linkKey in modelToEntityTree.ModelToEntityLinks.Where(a => a.FromColumn.Matches(node.ToString().Split(':')[0])))
                         {
                             var entityTreeFrom = entityTrees[linkKey.From];
-                            var entityTreeTo = entityTrees[sqlNodeFrom.RelationshipKey.Split('~')[1]];
+                            var entityTreeTo = entityTrees[sqlNodeFrom.Table];
 
                             foreach (var linkKeyChildren in entityTreeFrom.Children)
                             {
@@ -189,10 +189,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
 
                 if (linkModelDictionaryTree.TryGetValue(
                         $"{currentTree.Alias}~{currentTree.Name}~{node.ToString()}",
-                        out var sqlNodeFrom) ||
-                    linkModelDictionaryTree.TryGetValue(
-                        $"{currentTree.Alias}~{modelTree.Value?.Alias}~{node.ToString()}",
-                        out sqlNodeFrom))
+                        out var sqlNodeFrom))
                 {
                     if (linkEntityDictionaryTree.TryGetValue(
                             sqlNodeFrom.RelationshipKey, out var sqlNodeTo))

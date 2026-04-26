@@ -72,22 +72,22 @@ public class CustomerCustomerEdgeMapping
         customerCustomerEdge.FieldMaps.Add(new FieldMap
         {
             SourceName = nameof(CustomerCustomerEdge.InnerCustomerKey),
-            DestinationEntity = nameof(DataEntity.CustomerCustomerRelationship),
-            DestinationName = nameof(DataEntity.CustomerCustomerRelationship.InnerCustomerKey)
+            DestinationEntity = nameof(CustomerCustomerEdge.InnerCustomer),
+            DestinationName = nameof(CustomerCustomerEdge.InnerCustomerKey)
         });
         
         customerCustomerEdge.FieldMaps.Add(new FieldMap
         {
             SourceName = nameof(CustomerCustomerEdge.OuterCustomerKey),
-            DestinationEntity = nameof(DataEntity.CustomerCustomerRelationship),
-            DestinationName = nameof(DataEntity.CustomerCustomerRelationship.OuterCustomerKey)
+            DestinationEntity = nameof(CustomerCustomerEdge.OuterCustomer),
+            DestinationName = nameof(CustomerCustomerEdge.OuterCustomerKey)
         });
         
         customerCustomerEdge.FieldMaps.Add(new FieldMap
         {
             SourceName = nameof(CustomerCustomerEdge.CustomerCustomerRelationshipKey),
-            DestinationEntity = nameof(DataEntity.CustomerCustomerRelationship),
-            DestinationName = nameof(DataEntity.CustomerCustomerRelationship.CustomerCustomerRelationshipKey)
+            DestinationEntity = nameof(CustomerCustomerEdge.CustomerCustomerRelationship),
+            DestinationName = nameof(CustomerCustomerEdge.CustomerCustomerRelationshipKey)
         });
     
         mappings.TryAdd(nameof(CustomerCustomerEdge), MappingRegistry.Register(typeof(CustomerCustomerEdge), typeof(DataEntity.CustomerCustomerRelationship),

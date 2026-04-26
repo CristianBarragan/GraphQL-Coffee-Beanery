@@ -1,8 +1,4 @@
-﻿using System.Data;
-using CoffeeBeanery.CQRS;
-using CoffeeBeanery.GraphQL.Core.GraphQL;
-using CoffeeBeanery.GraphQL.Core.Mapping;
-using CoffeeBeanery.GraphQL.Core.Sql;
+﻿using CoffeeBeanery.CQRS;
 using Dapper;
 using Npgsql;
 
@@ -25,8 +21,8 @@ public class ProcessQuery<M> : IQuery<ProcessQueryParameters,
         ProcessQueryParameters parameters,
         CancellationToken ct)
     {
-        var types = parameters.SqlStructure.SplitOnDapper.Values.Reverse().ToList();
-        var splitOn = parameters.SqlStructure.SplitOnDapper.Keys.Reverse().ToList();
+        var types = parameters.SqlStructure.SplitOnDapper.Values.ToList();
+        var splitOn = parameters.SqlStructure.SplitOnDapper.Keys.ToList();
 
         var query = parameters.SqlStructure.SqlUpsert + ";" + parameters.SqlStructure.SqlQuery;
 
