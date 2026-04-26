@@ -80,17 +80,17 @@ public class ContactPointMapping : IMappingRegistration
 
         // Enum mapping for ContactPointType
         var cpEnums = EnumMapFactory.Create(
-            new Dictionary<string, (ContactPointType, DataEntity.ContactPointType)>
+            new Dictionary<string, (string, int)>(StringComparer.OrdinalIgnoreCase)
             {
-                { $"{nameof(ContactPoint)}~{nameof(DataEntity.ContactPoint)}~{DataEntity.ContactPointType.Mobile}", (ContactPointType.Mobile, DataEntity.ContactPointType.Mobile) },
-                { $"{nameof(ContactPoint)}~{nameof(DataEntity.ContactPoint)}~{DataEntity.ContactPointType.Landline}", (ContactPointType.Landline, DataEntity.ContactPointType.Landline) },
-                { $"{nameof(ContactPoint)}~{nameof(DataEntity.ContactPoint)}~{DataEntity.ContactPointType.Email}", (ContactPointType.Email, DataEntity.ContactPointType.Email) }
+                { $"{nameof(ContactPoint)}~{nameof(DataEntity.ContactPoint)}~{DataEntity.ContactPointType.Mobile}", (ContactPointType.Mobile.ToString(), (int)DataEntity.ContactPointType.Mobile) },
+                { $"{nameof(ContactPoint)}~{nameof(DataEntity.ContactPoint)}~{DataEntity.ContactPointType.Landline}", (ContactPointType.Landline.ToString(), (int)DataEntity.ContactPointType.Landline) },
+                { $"{nameof(ContactPoint)}~{nameof(DataEntity.ContactPoint)}~{DataEntity.ContactPointType.Email}", (ContactPointType.Email.ToString(), (int)DataEntity.ContactPointType.Email) }
             },
-            new Dictionary<string, (DataEntity.ContactPointType, ContactPointType)>
+            new Dictionary<string, (string, int)>(StringComparer.OrdinalIgnoreCase)
             {
-                { $"{nameof(DataEntity.ContactPoint)}~{nameof(ContactPoint)}~{ContactPointType.Mobile}", (DataEntity.ContactPointType.Mobile, ContactPointType.Mobile) },
-                { $"{nameof(DataEntity.ContactPoint)}~{nameof(ContactPoint)}~{ContactPointType.Landline}", (DataEntity.ContactPointType.Landline, ContactPointType.Landline) },
-                { $"{nameof(DataEntity.ContactPoint)}~{nameof(ContactPoint)}~{ContactPointType.Email}", (DataEntity.ContactPointType.Email, ContactPointType.Email) }
+                { $"{nameof(DataEntity.ContactPoint)}~{nameof(ContactPoint)}~{ContactPointType.Mobile}", (DataEntity.ContactPointType.Mobile.ToString(), (int)ContactPointType.Mobile) },
+                { $"{nameof(DataEntity.ContactPoint)}~{nameof(ContactPoint)}~{ContactPointType.Landline}", (DataEntity.ContactPointType.Landline.ToString(), (int)ContactPointType.Landline) },
+                { $"{nameof(DataEntity.ContactPoint)}~{nameof(ContactPoint)}~{ContactPointType.Email}", (DataEntity.ContactPointType.Email.ToString(), (int)ContactPointType.Email) }
             });
 
         cp.FromEnum = cpEnums.from;

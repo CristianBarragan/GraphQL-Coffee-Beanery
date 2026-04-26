@@ -108,15 +108,15 @@ public class InnerCustomerMapping : IMappingRegistration
 
         // Enum mapping for CustomerType
         var custEnums = EnumMapFactory.Create(
-            new Dictionary<string, (CustomerType, DataEntity.CustomerType)>
+            new Dictionary<string, (string, int)>(StringComparer.OrdinalIgnoreCase)
             {
-                { $"{nameof(Customer)}~{nameof(DataEntity.Customer)}~{DataEntity.CustomerType.Person}", (CustomerType.Person, DataEntity.CustomerType.Person) },
-                { $"{nameof(Customer)}~{nameof(DataEntity.Customer)}~{DataEntity.CustomerType.Organisation}", (CustomerType.Organisation, DataEntity.CustomerType.Organisation) }
+                { $"{nameof(DataEntity.CustomerCustomerRelationship.InnerCustomer)}~{nameof(DataEntity.Customer)}~{DataEntity.CustomerType.Person}", (CustomerType.Person.ToString(), (int)CustomerType.Person) },
+                { $"{nameof(DataEntity.CustomerCustomerRelationship.InnerCustomer)}~{nameof(DataEntity.Customer)}~{DataEntity.CustomerType.Organisation}", (CustomerType.Organisation.ToString(), (int)CustomerType.Organisation) }
             },
-            new Dictionary<string, (DataEntity.CustomerType, CustomerType)>
+            new Dictionary<string, (string, int)>(StringComparer.OrdinalIgnoreCase)
             {
-                { $"{nameof(DataEntity.Customer)}~{nameof(Customer)}~{CustomerType.Person}", (DataEntity.CustomerType.Person, CustomerType.Person) },
-                { $"{nameof(DataEntity.Customer)}~{nameof(Customer)}~{CustomerType.Organisation}", (DataEntity.CustomerType.Organisation, CustomerType.Organisation) }
+                { $"{nameof(DataEntity.Customer)}~{nameof(Customer)}~{CustomerType.Person}", (DataEntity.CustomerType.Person.ToString(), (int)CustomerType.Person) },
+                { $"{nameof(DataEntity.Customer)}~{nameof(Customer)}~{CustomerType.Organisation}", (DataEntity.CustomerType.Organisation.ToString(), (int)CustomerType.Organisation) }
             });
 
         cust.FromEnum = custEnums.from;

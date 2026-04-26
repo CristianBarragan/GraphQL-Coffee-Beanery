@@ -39,8 +39,8 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
             //     nodeTreeKeyValuePair = SqlNodeRegistry.EntityTrees.FirstOrDefault(a => a.Value.ModelToEntityLinks[0].From.Matches(wrapperEntityName));
             // }
             
-            foreach (var fieldMap in nodeEntity.Mapping)
-            {
+            // foreach (var entityLink in nodeEntity.ModelToEntityLinks)
+            // {
                 // Generate the SQL recursively
                 GenerateQuery(
                     SqlNodeRegistry.EntityTrees,
@@ -49,7 +49,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                     SqlNodeRegistry.ModelNodes,
                     nodeDict,
                     sqlWhereStatement,
-                    SqlNodeRegistry.EntityTrees[fieldMap.DestinationEntity],
+                    nodeEntity,
                     childrenSqlStatement,
                     wrapperEntityName,
                     sqlQueryStructures,
@@ -59,7 +59,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                     new List<string>(),
                     new List<string>(),
                     new List<string>());    
-            }
+            // }
 
             if (sqlQueryStructures.Count == 0)
                 return (string.Empty, default, default);

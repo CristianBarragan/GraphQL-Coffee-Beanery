@@ -36,8 +36,8 @@
         public string RelationshipKey { get; set; } = "";
 
         // For enum mapping
-        public Dictionary<string, string> FromEnumeration { get; set; } = new();
-        public Dictionary<string, string> ToEnumeration { get; set; } = new();
+        public Dictionary<string, string> FromEnumeration { get; set; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        public Dictionary<string, string> ToEnumeration { get; set; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         public bool IsGraph => SqlNodeTypes.Contains(SqlNodeType.Graph);
         public bool IsEdge => SqlNodeTypes.Contains(SqlNodeType.Edge);

@@ -220,7 +220,7 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
                         Schema          = map.Schema,
                         Table           = fromKeyParts[0],
                         Column          = fromKeyParts[2],
-                        RelationshipKey = $"{alias}~{toKeyParts[0]}~{toKeyParts[2]}",
+                        RelationshipKey = $"{alias}~{toKeyParts[1]}~{toKeyParts[2]}",
                         FromEnumeration = map.FromEnum,
                         ToEnumeration   = map.ToEnum,
                         EntityChildren = map.EntityChildren,
@@ -243,8 +243,8 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
                     tempSqlNode.SqlNodeTypes.Add(SqlNodeType.Node);
                     
                     SqlNodeRegistry.RegisterNode(
-                        $"{alias}~{toKeyParts[0]}~{toKeyParts[2]}",
-                        $"{alias}~{toKeyParts[0]}~{toKeyParts[2]}",
+                        $"{alias}~{toKeyParts[1]}~{toKeyParts[2]}",
+                        $"{alias}~{toKeyParts[1]}~{toKeyParts[2]}",
                         tempSqlNode, map.ModelType,
                         map.EntityType == null ? map.ModelType : map.EntityType,
                         map.IsEntity);
@@ -255,7 +255,7 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
                         Schema          = map.Schema,
                         Table           = fromKeyParts[0],
                         Column          = fromKeyParts[2],
-                        RelationshipKey = $"{alias}~{toKeyParts[0]}~{toKeyParts[2]}",
+                        RelationshipKey = $"{alias}~{toKeyParts[1]}~{toKeyParts[2]}",
                         FromEnumeration = map.FromEnum,
                         ToEnumeration   = map.ToEnum,
                         EntityChildren = map.EntityChildren,
@@ -278,8 +278,8 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
                     tempSqlNode.SqlNodeTypes.Add(SqlNodeType.Node);
                     
                     SqlNodeRegistry.RegisterNode(
-                        $"{alias}~{toKeyParts[0]}~{toKeyParts[2]}",
-                        $"{alias}~{toKeyParts[0]}~{toKeyParts[2]}",
+                        $"{alias}~{toKeyParts[1]}~{toKeyParts[2]}",
+                        $"{alias}~{toKeyParts[1]}~{toKeyParts[2]}",
                         tempSqlNode, map.ModelType,
                         map.EntityType == null ? map.ModelType : map.EntityType,
                         map.IsEntity);

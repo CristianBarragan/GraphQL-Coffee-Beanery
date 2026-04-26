@@ -93,17 +93,17 @@ public class ContractMapping : IMappingRegistration
         
         // Enum mapping for ContractType
         var contractEnums = EnumMapFactory.Create(
-            new Dictionary<string, (ProductType, DataEntity.ContractType)>
+            new Dictionary<string, (string, int)>(StringComparer.OrdinalIgnoreCase)
             {
-                { $"{nameof(Product)}~{nameof(DataEntity.ContactPoint)}~{DataEntity.ContractType.CreditCard}", (ProductType.CreditCard, DataEntity.ContractType.CreditCard) },
-                { $"{nameof(Product)}~{nameof(DataEntity.ContactPoint)}~{DataEntity.ContractType.Mortgage}", (ProductType.Mortgage, DataEntity.ContractType.Mortgage) },
-                { $"{nameof(Product)}~{nameof(DataEntity.ContactPoint)}~{DataEntity.ContractType.PersonalLoan}", (ProductType.PersonalLoan, DataEntity.ContractType.PersonalLoan) }
+                { $"{nameof(Product)}~{nameof(DataEntity.ContactPoint)}~{DataEntity.ContractType.CreditCard}", (ProductType.CreditCard.ToString(), (int)DataEntity.ContractType.CreditCard) },
+                { $"{nameof(Product)}~{nameof(DataEntity.ContactPoint)}~{DataEntity.ContractType.Mortgage}", (ProductType.Mortgage.ToString(), (int)DataEntity.ContractType.Mortgage) },
+                { $"{nameof(Product)}~{nameof(DataEntity.ContactPoint)}~{DataEntity.ContractType.PersonalLoan}", (ProductType.PersonalLoan.ToString(), (int)DataEntity.ContractType.PersonalLoan) }
             },
-            new Dictionary<string, (DataEntity.ContractType, ProductType)>
+            new Dictionary<string, (string, int)>(StringComparer.OrdinalIgnoreCase)
             {
-                { $"{nameof(DataEntity.ContactPoint)}~{nameof(Product)}~{ProductType.CreditCard}", (DataEntity.ContractType.CreditCard, ProductType.CreditCard) },
-                { $"{nameof(DataEntity.ContactPoint)}~{nameof(Product)}~{ProductType.Mortgage}", (DataEntity.ContractType.Mortgage, ProductType.Mortgage) },
-                { $"{nameof(DataEntity.ContactPoint)}~{nameof(Product)}~{ProductType.PersonalLoan}", (DataEntity.ContractType.PersonalLoan, ProductType.PersonalLoan) }
+                { $"{nameof(DataEntity.ContactPoint)}~{nameof(Product)}~{ProductType.CreditCard}", (DataEntity.ContractType.CreditCard.ToString(), (int)ProductType.CreditCard) },
+                { $"{nameof(DataEntity.ContactPoint)}~{nameof(Product)}~{ProductType.Mortgage}", (DataEntity.ContractType.Mortgage.ToString(), (int)ProductType.Mortgage) },
+                { $"{nameof(DataEntity.ContactPoint)}~{nameof(Product)}~{ProductType.PersonalLoan}", (DataEntity.ContractType.PersonalLoan.ToString(), (int)ProductType.PersonalLoan) }
             });
 
         contract.FromEnum = contractEnums.from;

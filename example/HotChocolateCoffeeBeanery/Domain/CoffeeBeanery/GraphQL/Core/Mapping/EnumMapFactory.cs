@@ -4,9 +4,9 @@ namespace CoffeeBeanery.GraphQL.Core.Mapping
 {
     public static class EnumMapFactory
     {
-        public static (Dictionary<string,string> from, Dictionary<string,string> to) Create<TModelEnum, TEntityEnum>(
-            Dictionary<string, (TModelEnum, TEntityEnum)> from,
-            Dictionary<string, (TEntityEnum, TModelEnum)> to)
+        public static (Dictionary<string,string> from, Dictionary<string,string> to) Create(
+            Dictionary<string, (string, int)> from,
+            Dictionary<string, (string, int)> to)
         {
             var fromDict = new Dictionary<string, string>();
             var toDict = new Dictionary<string, string>();

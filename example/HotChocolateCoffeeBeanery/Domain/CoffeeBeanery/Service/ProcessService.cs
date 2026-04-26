@@ -5,6 +5,7 @@ using CoffeeBeanery.GraphQL.Core.Sql;
 using CoffeeBeanery.GraphQL.Helper;
 using FASTER.core;
 using HotChocolate.Execution.Processing;
+using HotChocolate.Language;
 using Npgsql;
 
 namespace CoffeeBeanery.Service
@@ -159,14 +160,16 @@ namespace CoffeeBeanery.Service
                 {
                     SqlNodeResolver.GetMutations(SqlNodeRegistry.ModelTrees, SqlNodeRegistry.EntityTrees, mutationNode, SqlNodeRegistry.EntityNodes,
                         SqlNodeRegistry.ModelNodes, mutationStatementNodes,
-                        rootTree, string.Empty, rootTree, SqlNodeRegistry.ModelTrees.Keys.ToList(), new List<string>());
+                        rootTree, string.Empty, rootTree, SqlNodeRegistry.ModelTrees.Keys.ToList(),
+                        SqlNodeRegistry.EntityNames, new List<string>());
                 }
             }
             else
             {
                 SqlNodeResolver.GetMutations(SqlNodeRegistry.ModelTrees, SqlNodeRegistry.EntityTrees, selection.SyntaxNode.Arguments[0], SqlNodeRegistry.EntityNodes,
                     SqlNodeRegistry.ModelNodes, mutationStatementNodes,
-                    rootTree, string.Empty, rootTree, SqlNodeRegistry.ModelTrees.Keys.ToList(), new List<string>());
+                    rootTree, string.Empty, rootTree, SqlNodeRegistry.ModelTrees.Keys.ToList(),
+                    SqlNodeRegistry.EntityNames, new List<string>());
             }
 
             var sqlWhereStatement = new Dictionary<string, string>();
@@ -187,7 +190,8 @@ namespace CoffeeBeanery.Service
             var visitedEntities = new List<string>();
             var nodeStatementNodes = new Dictionary<string, SqlNode>(StringComparer.OrdinalIgnoreCase);
 
-            SqlNodeResolver.GetFields(SqlNodeRegistry.ModelTrees, SqlNodeRegistry.EntityTrees, selection.SyntaxNode.GetNodes().ToList()[2], SqlNodeRegistry.EntityNodes,
+            SqlNodeResolver.GetFields(SqlNodeRegistry.ModelTrees, SqlNodeRegistry.EntityTrees, selection.SyntaxNode.GetNodes()
+                    .ToList().Last(a => a.Kind == SyntaxKind.SelectionSet), SqlNodeRegistry.EntityNodes,
                 SqlNodeRegistry.ModelNodes, edgeStatementNodes, rootTree, new NodeTree(), visitedModels, visitedEntities,
                 SqlNodeRegistry.ModelNames, SqlNodeRegistry.EntityNames, true);
 
@@ -202,7 +206,8 @@ namespace CoffeeBeanery.Service
                 rootEdgeEntity = default;
             }
 
-            SqlNodeResolver.GetFields(SqlNodeRegistry.ModelTrees, SqlNodeRegistry.EntityTrees, selection.SyntaxNode.GetNodes().ToList()[2], SqlNodeRegistry.EntityNodes,
+            SqlNodeResolver.GetFields(SqlNodeRegistry.ModelTrees, SqlNodeRegistry.EntityTrees, selection.SyntaxNode.GetNodes()
+                    .ToList().Last(a => a.Kind == SyntaxKind.SelectionSet), SqlNodeRegistry.EntityNodes,
                 SqlNodeRegistry.ModelNodes, nodeStatementNodes, rootTree, new NodeTree(), visitedModels, visitedEntities,
                 SqlNodeRegistry.ModelNames, SqlNodeRegistry.EntityNames, false);
 
@@ -214,7 +219,7 @@ namespace CoffeeBeanery.Service
                 rootNodeEntity = default;
             }
 
-            var rootEntity = string.Empty;
+            var rootEntity = modelName;
 
             if (rootEdgeEntity.Key != null && rootNodeEntity.Key == null)
             {

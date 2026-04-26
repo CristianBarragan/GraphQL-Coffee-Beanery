@@ -20,7 +20,8 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
             NodeTree currentTree,
             string previousNode,
             NodeTree parentTree,
-            List<string> models,
+            List<string> modelNames,
+            List<string> entityNames,
             List<string> visitedModels)
         {
             if (node != null && node.GetNodes()?.Count() == 0)
@@ -33,15 +34,23 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                             out var sqlNodeTo))
                     {
                         HandleEntityNode(sqlNodeTo, previousNode, linkModelDictionaryTree, currentTree,
-                            node, sqlStatementNodes, trees, linkEntityDictionaryTree, $"{currentTree.Alias}~{currentTree.Name}~{node.ToString()}",
+                            node, sqlStatementNodes, trees, linkEntityDictionaryTree, $"{currentTree.Alias}~{currentTree.Name}~{node.ToString()}"
+                            , $"{currentTree.Name}~{currentTree.Name}~{
+                                node.ToString()}",
                             node.ToString().Split(':')[0]);
                         
-                        var modelToEntityTree = entityTrees[sqlNodeFrom.Table];
+                        var modelToEntityTree = entityTrees.FirstOrDefault(a => 
+                            a.Value.Alias.Matches(sqlNodeFrom.RelationshipKey.Split('~')[0]) ||
+                            a.Value.Alias.Matches(sqlNodeFrom.RelationshipKey.Split('~')[1]) ||
+                            a.Value.Alias.Matches(sqlNodeFrom.Table) ||
+                            sqlNodeFrom.LinkKeys.Any( b=> b.To.Matches(a.Value.Name))).Value;
 
                         foreach (var linkKey in modelToEntityTree.ModelToEntityLinks.Where(a => a.FromColumn.Matches(node.ToString().Split(':')[0])))
                         {
                             var entityTreeFrom = entityTrees[linkKey.From];
-                            var entityTreeTo = entityTrees[sqlNodeFrom.Table];
+                            var entityTreeTo = entityTrees.FirstOrDefault(a => 
+                                a.Value.Name.Matches(sqlNodeFrom.Table) ||
+                                a.Value.Name.Matches(linkKey.To)).Value;
 
                             foreach (var linkKeyChildren in entityTreeFrom.Children)
                             {
@@ -59,7 +68,8 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                                 {
                                     HandleEntityNode(sqlNodeTo, previousNode, linkModelDictionaryTree, currentTree,
                                         node, sqlStatementNodes, trees, linkEntityDictionaryTree, $"{entityTreeFrom.Alias}~{linkKeyChildren.From}~{
-                                            linkKeyChildrenTo.ToColumn}", node.ToString().Split(':')[0]);
+                                            linkKeyChildrenTo.ToColumn}", $"{linkKeyChildren.From}~{linkKeyChildren.From}~{
+                                                linkKeyChildrenTo.ToColumn}", node.ToString().Split(':')[0]);
                                 }    
                             }
                             
@@ -79,7 +89,8 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                                 {
                                     HandleEntityNode(sqlNodeTo, previousNode, linkModelDictionaryTree, currentTree,
                                         node, sqlStatementNodes, trees, linkEntityDictionaryTree, $"{entityTreeFrom.Alias}~{linkKeyChildren.From}~{
-                                            linkKeyChildrenTo.ToColumn}", linkKeyChildrenTo.FromColumn);
+                                            linkKeyChildrenTo.ToColumn}", $"{linkKeyChildren.From}~{linkKeyChildren.From}~{
+                                                linkKeyChildrenTo.ToColumn}", linkKeyChildrenTo.FromColumn);
                                 }    
                             }
                         }
@@ -97,12 +108,12 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
 
             foreach (var childNode in node.GetNodes())
             {
-                if (models.Any(e => e.Matches(childNode.ToString().Split('{')[0])) ||
+                if (modelNames.Any(e => e.Matches(childNode.ToString().Split('{')[0])) ||
                     node.ToString().Matches("nodes") ||
                     node.ToString().Matches("node"))
                 {
                     if (node.ToString().Matches("nodes") || node.ToString().Matches("node"))
-                        currentTree = trees[models.Last()];
+                        currentTree = trees[modelNames.Last()];
                     else
                         currentTree = trees[childNode.ToString().Split('{')[0]];
 
@@ -113,25 +124,30 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
 
                 GetMutations(trees, entityTrees, childNode, linkEntityDictionaryTree, linkModelDictionaryTree,
                     sqlStatementNodes, currentTree, node.ToString(),
-                    parentTree, models, visitedModels);
+                    parentTree, modelNames, entityNames, visitedModels);
             }
         }
 
         private static void HandleEntityNode(SqlNode sqlNodeTo, string previousNode, 
             Dictionary<string, SqlNode> linkModelDictionaryTree, NodeTree currentTree, ISyntaxNode node,
             Dictionary<string, SqlNode> sqlStatementNodes, Dictionary<string, NodeTree> trees,
-            Dictionary<string, SqlNode> linkEntityDictionaryTree, string key, string column)
+            Dictionary<string, SqlNode> linkEntityDictionaryTree, string key, string keyTo, string column)
         {
             var value = string.Empty;
 
             if (previousNode.Split(':').Length == 2)
             {
-                if (sqlNodeTo.FromEnumeration.TryGetValue(
-                        previousNode.Split(':')[1].Sanitize().Replace("_", ""),
-                        out var enumValue))
+                var enumKeyValue = sqlNodeTo.FromEnumeration.FirstOrDefault(a => a.Key
+                    .Matches(key));
+                
+                if (enumKeyValue.Value != null)
                 {
-                    value = sqlNodeTo.FromEnumeration
-                        .FirstOrDefault(e => e.Value.Matches(enumValue)).Value;
+                    var keyParts = key.Split('~');
+                    sqlNodeTo.Column = previousNode.Split(':')[0].ToUpperCamelCase();
+                    key = $"{keyParts[0]}~{keyParts[1]}~{sqlNodeTo.Column}";
+                    sqlNodeTo.RelationshipKey = key;
+                    value = sqlNodeTo.ToEnumeration
+                        .FirstOrDefault(e => e.Key.Matches(keyTo)).Value;
                 }
                 else
                 {
@@ -157,7 +173,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
             var cloned = sqlNodeTo.Clone() as SqlNode;
             cloned.Value = value;
             
-            sqlStatementNodes[cloned.RelationshipKey] = cloned;
+            sqlStatementNodes[key] = cloned;
         }
 
         /// <summary>

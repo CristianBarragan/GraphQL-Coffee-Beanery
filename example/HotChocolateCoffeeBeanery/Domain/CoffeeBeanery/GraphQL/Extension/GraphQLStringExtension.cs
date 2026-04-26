@@ -48,6 +48,16 @@ namespace CoffeeBeanery.GraphQL.Helper
 
             return field.Substring(0, 1).ToLower() + field.Substring(1, field.Length - 1);
         }
+        
+        public static string ToCamelCase(this string field)
+        {
+            if (string.IsNullOrEmpty(field))
+            {
+                return field;
+            }
+
+            return field.Substring(0, 1).ToLower() + field.Substring(1, field.Length - 1);
+        }
 
         public static string Sanitize(this string field)
         {

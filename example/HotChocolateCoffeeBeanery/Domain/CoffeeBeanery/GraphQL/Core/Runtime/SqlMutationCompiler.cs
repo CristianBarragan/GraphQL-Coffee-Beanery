@@ -196,10 +196,8 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                 $" ON CONFLICT ({string.Join(",", currentColumns.Where(a =>
                         a.Value.UpsertKeys.Any(u =>
                             u.Split('~').Last().Matches(a.Key.Split('~')[2])))
-                    .Select(s => $"\"{s.Key.Split('~').Last()}\""))}) ";
+                    .Select(s => $"\"{s.Value.RelationshipKey.Split('~').Last()}\""))}) ";
             
-            
-
             var exclude = currentColumns
                 .Where(c => c.Value.UpsertKeys.Any(u =>
                     !u.Split('~').Last().Matches(c.Value.RelationshipKey.Split('~')[2])))
@@ -300,23 +298,27 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
             var sqlUpsert = string.Empty;
             var currentParentTree = trees[linkedAlias];
 
-            foreach (var childColumn in childrenColumns)
-            {
+            // foreach (var childColumn in childrenColumns)
+            // {
                 var entityLink = currentParentTree.ModelToEntityLinks.FirstOrDefault(a => a.From.Matches(currentTree.Alias));
-                if (entityLink == null || !trees.TryGetValue(entityLink.From, out var entityTree))
-                {
-                    continue;
-                }
+                // if (entityLink == null || !trees.TryGetValue(entityLink.From, out var entityTree))
+                // {
+                //     continue;
+                // }
+
+                var childColumn = childrenColumns.FirstOrDefault(a =>
+                    a.Key.Split('~')[0].Matches(entityLink.From) &&
+                    a.Value.UpsertKeys.Any(b => b.Split('~')[1].Matches(a.Value.Column)));
 
                 var sqlUpsertAux =
                     $" ; UPDATE \"{parentTree.Schema}\".\"{parentTree.Name}\" SET \"{currentTree.Alias}Id\" = ( SELECT {
                         currentTree.Alias}.\"Id\" AS \"{currentTree.Alias}Id\"" +
                     $" FROM \"{currentTree.Schema}\".\"{currentTree.Name}\" {currentTree.Alias}" +
-                    $" WHERE {currentTree.Alias}.\"{childColumn.Value.Column}\" = '{childColumn.Value.Value}') WHERE \"{
+                    $" WHERE {currentTree.Alias}.\"{entityLink.ToColumn}\" = '{childColumn.Value.Value}') WHERE \"{
                         entityLink.FromColumn}\" = '{childColumn.Value.Value}'";
 
                 sqlUpsert += sqlUpsertAux + " ; ";
-            }
+            // }
             
             return sqlUpsert;
         }
