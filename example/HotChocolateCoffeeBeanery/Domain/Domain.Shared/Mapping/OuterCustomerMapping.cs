@@ -77,6 +77,13 @@ public class OuterCustomerMapping : IMappingRegistration
             DestinationEntity = nameof(DataEntity.Customer),
             DestinationName = nameof(DataEntity.Customer.CustomerKey)
         });
+        
+        cust.FieldMaps.Add(new FieldMap
+        {
+            SourceName = nameof(Customer.CustomerKey),
+            DestinationEntity = nameof(DataEntity.Customer),
+            DestinationName = nameof(DataEntity.Customer.CustomerType)
+        });
 
         cust.FieldMaps.Add(new FieldMap
         {

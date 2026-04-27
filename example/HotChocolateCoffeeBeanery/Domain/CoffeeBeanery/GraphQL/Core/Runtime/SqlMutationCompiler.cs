@@ -191,7 +191,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
 
             sqlUpsertAux +=
                 $" INSERT INTO \"{currentTree.Schema}\".\"{currentTree.Name}\" ( " +
-                $"{string.Join(",", currentColumns.Select(s => $"\"{s.Value.RelationshipKey.Split('~')[2]}\""))}" +
+                $"{string.Join(",", currentColumns.Select(s => $"\"{s.Value.Column}\""))}" +
                 $") VALUES ({string.Join(",", currentColumns.Select(s => $"'{s.Value.Value}'"))})" +
                 $" ON CONFLICT ({string.Join(",", currentColumns.Where(a =>
                         a.Value.UpsertKeys.Any(u =>
@@ -200,9 +200,9 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
             
             var exclude = currentColumns
                 .Where(c => c.Value.UpsertKeys.Any(u =>
-                    !u.Split('~').Last().Matches(c.Value.RelationshipKey.Split('~')[2])))
+                    !u.Split('~').Last().Matches(c.Value.Column)))
                 .Select(e =>
-                    $"\"{e.Value.RelationshipKey.Split('~')[2]}\" = EXCLUDED.\"{e.Value.RelationshipKey.Split('~')[2]}\"")
+                    $"\"{e.Value.Column}\" = EXCLUDED.\"{e.Value.Column}\"")
                 .ToList();
 
             sqlUpsertAux += exclude.Count > 0

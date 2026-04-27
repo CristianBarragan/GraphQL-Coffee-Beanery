@@ -24,6 +24,8 @@ public class SqlQueryStructure
     
     public List<LinkKey> LinkKeys { get; set; } = new();
 
+    public bool HasRequestedFields { get; set; }
+    
     public string WhereClause { get; set; } = string.Empty;
 
     public string JoinOneKey { get; set; } = string.Empty;

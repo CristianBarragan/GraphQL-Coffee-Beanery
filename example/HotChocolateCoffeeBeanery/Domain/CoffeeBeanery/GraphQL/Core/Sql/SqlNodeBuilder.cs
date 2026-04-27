@@ -66,7 +66,7 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
                     Schema          = map.Schema,
                     Table           = (table ?? map.EntityType?.Name) ?? string.Empty,
                     Column          = field.DestinationName,
-                    RelationshipKey = $"{alias}~{map.ModelType.Name}~{field.DestinationName}",
+                    RelationshipKey = $"{alias}~{map.ModelType.Name}~{field.SourceName}",
                     FromEnumeration = map.FromEnum,
                     ToEnumeration   = map.ToEnum,
                     EntityChildren = map.EntityChildren,
@@ -89,8 +89,8 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
                 tempSqlNode.SqlNodeTypes.Add(SqlNodeType.Node);
                     
                 SqlNodeRegistry.RegisterNode(
-                    $"{alias}~{map.ModelType.Name}~{field.DestinationName}", 
-                    $"{alias}~{map.ModelType.Name}~{field.DestinationName}",
+                    $"{alias}~{map.ModelType.Name}~{field.SourceName}", 
+                    $"{alias}~{map.ModelType.Name}~{field.SourceName}",
                     tempSqlNode, map.ModelType,
                     map.EntityType == null ? map.ModelType : map.EntityType,
                     map.IsEntity);
@@ -103,7 +103,7 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
                     Schema          = map.Schema,
                     Table           = (table ?? map.EntityType?.Name) ?? string.Empty,
                     Column          = field.DestinationName,
-                    RelationshipKey = $"{alias}~{map.ModelType.Name}~{field.DestinationName}",
+                    RelationshipKey = $"{alias}~{map.ModelType.Name}~{field.SourceName}",
                     FromEnumeration = map.FromEnum,
                     ToEnumeration   = map.ToEnum,
                     EntityChildren = map.EntityChildren,
@@ -126,8 +126,8 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
                 tempSqlNode.SqlNodeTypes.Add(SqlNodeType.Node);
                     
                 SqlNodeRegistry.RegisterNode(
-                    $"{alias}~{map.ModelType.Name}~{field.DestinationName}", 
-                    $"{alias}~{map.ModelType.Name}~{field.DestinationName}",
+                    $"{alias}~{map.ModelType.Name}~{field.SourceName}", 
+                    $"{alias}~{map.ModelType.Name}~{field.SourceName}",
                     tempSqlNode, map.ModelType,
                     map.EntityType == null ? map.ModelType : map.EntityType,
                     map.IsEntity);

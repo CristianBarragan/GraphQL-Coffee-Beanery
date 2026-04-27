@@ -196,12 +196,22 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
         {
             if (node != null && node.GetNodes()?.Count() == 0)
             {
-                var currentModel = visitedModels.LastOrDefault();
+                // var currentModel = visitedModels.LastOrDefault();
 
                 var modelTree = trees.FirstOrDefault(a =>
                     a.Value.Mapping.Any(b =>
                         b.DestinationEntity.Matches(currentTree.Name) &&
                         b.DestinationName.Matches(node.ToString())));
+
+                if (trees.TryGetValue(node.ToString(), out var currentModel))
+                {
+                    visitedModels.Add(currentModel.Alias);
+                    currentTree = currentModel;
+                }
+                else if (visitedModels.Count > 0)
+                {
+                    currentTree = trees[visitedModels.Last()];
+                }
 
                 if (linkModelDictionaryTree.TryGetValue(
                         $"{currentTree.Alias}~{currentTree.Name}~{node.ToString()}",

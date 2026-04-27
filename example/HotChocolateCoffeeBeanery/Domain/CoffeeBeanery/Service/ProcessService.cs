@@ -20,7 +20,7 @@ namespace CoffeeBeanery.Service
 
         Task<QueryResult<M>> MutationProcessAsync(
             string cacheKey, ISelection selection,
-            string modelName, string wrapperName,
+            string modelName, string rootName, string wrapperName,
             CancellationToken cancellationToken);
     }
 
@@ -56,22 +56,26 @@ namespace CoffeeBeanery.Service
 
             var edgeStatementNodes = new Dictionary<string, SqlNode>(StringComparer.OrdinalIgnoreCase);
             var visitedModels = new List<string>();
-            visitedModels.Add(SqlNodeRegistry.ModelTrees.Values.OrderBy(a => a.Id).First().Name);
             var visitedEntities = new List<string>();
             var nodeStatementNodes = new Dictionary<string, SqlNode>(StringComparer.OrdinalIgnoreCase);
 
-            SqlNodeResolver.GetFields(SqlNodeRegistry.ModelTrees, SqlNodeRegistry.EntityTrees, selection.SyntaxNode, SqlNodeRegistry.EntityNodes,
+            SqlNodeResolver.GetFields(SqlNodeRegistry.ModelTrees, SqlNodeRegistry.EntityTrees, selection.SyntaxNode.GetNodes()
+                    .ToList().Last(a => a.Kind == SyntaxKind.SelectionSet), SqlNodeRegistry.EntityNodes,
                 SqlNodeRegistry.ModelNodes, edgeStatementNodes, rootTree, new NodeTree(), visitedModels, visitedEntities,
                 SqlNodeRegistry.ModelNames, SqlNodeRegistry.EntityNames, true);
 
             var rootEdgeEntity = SqlNodeRegistry.EntityTrees.OrderBy(a => a.Value.Id)
-                .First(a => visitedEntities.Contains(a.Key));
+                .FirstOrDefault(a => visitedEntities.Contains(a.Key));
             visitedEntities.Clear();
-            
-            visitedEntities.Clear();
-            visitedModels.Add(SqlNodeRegistry.ModelTrees.Values.OrderBy(a => a.Id).First().Name);
+            visitedModels.Clear();
 
-            SqlNodeResolver.GetFields(SqlNodeRegistry.ModelTrees, SqlNodeRegistry.EntityTrees, selection.SyntaxNode, SqlNodeRegistry.EntityNodes,
+            if (edgeStatementNodes.Count == 0)
+            {
+                rootEdgeEntity = default;
+            }
+
+            SqlNodeResolver.GetFields(SqlNodeRegistry.ModelTrees, SqlNodeRegistry.EntityTrees, selection.SyntaxNode.GetNodes()
+                    .ToList().Last(a => a.Kind == SyntaxKind.SelectionSet).GetNodes().ToList().Last().GetNodes().Last(), SqlNodeRegistry.EntityNodes,
                 SqlNodeRegistry.ModelNodes, nodeStatementNodes, rootTree, new NodeTree(), visitedModels, visitedEntities,
                 SqlNodeRegistry.ModelNames, SqlNodeRegistry.EntityNames, false);
 
@@ -133,7 +137,7 @@ namespace CoffeeBeanery.Service
         }
 
         public async Task<QueryResult<M>> MutationProcessAsync(
-            string cacheKey, ISelection selection, string modelName, string wrapperName, CancellationToken cancellationToken)
+            string cacheKey, ISelection selection, string modelName, string rootName, string wrapperName, CancellationToken cancellationToken)
         {
             var ctx = new SqlCompilationContext();
             var transformedToParent = false;
@@ -142,7 +146,9 @@ namespace CoffeeBeanery.Service
 
             var entityName = modelToEntityLink.From;
             
-            var rootTree = SqlNodeRegistry.ModelTrees[modelName];
+            var rootTree = SqlNodeRegistry.ModelTrees[rootName];
+            
+            var rootTreeNode = SqlNodeRegistry.ModelTrees[modelName];
 
             var mutationStatementNodes = new Dictionary<string, SqlNode>(StringComparer.OrdinalIgnoreCase);
 
@@ -186,30 +192,13 @@ namespace CoffeeBeanery.Service
 
             var edgeStatementNodes = new Dictionary<string, SqlNode>(StringComparer.OrdinalIgnoreCase);
             var visitedModels = new List<string>();
-            visitedModels.Add(SqlNodeRegistry.ModelTrees.Values.OrderBy(a => a.Id).First().Name);
             var visitedEntities = new List<string>();
             var nodeStatementNodes = new Dictionary<string, SqlNode>(StringComparer.OrdinalIgnoreCase);
 
             SqlNodeResolver.GetFields(SqlNodeRegistry.ModelTrees, SqlNodeRegistry.EntityTrees, selection.SyntaxNode.GetNodes()
-                    .ToList().Last(a => a.Kind == SyntaxKind.SelectionSet), SqlNodeRegistry.EntityNodes,
-                SqlNodeRegistry.ModelNodes, edgeStatementNodes, rootTree, new NodeTree(), visitedModels, visitedEntities,
-                SqlNodeRegistry.ModelNames, SqlNodeRegistry.EntityNames, true);
-
-            var rootEdgeEntity = SqlNodeRegistry.EntityTrees.OrderBy(a => a.Value.Id)
-                .FirstOrDefault(a => visitedEntities.Contains(a.Key));
-            visitedEntities.Clear();
-            visitedModels.Clear();
-            visitedModels.Add(SqlNodeRegistry.ModelTrees.Values.OrderBy(a => a.Id).First().Name);
-
-            if (edgeStatementNodes.Count == 0)
-            {
-                rootEdgeEntity = default;
-            }
-
-            SqlNodeResolver.GetFields(SqlNodeRegistry.ModelTrees, SqlNodeRegistry.EntityTrees, selection.SyntaxNode.GetNodes()
-                    .ToList().Last(a => a.Kind == SyntaxKind.SelectionSet), SqlNodeRegistry.EntityNodes,
-                SqlNodeRegistry.ModelNodes, nodeStatementNodes, rootTree, new NodeTree(), visitedModels, visitedEntities,
-                SqlNodeRegistry.ModelNames, SqlNodeRegistry.EntityNames, false);
+                    .ToList().Last(a => a.Kind == SyntaxKind.SelectionSet).GetNodes().ToList().Last().GetNodes().Last().GetNodes().First(), 
+                SqlNodeRegistry.EntityNodes, SqlNodeRegistry.ModelNodes, edgeStatementNodes, rootTree, new NodeTree(), visitedModels, 
+                visitedEntities, SqlNodeRegistry.ModelNames, SqlNodeRegistry.EntityNames, true);
 
             var rootNodeEntity = SqlNodeRegistry.EntityTrees.OrderBy(a => a.Value.Id)
                 .FirstOrDefault(a => visitedEntities.Contains(a.Key));
@@ -217,6 +206,20 @@ namespace CoffeeBeanery.Service
             if (nodeStatementNodes.Count == 0)
             {
                 rootNodeEntity = default;
+            }
+            
+            SqlNodeResolver.GetFields(SqlNodeRegistry.ModelTrees, SqlNodeRegistry.EntityTrees, selection.SyntaxNode.GetNodes().ToList().Last(a => a.Kind == SyntaxKind.SelectionSet), SqlNodeRegistry.EntityNodes,
+                SqlNodeRegistry.ModelNodes, nodeStatementNodes, rootTree, new NodeTree(), visitedModels, visitedEntities,
+                SqlNodeRegistry.ModelNames, SqlNodeRegistry.EntityNames, false);
+            
+            var rootEdgeEntity = SqlNodeRegistry.EntityTrees.OrderBy(a => a.Value.Id)
+                .FirstOrDefault(a => visitedEntities.Contains(a.Key));
+            visitedEntities.Clear();
+            visitedModels.Clear();
+
+            if (edgeStatementNodes.Count == 0)
+            {
+                rootEdgeEntity = default;
             }
 
             var rootEntity = modelName;

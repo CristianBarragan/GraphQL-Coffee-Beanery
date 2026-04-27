@@ -23,7 +23,7 @@ public class WrapperMutationResolver : IInputType, IOutputType
     [UseFiltering]
     [UseSorting]
     public async Task<Connection<Wrapper>> UpsertWrapper(
-        [Service] IProcessService<Wrapper> service,       // ← was CustomerCustomerEdge
+        [Service] IProcessService<Wrapper> service,
         [SchemaService] IResolverContext resolverContext,
         Wrapper wrapper)
     {
@@ -31,11 +31,10 @@ public class WrapperMutationResolver : IInputType, IOutputType
         {
             var set = await service.MutationProcessAsync(
                 wrapper.CacheKey, resolverContext.Selection,
-                wrapper.Model.ToString(), nameof(Wrapper), CancellationToken.None);
+                wrapper.Model.ToString(), nameof(Wrapper.CustomerCustomerEdge), nameof(Wrapper), CancellationToken.None);
 
-            // set.Models is now IEnumerable<Wrapper> — no cast needed
             var entityNodes = set.Models
-                .Where(a => a is not null)                // guard against null rows
+                .Where(a => a is not null)
                 .Select(a => new EntityNode<Wrapper>(a, nameof(Wrapper)));
 
             var connection = ContextResolverHelper.GenerateConnection<Wrapper>(

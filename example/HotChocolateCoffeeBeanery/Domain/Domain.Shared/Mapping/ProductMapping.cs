@@ -107,6 +107,20 @@ public class ProductMapping : IMappingRegistration
             DestinationEntity = nameof(DataEntity.Account),
             DestinationName = nameof(DataEntity.Account.AccountNumber)
         });
+        
+        product.FieldMaps.Add(new FieldMap
+        {
+            SourceName = nameof(Product.Amount),
+            DestinationEntity = nameof(DataEntity.Transaction),
+            DestinationName = nameof(DataEntity.Transaction.Amount)
+        });
+        
+        product.FieldMaps.Add(new FieldMap
+        {
+            SourceName = nameof(Product.Amount),
+            DestinationEntity = nameof(DataEntity.Transaction),
+            DestinationName = nameof(DataEntity.Transaction.Balance)
+        });
 
         // Enum mapping for ProductType by value
         var productEnums = EnumMapFactory.Create(
