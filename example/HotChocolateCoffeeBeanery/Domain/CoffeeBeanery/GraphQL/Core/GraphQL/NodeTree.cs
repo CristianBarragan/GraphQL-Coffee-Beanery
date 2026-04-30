@@ -30,6 +30,10 @@ namespace CoffeeBeanery.GraphQL.Core.GraphQL
         public List<string> UpsertKeys { get; set; } = new();
 
         public bool IsGraph { get; set; }
+
+        public bool IsEntity { get; set; }
+
+        public bool IsModel { get; set; }
         
     }
 }

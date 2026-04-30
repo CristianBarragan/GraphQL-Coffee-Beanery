@@ -33,18 +33,20 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                     if (linkEntityDictionaryTree.TryGetValue(sqlNodeFrom.RelationshipKey,
                             out var sqlNodeTo))
                     {
-                        HandleEntityNode(sqlNodeTo, previousNode, linkModelDictionaryTree, currentTree,
-                            node, sqlStatementNodes, trees, linkEntityDictionaryTree, $"{currentTree.Alias}~{currentTree.Name}~{node.ToString()}"
-                            , $"{currentTree.Name}~{currentTree.Name}~{
-                                node.ToString()}",
-                            node.ToString().Split(':')[0]);
-                        
                         var modelToEntityTree = entityTrees.FirstOrDefault(a => 
                             a.Value.Alias.Matches(sqlNodeFrom.RelationshipKey.Split('~')[0]) ||
                             a.Value.Alias.Matches(sqlNodeFrom.RelationshipKey.Split('~')[1]) ||
                             a.Value.Alias.Matches(sqlNodeFrom.Table) ||
                             sqlNodeFrom.LinkKeys.Any( b=> b.To.Matches(a.Value.Name))).Value;
+                        
+                        modelToEntityTree = !currentTree.IsEntity ? modelToEntityTree : currentTree;
 
+                        HandleEntityNode(sqlNodeTo, previousNode, linkModelDictionaryTree, currentTree,
+                            node, sqlStatementNodes, trees, linkEntityDictionaryTree, $"{modelToEntityTree.Alias}~{modelToEntityTree.Name}~{node.ToString()}"
+                            , $"{modelToEntityTree.Alias}~{modelToEntityTree.Name}~{
+                                node.ToString()}",
+                            node.ToString().Split(':')[0]);
+                        
                         foreach (var linkKey in modelToEntityTree.ModelToEntityLinks.Where(a => a.FromColumn.Matches(node.ToString().Split(':')[0])))
                         {
                             var entityTreeFrom = entityTrees[linkKey.From];
@@ -220,21 +222,41 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                     if (linkEntityDictionaryTree.TryGetValue(
                             sqlNodeFrom.RelationshipKey, out var sqlNodeTo))
                     {
-                        AddField(linkEntityDictionaryTree, sqlStatementNodes,
-                            currentTree, sqlNodeTo, isEdge);
+                        var modelToEntityTree = entityTrees.FirstOrDefault(a => 
+                            a.Value.Alias.Matches(sqlNodeFrom.RelationshipKey.Split('~')[0]) ||
+                            a.Value.Alias.Matches(sqlNodeFrom.RelationshipKey.Split('~')[1]) ||
+                            a.Value.Alias.Matches(sqlNodeFrom.Table) ||
+                            sqlNodeFrom.LinkKeys.Any( b=> b.To.Matches(a.Value.Name))).Value;
+                        
+                        modelToEntityTree = !currentTree.IsEntity ? modelToEntityTree : currentTree;
+                        
+                        AddField(linkEntityDictionaryTree, sqlStatementNodes, modelToEntityTree, $"{modelToEntityTree.Alias}~{modelToEntityTree.Name}~{node.ToString()}", 
+                            $"{modelToEntityTree.Alias}~{modelToEntityTree.Name}~{
+                                node.ToString()}", sqlNodeTo, isEdge);
 
                         if (!visitedModels.Contains(currentTree.Alias))
+                        {
                             visitedModels.Add(currentTree.Alias);
+                        }
+                        else
+                        {
+                            return;
+                        }
                     }
                     else
                     {
-                        foreach (var entityLinked in currentTree.ModelToEntityLinks)
+                        foreach (var modelLinked in currentTree.ModelToEntityLinks)
                         {
                             if (linkEntityDictionaryTree.TryGetValue(
-                                    $"{entityLinked.To}~{entityLinked.To}~{node.ToString()}", out sqlNodeTo))
+                                    $"{modelLinked.To}~{modelLinked.To}~{node.ToString()}", out sqlNodeTo))
                             {
+                                var entityTree = entityTrees[modelLinked.From];
+                                
                                 AddField(linkEntityDictionaryTree, sqlStatementNodes,
-                                    currentTree, sqlNodeTo, isEdge);
+                                    currentTree, $"{entityTree.Alias}~{entityTree.Name}~{node.ToString()}", 
+                                    $"{entityTree.Alias}~{entityTree.Name}~{
+                                        node.ToString()}",
+                                    sqlNodeTo, isEdge);
 
                                 if (!visitedModels.Contains(currentTree.Alias))
                                     visitedModels.Add(currentTree.Alias);
@@ -280,6 +302,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
             Dictionary<string, SqlNode> linkEntityDictionaryTree,
             Dictionary<string, SqlNode> sqlStatementNodes,
             NodeTree currentTree,
+            string key, string keyTo, 
             SqlNode? sqlNode,
             bool isEdge)
         {
@@ -287,11 +310,11 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
             cloned.SqlNodeTypes.Clear();
             cloned.SqlNodeTypes.Add(isEdge ? SqlNodeType.Edge : SqlNodeType.Node);
 
-            if (sqlStatementNodes.ContainsKey(cloned.RelationshipKey))
-                sqlStatementNodes[cloned.RelationshipKey] = cloned;
+            if (sqlStatementNodes.ContainsKey(key))
+                sqlStatementNodes[key] = cloned;
 
-            if (!sqlStatementNodes.ContainsKey(cloned.RelationshipKey))
-                sqlStatementNodes.Add(cloned.RelationshipKey, cloned);
+            if (!sqlStatementNodes.ContainsKey(key))
+                sqlStatementNodes.Add(key, cloned);
         }
     }
 }

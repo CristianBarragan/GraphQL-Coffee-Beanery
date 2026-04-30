@@ -35,6 +35,9 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
 
             foreach (var fieldMap in nodeTree.Mapping.Where(a => nodeTree.ModelToEntityLinks.Any(b => b.FromColumn.Matches(a.SourceName))))
             {
+                var modelTree = SqlNodeRegistry.ModelTrees[fieldMap.SourceModel];
+                var entityTree = modelTree.IsEntity ? modelTree : SqlNodeRegistry.EntityTrees[fieldMap.DestinationEntity];
+                
                 GenerateQuery(
                     SqlNodeRegistry.EntityTrees,
                     SqlNodeRegistry.ModelTrees,
@@ -43,7 +46,8 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                     SqlNodeRegistry.ModelNodes,
                     nodeDict,
                     sqlWhereStatement,
-                    SqlNodeRegistry.EntityTrees[fieldMap.DestinationEntity],
+                    entityTree,
+                    modelTree,
                     childrenSqlStatement,
                     wrapperEntityName,
                     sqlQueryStructures,
@@ -198,7 +202,8 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
             Dictionary<string, SqlNode> linkModelDictionaryTree,
             Dictionary<string, SqlNode> sqlStatementNodes,
             Dictionary<string, string> sqlWhereStatement,
-            NodeTree currentTree,
+            NodeTree currentEntityTree,
+            NodeTree currentModelTree,
             Dictionary<string, string> childrenSqlStatement,
             string rootEntityName,
             Dictionary<string, SqlQueryStructure> sqlQueryStructures,
@@ -209,6 +214,8 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
             List<string> childVisitedEntities,
             List<string> generatedQueries)
         {
+            var currentTree = currentEntityTree;
+            
             var alias = string.IsNullOrEmpty(currentTree.Alias) ? currentTree.Name : currentTree.Alias;
 
             if (parentVisitedEntities.Contains(alias) ||
@@ -216,11 +223,10 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                 return;
 
             parentVisitedEntities.Add(alias);
-            currentTree = entityTrees[alias];
             entityOrder.Add(currentTree.Alias);
 
-            var allChildren = (currentTree.Children ?? new List<LinkKey>())
-                .Concat(currentTree.RelatedChildren ?? new List<LinkKey>())
+            var allChildren = (currentEntityTree.Children ?? new List<LinkKey>())
+                .Concat(currentEntityTree.RelatedChildren ?? new List<LinkKey>())
                 .ToList();
 
             // ── Recurse into children first (post-order) ──────────────────────
@@ -259,7 +265,8 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                         linkModelDictionaryTree,
                         sqlStatementNodes,
                         sqlWhereStatement,
-                        entityTrees[child.To],
+                        entityTrees[treeAlias.Value.Alias],
+                        modelTrees[child.To],
                         childrenSqlStatement,
                         rootEntityName,
                         sqlQueryStructures,
@@ -278,7 +285,8 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                 modelTrees,
                 linkEntityDictionaryTree,
                 sqlStatementNodes,
-                currentTree,
+                currentEntityTree,
+                currentModelTree,
                 sqlQueryStructures,
                 sqlWhereStatement,
                 childrenSqlStatement,
@@ -446,7 +454,8 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                 Dictionary<string, NodeTree> modelTrees,
                 Dictionary<string, SqlNode> linkEntityDictionaryTree,
                 Dictionary<string, SqlNode> sqlStatementNodes,
-                NodeTree currentTree,
+                NodeTree currentEntityTree,
+                NodeTree currentModelTree,
                 Dictionary<string, SqlQueryStructure> sqlQueryStructures,
                 Dictionary<string, string> sqlWhereStatement,
                 Dictionary<string, string> childrenSqlStatement,
@@ -457,11 +466,11 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
             var parentColumns  = new List<string>();
             var currentColumns = new List<KeyValuePair<string, SqlNode>>();
 
-            Console.WriteLine($"[GenerateEntityQuery] currentTree.Alias='{currentTree.Alias}' currentTree.Name='{currentTree.Name}'");
+            Console.WriteLine($"[GenerateEntityQuery] currentTree.Alias='{currentEntityTree.Alias}' currentTree.Name='{currentEntityTree.Name}'");
 
             // Always include Id
             var idKey = linkEntityDictionaryTree.Keys
-                .FirstOrDefault(a => a.Contains($"{currentTree.Alias}~{currentTree.Name}~Id"));
+                .FirstOrDefault(a => a.Contains($"{currentEntityTree.Alias}~{currentEntityTree.Name}~Id"));
 
             if (idKey == null)
                 return (ownColumns, parentColumns, currentColumns);
@@ -471,27 +480,27 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
             idNode.SqlNodeTypes.Add(SqlNodeType.Node);
             currentColumns.Insert(0, new KeyValuePair<string, SqlNode>(idKey, idNode));
 
-            var modelTree = modelTrees.FirstOrDefault(a => a.Key == rootEntityName).Value;
-
             // Add requested fields matching this node's alias or entity name
             currentColumns.AddRange(sqlStatementNodes
-                .Where(k =>
-                {
-                    var parts = k.Key.Split('~');
-                    modelTree = modelTrees.FirstOrDefault(a => a.Key == parts[0]).Value;
-                    if (parts.Length < 3) return false;
-                    return k.Value.LinkKeys.Any(b =>
-                        b.From.Matches(parts[1]) &&
-                        modelTree.Alias.Matches(parts[0]) &&
-                        (b.To.Matches(currentTree.Name) ||
-                            (b.From.Matches(modelTree.Name) && k.Value.Table.Matches(currentTree.Name))) &&
-                        (b.FromColumn.Matches(parts[2]) || b.FromColumn.Matches(k.Value.Column)));
-                }));
+                .Where(k => (k.Key.Split('~')[0].Matches(currentModelTree.Alias) && k.Key.Split('~')[1].Matches(currentModelTree.Name)) || 
+                            (k.Key.Split('~')[0].Matches(currentEntityTree.Alias) && k.Key.Split('~')[1].Matches(currentEntityTree.Name)) ));
+                // {
+                //     var parts = k.Key.Split('~');
+                //     var currentTree = !currentModelTree.IsEntity ? currentModelTree : currentEntityTree;
+                //     
+                //     if (parts.Length < 3) return false;
+                //     return k.Value.LinkKeys.Any(b =>
+                //         b.From.Matches(parts[1]) &&
+                //         parts[0].Matches(currentEntityTree.Alias) &&
+                //         (b.To.Matches(currentTree.Name) ||
+                //             (b.From.Matches(currentModelTree.Name) && k.Value.Table.Matches(currentModelTree.Name))) &&
+                //         (b.FromColumn.Matches(parts[2]) || b.FromColumn.Matches(k.Value.Column)));
+                // }));
 
             Console.WriteLine($"  currentColumns.Count after field match: {currentColumns.Count}");
 
-            var allChildren = (currentTree.Children ?? new List<LinkKey>())
-                .Concat(currentTree.RelatedChildren ?? new List<LinkKey>())
+            var allChildren = (currentEntityTree.Children ?? new List<LinkKey>())
+                .Concat(currentEntityTree.RelatedChildren ?? new List<LinkKey>())
                 .ToList();
 
             // Only return early if no children are in sqlQueryStructures AND
@@ -506,7 +515,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
             if (!hasChildrenInStructures && currentColumns.Count == 1)
                 return (ownColumns, parentColumns, currentColumns);
 
-            var idSnake = "Id".ToSnakeCase(currentTree.Id);
+            var idSnake = "Id".ToSnakeCase(currentEntityTree.Id);
 
             // ── Own SELECT columns ─────────────────────────────────────────────
             foreach (var col in currentColumns.DistinctBy(c => c.Key))
@@ -515,22 +524,22 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
 
                 // Use model property name as alias so Dapper maps correctly
                 // e.g. DB column "FirstName" → model property "FirstNaming"
-                var fieldMap      = currentTree.Mapping?.FirstOrDefault(f => f.DestinationName == fieldName);
+                var fieldMap      = currentEntityTree.Mapping?.FirstOrDefault(f => f.DestinationName == fieldName);
                 var modelPropName = fieldMap?.SourceName ?? fieldName;
-                var snakeField    = modelPropName.ToSnakeCase(currentTree.Id);
+                var snakeField    = modelPropName.ToSnakeCase(currentEntityTree.Id);
 
-                ownColumns.Add($"{currentTree.Alias}.\"{fieldName}\" AS \"{snakeField}\"");
+                ownColumns.Add($"{currentEntityTree.Alias}.\"{fieldName}\" AS \"{snakeField}\"");
             }
 
             // Export FK columns needed by parent joins
-            foreach (var parent in (currentTree.Parents ?? new List<LinkKey>())
-                     .Concat(currentTree.RelatedParents ?? new List<LinkKey>()))
+            foreach (var parent in (currentEntityTree.Parents ?? new List<LinkKey>())
+                     .Concat(currentEntityTree.RelatedParents ?? new List<LinkKey>()))
             {
                 if (string.IsNullOrEmpty(parent.FromColumn))
                     continue;
 
-                var fkAlias  = parent.FromColumn.ToSnakeCase(currentTree.Id);
-                var fkColumn = $"{currentTree.Alias}.\"{parent.FromColumn}\" AS \"{fkAlias}\"";
+                var fkAlias  = parent.FromColumn.ToSnakeCase(currentEntityTree.Id);
+                var fkColumn = $"{currentEntityTree.Alias}.\"{parent.FromColumn}\" AS \"{fkAlias}\"";
 
                 if (!ownColumns.Contains(fkColumn))
                     ownColumns.Add(fkColumn);
@@ -541,18 +550,18 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
 
             // ── Parent columns: always expose Id ──────────────────────────────
             // Must use the same alias as ownColumns — derive from model property name
-            var idFieldMap    = currentTree.Mapping?.FirstOrDefault(f => f.DestinationName == "Id");
+            var idFieldMap    = currentEntityTree.Mapping?.FirstOrDefault(f => f.DestinationName == "Id");
             var idModelName   = idFieldMap?.SourceName ?? "Id";
-            var idSnakeParent = idModelName.ToSnakeCase(currentTree.Id);
+            var idSnakeParent = idModelName.ToSnakeCase(currentEntityTree.Id);
 
             parentColumns.Add($"~.\"{idSnakeParent}\" AS \"{idSnakeParent}\"");
 
             foreach (var col in currentColumns.DistinctBy(c => c.Key).Skip(1))
             {
                 var fieldName     = col.Value.Column;
-                var fieldMap      = currentTree.Mapping?.FirstOrDefault(f => f.DestinationName == fieldName);
+                var fieldMap      = currentEntityTree.Mapping?.FirstOrDefault(f => f.DestinationName == fieldName);
                 var modelPropName = fieldMap?.SourceName ?? fieldName;
-                var snakeField    = modelPropName.ToSnakeCase(currentTree.Id);
+                var snakeField    = modelPropName.ToSnakeCase(currentEntityTree.Id);
                 parentColumns.Add($"~.\"{snakeField}\" AS \"{snakeField}\"");
             }
 

@@ -317,6 +317,8 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
                         SourceName = a.SourceName
                     }).ToList(),
                     IsGraph            = map.IsGraph,
+                    IsEntity          = map.IsEntity,
+                    IsModel          = map.IsModel,
                     UpsertKeys         = map.UpsertKeys.Select(b => b.Key).ToList()
                 };
             }
@@ -343,6 +345,8 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
                         SourceName = a.SourceName
                     }).ToList(),
                     IsGraph            = map.IsGraph,
+                    IsEntity          = map.IsEntity,
+                    IsModel          = map.IsModel,
                     UpsertKeys         = map.UpsertKeys.Select(b => b.Key).ToList()
                 };
             }
