@@ -116,6 +116,7 @@ namespace CoffeeBeanery.Service
                 SqlNodeRegistry.ModelTrees,
                 sqlWhereStatement,
                 _cache,
+                wrapperName,
                 cacheKey,
                 modelName
             );
@@ -256,6 +257,7 @@ namespace CoffeeBeanery.Service
                 SqlNodeRegistry.ModelTrees,
                 sqlWhereStatement,
                 _cache,
+                wrapperName,
                 cacheKey,
                 modelName
             );

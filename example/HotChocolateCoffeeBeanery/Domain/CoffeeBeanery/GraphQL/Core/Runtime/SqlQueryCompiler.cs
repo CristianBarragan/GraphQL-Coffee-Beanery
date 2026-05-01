@@ -18,7 +18,8 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
             Dictionary<string, NodeTree> entityTrees,
             Dictionary<string, NodeTree> modelTrees,
             Dictionary<string, string> sqlWhereStatement,
-            IFasterKV<string, string> cache, 
+            IFasterKV<string, string> cache,
+            string wrapperName,
             string cacheKey,
             string modelName)
         {
@@ -35,7 +36,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
             // SqlOrderCompiler.Compile(ctx, entityTrees, rootSelection, wrapperEntityName, nodeDict);
             var selectResult = SqlSelectBuilder.HandleGraphQL(rootSelection, SqlNodeRegistry.EntityNodes, 
                 SqlNodeRegistry.ModelNodes, entityTrees, modelTrees, SqlNodeRegistry.EntityNames, SqlNodeRegistry.ModelNames, 
-                rootTree.Name, wrapperEntityName, cache, cacheKey, modelName);
+                rootTree.Name, wrapperEntityName, cache, cacheKey, modelName, wrapperName);
             // ctx.SelectSql = selectResult.Item1;
             // SqlPagingCompiler.Compile(rootTree, ctx, rootSelection);
             //

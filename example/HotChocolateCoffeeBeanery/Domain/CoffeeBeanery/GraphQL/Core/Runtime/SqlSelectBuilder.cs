@@ -33,7 +33,7 @@ public class SqlSelectBuilder
         Dictionary<string, NodeTree> modelTrees,
         List<string> entityNames,
         List<string> modelNames, string rootEntityName, string wrapperEntityName,
-        IFasterKV<string, string> cache, string cacheKey, string modelName,
+        IFasterKV<string, string> cache, string cacheKey, string modelName, string wrapperName,
         Dictionary<string, List<string>> permissions = null)
     {
         var sqlWhereStatement = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -48,20 +48,24 @@ public class SqlSelectBuilder
         var sqlUpsertStatement = string.Empty;
         var models = modelNames;
         var transformedToParent = false;
-        var tranformedModel = rootEntityName;
+        var transformedToParentName = string.Empty;
+        var tranformedModel = string.Empty;
 
-        while (!modelNames.Contains(modelName) || rootEntityName.Matches(wrapperEntityName))
+        while (string.IsNullOrEmpty(tranformedModel))
         {
             if (modelTrees[modelName].Parents.Count > 0)
             {
-                rootEntityName = modelTrees[modelName].Parents[0].From;
+                tranformedModel = modelTrees[modelName].ModelToEntityLinks[0].From;
+                transformedToParentName = modelTrees[modelName].ModelToEntityLinks[0].To;
                 transformedToParent = true;    
             }
             else
             {
-                rootEntityName = entityTrees.OrderBy(a => a.Value.Id).First().Value.Name;
+                tranformedModel = entityTrees.OrderBy(a => a.Value.Id).First().Value.Name;
             }
         }
+        
+        rootEntityName = tranformedModel;
 
         //Where conditions
         GetFieldsWhere(modelTrees, entityDictionary,
@@ -119,13 +123,15 @@ public class SqlSelectBuilder
             {
                 modelName
             };
+            
+            var mutationNodeToProcess = argument.GetNodes().Last(a => a.Kind == SyntaxKind.ObjectValue).GetNodes()
+                .FirstOrDefault(a => !a.ToString().StartsWith("model") && !a.ToString().StartsWith("cacheKey"));
 
-            if (argument.GetNodes().Last(a => a.Kind == SyntaxKind.ObjectValue).GetNodes().Any(a => a.ToString().StartsWith(modelName.ToLowerCamelCase())))
+            if (mutationNodeToProcess != null)
             {
                 var nodeTreeRoot = new NodeTree();
                 nodeTreeRoot.Name = string.Empty;
-                var mutationNodeToProcess = argument.GetNodes().Last(a => a.Kind == SyntaxKind.ObjectValue).GetNodes()
-                    .First(a => a.ToString().StartsWith(modelName.ToLowerCamelCase()));
+                
             
                 var generatedQuery = new List<string>();
                 var sqlUpsertBuilder = new StringBuilder();
@@ -235,27 +241,27 @@ public class SqlSelectBuilder
 
             var queryStructure = sqlQueryStructures.FirstOrDefault();
 
-            if (transformedToParent)
-            {
-                splitOnDapper.Remove(splitOnDapper.First(a => a.Value.Name == rootEntityName).Key);
-                
-                foreach (var childName in entityTrees[rootEntityName].Children.Select(a => a.To))
-                {
-                    if (modelDictionary.FirstOrDefault(a => a.Key.Split('~')[0].Matches(tranformedModel)).Value.RelationshipKey.Split('~')[1]
-                        .Matches(childName))
-                    {
-                        queryStructure = sqlQueryStructures.FirstOrDefault(s => s.Key.Matches(childName));
-                        if (queryStructure.Value != null)
-                        {
-                            break;
-                        }    
-                    }
-                    else
-                    {
-                        splitOnDapper.Remove(splitOnDapper.First(a => a.Value.Name == childName).Key);
-                    }
-                }
-            }
+            // if (transformedToParent)
+            // {
+            //     splitOnDapper.Remove(splitOnDapper.First(a => a.Value.Name == transformedToParentName).Key);
+            //     
+            //     foreach (var childName in entityTrees[rootEntityName].Children.Select(a => a.To))
+            //     {
+            //         if (modelDictionary.FirstOrDefault(a => a.Key.Split('~')[0].Matches(tranformedModel)).Value.RelationshipKey.Split('~')[1]
+            //             .Matches(childName))
+            //         {
+            //             queryStructure = sqlQueryStructures.FirstOrDefault(s => s.Key.Matches(childName));
+            //             if (queryStructure.Value != null)
+            //             {
+            //                 break;
+            //             }    
+            //         }
+            //         else
+            //         {
+            //             splitOnDapper.Remove(splitOnDapper.First(a => a.Value.Name == childName).Key);
+            //         }
+            //     }
+            // }
 
             sqlSelectStatement = queryStructure.Value.Query;
 

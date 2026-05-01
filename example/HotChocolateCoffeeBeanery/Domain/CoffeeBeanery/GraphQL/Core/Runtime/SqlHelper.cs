@@ -307,9 +307,16 @@ public static class SqlHelper
 
         foreach (var modelToEntity in currentTree.ModelToEntityLinks)
         {
+            var sqlNode = currentColumns.FirstOrDefault(a => a.Key.Split('~')[2].Matches(modelToEntity.FromColumn));
+
+            if (sqlNode.Value == null)
+            {
+                continue;
+            }
+            
             var columns = new List<KeyValuePair<string, SqlNode>>()
             {
-                new(modelToEntity.ToColumn, (SqlNode)currentColumns.FirstOrDefault(a => a.Key.Split('~')[2].Matches(modelToEntity.FromColumn)).Value.Clone())
+                new(modelToEntity.ToColumn, (SqlNode)sqlNode.Value.Clone())
             };
 
             if (columns.Count == 0)
