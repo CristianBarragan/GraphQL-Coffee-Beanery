@@ -3,6 +3,7 @@ using CoffeeBeanery.GraphQL.Core.GraphQL;
 using CoffeeBeanery.GraphQL.Core.Sql;
 using CoffeeBeanery.GraphQL.Core.Mapping;
 using CoffeeBeanery.GraphQL.Helper;
+using FASTER.core;
 
 namespace CoffeeBeanery.GraphQL.Core.Runtime
 {
@@ -17,7 +18,9 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
             Dictionary<string, NodeTree> entityTrees,
             Dictionary<string, NodeTree> modelTrees,
             Dictionary<string, string> sqlWhereStatement,
-            bool transformedToParent)
+            IFasterKV<string, string> cache, 
+            string cacheKey,
+            string modelName)
         {
             var ctx = new SqlCompilationContext();
             var splitOnDapper = new OrderedDictionary<string, Type>();
@@ -29,32 +32,35 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
             }
             
             //Refactor with new alias feature
-            SqlOrderCompiler.Compile(ctx, entityTrees, rootSelection, wrapperEntityName, nodeDict);
-            var selectResult = SqlSelectBuilder.Build(rootTree, nodeDict, edgeDict, wrapperEntityName, sqlWhereStatement, splitOnDapper, aliases, transformedToParent);
-            ctx.SelectSql = selectResult.Item1;
-            SqlPagingCompiler.Compile(rootTree, ctx, rootSelection);
+            // SqlOrderCompiler.Compile(ctx, entityTrees, rootSelection, wrapperEntityName, nodeDict);
+            var selectResult = SqlSelectBuilder.HandleGraphQL(rootSelection, SqlNodeRegistry.EntityNodes, 
+                SqlNodeRegistry.ModelNodes, entityTrees, modelTrees, SqlNodeRegistry.EntityNames, SqlNodeRegistry.ModelNames, 
+                rootTree.Name, wrapperEntityName, cache, cacheKey, modelName);
+            // ctx.SelectSql = selectResult.Item1;
+            // SqlPagingCompiler.Compile(rootTree, ctx, rootSelection);
+            //
+            // var entityMapping = new Dictionary<string, Type>();
+            //
+            // for (var i = 0; i < selectResult.splitOnDapper.Count; i++)
+            // {
+            //     entityMapping.Add(selectResult.aliasesOrdered[i], selectResult.splitOnDapper.ElementAt(selectResult.splitOnDapper.Count - 1 - i).Value);
+            // }
 
-            var entityMapping = new Dictionary<string, Type>();
-            
-            for (var i = 0; i < selectResult.splitOnDapper.Count; i++)
-            {
-                entityMapping.Add(selectResult.aliasesOrdered[i], selectResult.splitOnDapper.ElementAt(selectResult.splitOnDapper.Count - 1 - i).Value);
-            }
+            return selectResult;
 
-            return new SqlStructure
-            {
-                SqlQuery = ctx.SelectSql,
-                SqlUpsert = ctx.UpsertSql,
-                Pagination = ctx.Pagination,
-                HasTotalCount = ctx.Pagination.TotalRecordCount.RecordCount > 0,
-                HasPagination = ctx.Pagination.TotalPageRecords.PageRecords > 0,
-                SplitOnDapper = selectResult.Item2,
-                Aliases = selectResult.Item3,
-                SqlNodes = [..edgeDict.Values, ..nodeDict.Values],
-                EntityMapping = entityMapping.Reverse().ToDictionary(),
-                EntityTrees = entityTrees,
-                ModelTrees = modelTrees
-            };
+            //     new SqlStructure
+            // {
+            //     SqlQuery = ctx.SelectSql,
+            //     Pagination = ctx.Pagination,
+            //     HasTotalCount = ctx.Pagination.TotalRecordCount.RecordCount > 0,
+            //     HasPagination = ctx.Pagination.TotalPageRecords.PageRecords > 0,
+            //     // SplitOnDapper = selectResult.Item2,
+            //     Aliases = entityTrees.Select(entity => entity.Value.Alias).ToList(),
+            //     SqlNodes = [..edgeDict.Values, ..nodeDict.Values],
+            //     EntityMapping = entityMapping.Reverse().ToDictionary(),
+            //     EntityTrees = entityTrees,
+            //     ModelTrees = modelTrees
+            // };
         }
     }
 

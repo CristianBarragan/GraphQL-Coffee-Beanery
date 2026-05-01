@@ -13,15 +13,18 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
         public string SqlUpsert { get; set; } = "";
         public string SqlQuery { get; set; } = "";
 
-        public OrderedDictionary<string, Type> SplitOnDapper { get; set; } = new();
+        public DynamicParameters Parameters { get; set; }
+
+        // public OrderedDictionary<string, Type> SplitOnDapper { get; set; } = new();
+        public Dictionary<string, Type> SplitOnDapper { get; set; } = new Dictionary<string, Type>(StringComparer.InvariantCultureIgnoreCase);
 
         public SqlNode[] SqlNodes { get; set; }
 
-        public Dictionary<string, NodeTree> EntityTrees { get; set; }
+        public Dictionary<string, NodeTree> EntityTrees { get; set; } = new Dictionary<string, NodeTree>(StringComparer.InvariantCultureIgnoreCase);
         
-        public Dictionary<string, NodeTree> ModelTrees { get; set; }
+        public Dictionary<string, NodeTree> ModelTrees { get; set; } = new Dictionary<string, NodeTree>(StringComparer.InvariantCultureIgnoreCase);
 
-        public Dictionary<string, Type> EntityMapping { get; set; }
+        public Dictionary<string, Type> EntityMapping { get; set; } = new Dictionary<string, Type>(StringComparer.InvariantCultureIgnoreCase);
         
         public List<Type> ModelMapping { get; set; }
 

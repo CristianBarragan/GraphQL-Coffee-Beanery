@@ -38,6 +38,11 @@ public class ProcessQuery<M> : IQuery<ProcessQueryParameters,
 
         try
         {
+            Console.WriteLine("=== DAPPER FINAL DEBUG ===");
+            Console.WriteLine($"splitOn: {string.Join(",", splitOn)}");
+            Console.WriteLine($"types ({types.Count}): {string.Join(", ", types.Select(t => t?.Name ?? "null"))}");
+            Console.WriteLine($"query first 400: {parameters.SqlStructure.SqlQuery[..Math.Min(400, parameters.SqlStructure.SqlQuery.Length)]}");
+            
             await _db.QueryAsync(
                 query,
                 types.ToArray(),
@@ -46,7 +51,7 @@ public class ProcessQuery<M> : IQuery<ProcessQueryParameters,
                     GraphMaterializer.MergeRow(
                         map,
                         parameters.SqlStructure.SqlNodes,
-                        parameters.SqlStructure.ModelTrees,
+                        parameters.SqlStructure.EntityTrees,
                         parameters.SqlStructure.EntityMapping,
                         edgeDict,
                         parameters.Model,

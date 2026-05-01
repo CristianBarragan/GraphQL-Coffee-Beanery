@@ -52,7 +52,7 @@ public class WrapperMutationResolver : IInputType, IOutputType
         catch (Exception ex)
         {
             _logger.LogError(
-                ex,                                       // pass ex directly so the stack trace is captured
+                ex,                                    
                 "UpsertWrapper failed: {Message}", ex.Message);
         }
 

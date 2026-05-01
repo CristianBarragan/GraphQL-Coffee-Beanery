@@ -85,9 +85,6 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
                 if (map.IsGraph)
                     tempSqlNode.SqlNodeTypes.Add(SqlNodeType.Graph);
                     
-                tempSqlNode.SqlNodeTypes.Add(SqlNodeType.Edge);
-                tempSqlNode.SqlNodeTypes.Add(SqlNodeType.Node);
-                    
                 SqlNodeRegistry.RegisterNode(
                     $"{alias}~{map.ModelType.Name}~{field.SourceName}", 
                     $"{alias}~{map.ModelType.Name}~{field.SourceName}",
@@ -122,9 +119,6 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
                 if (map.IsGraph)
                     tempSqlNode.SqlNodeTypes.Add(SqlNodeType.Graph);
                     
-                tempSqlNode.SqlNodeTypes.Add(SqlNodeType.Edge);
-                tempSqlNode.SqlNodeTypes.Add(SqlNodeType.Node);
-                    
                 SqlNodeRegistry.RegisterNode(
                     $"{alias}~{map.ModelType.Name}~{field.SourceName}", 
                     $"{alias}~{map.ModelType.Name}~{field.SourceName}",
@@ -158,9 +152,6 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
                 
                     if (map.IsGraph)
                         tempSqlNode.SqlNodeTypes.Add(SqlNodeType.Graph);
-                    
-                    tempSqlNode.SqlNodeTypes.Add(SqlNodeType.Edge);
-                    tempSqlNode.SqlNodeTypes.Add(SqlNodeType.Node);
                 
                     SqlNodeRegistry.RegisterNode(
                         $"{alias}~{map.ModelType.Name}~{map.UpsertKeys[i].Key}", 
@@ -193,9 +184,6 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
                 
                     if (map.IsGraph)
                         tempSqlNode.SqlNodeTypes.Add(SqlNodeType.Graph);
-                    
-                    tempSqlNode.SqlNodeTypes.Add(SqlNodeType.Edge);
-                    tempSqlNode.SqlNodeTypes.Add(SqlNodeType.Node);
                 
                     SqlNodeRegistry.RegisterNode(
                         $"{alias}~{map.ModelType.Name}~{map.UpsertKeys[i].Key}", 
@@ -239,9 +227,6 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
                     if (map.IsGraph)
                         tempSqlNode.SqlNodeTypes.Add(SqlNodeType.Graph);
                     
-                    tempSqlNode.SqlNodeTypes.Add(SqlNodeType.Edge);
-                    tempSqlNode.SqlNodeTypes.Add(SqlNodeType.Node);
-                    
                     SqlNodeRegistry.RegisterNode(
                         $"{alias}~{toKeyParts[1]}~{toKeyParts[2]}",
                         $"{alias}~{toKeyParts[1]}~{toKeyParts[2]}",
@@ -274,9 +259,6 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
                     if (map.IsGraph)
                         tempSqlNode.SqlNodeTypes.Add(SqlNodeType.Graph);
                     
-                    tempSqlNode.SqlNodeTypes.Add(SqlNodeType.Edge);
-                    tempSqlNode.SqlNodeTypes.Add(SqlNodeType.Node);
-                    
                     SqlNodeRegistry.RegisterNode(
                         $"{alias}~{toKeyParts[1]}~{toKeyParts[2]}",
                         $"{alias}~{toKeyParts[1]}~{toKeyParts[2]}",
@@ -303,6 +285,8 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
                     Id                 = map.Id,
                     Alias              = modelNameAux,
                     Name               = map.ModelType.Name,
+                    EntityType         = map.EntityType,
+                    ModelType         = map.ModelType,
                     Children           = map.EntityChildren,
                     Parents            = map.EntityParents,
                     RelatedParents     = map.EntityRelatedParents,
@@ -330,6 +314,8 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
                     Id                 = map.Id,
                     Alias              = modelNameAux,
                     Name               = map.EntityType.Name,
+                    EntityType         = map.EntityType,
+                    ModelType         = map.ModelType,
                     Schema             = map.Schema,
                     Children           = map.EntityChildren,
                     Parents            = map.EntityParents,

@@ -6,13 +6,13 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
 {
     public static class SqlNodeRegistry
     {
-        public static Dictionary<string, SqlNode> ModelNodes { get; } = new Dictionary<string, SqlNode>(StringComparer.OrdinalIgnoreCase);
+        public static Dictionary<string, SqlNode> ModelNodes { get; } = new Dictionary<string, SqlNode>(StringComparer.InvariantCultureIgnoreCase);
         
-        public static Dictionary<string, SqlNode> EntityNodes { get; } = new Dictionary<string, SqlNode>(StringComparer.OrdinalIgnoreCase);
+        public static Dictionary<string, SqlNode> EntityNodes { get; } = new Dictionary<string, SqlNode>(StringComparer.InvariantCultureIgnoreCase);
         
-        public static Dictionary<string, NodeTree> ModelTrees { get; } = new Dictionary<string, NodeTree>(StringComparer.OrdinalIgnoreCase);
+        public static Dictionary<string, NodeTree> ModelTrees { get; } = new Dictionary<string, NodeTree>(StringComparer.InvariantCultureIgnoreCase);
         
-        public static Dictionary<string, NodeTree> EntityTrees { get; } = new Dictionary<string, NodeTree>(StringComparer.OrdinalIgnoreCase);
+        public static Dictionary<string, NodeTree> EntityTrees { get; } = new Dictionary<string, NodeTree>(StringComparer.InvariantCultureIgnoreCase);
         
         public static List<string> EntityNames { get; } = new List<string>();
         
