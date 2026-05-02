@@ -279,14 +279,16 @@ public class SqlSelectBuilder
         }
 
         var splitOnDapperOrdered = new Dictionary<string, Type>();
+        var entityMapping = new Dictionary<string, Type>();
 
-        foreach (var key in entityOrder)
+        for (var i = 0; i < entityOrder.Count; i++)
         {
-            var kv = splitOnDapper.FirstOrDefault(t => t.Value.Name.Matches(key));
+            var kv = splitOnDapper.FirstOrDefault(t => t.Value.Name.Matches(entityTrees[sqlQueryStructures.ElementAt(i).Key].Name));
 
             if (kv.Value != null && !splitOnDapperOrdered.ContainsKey(kv.Key))
             {
                 splitOnDapperOrdered.Add(kv.Key, kv.Value);
+                entityMapping.Add(sqlQueryStructures.ElementAt(i).Key, kv.Value);
             }
         }
 
@@ -294,6 +296,7 @@ public class SqlSelectBuilder
         {
             var entity = entityTrees[rootEntityName].EntityType;
             splitOnDapperOrdered.Add(entity.Name, entity);
+            entityMapping.Add(sqlQueryStructures.First().Key, entity);
         }
 
         if (string.IsNullOrEmpty(sqlSelectStatement))
@@ -318,7 +321,8 @@ public class SqlSelectBuilder
             SqlUpsert = sqlUpsertStatement,
             SplitOnDapper = splitOnDapperOrdered,
             Pagination = pagination,
-            HasTotalCount = false
+            HasTotalCount = false,
+            EntityMapping = entityMapping
         };
 
         return sqlStructure;

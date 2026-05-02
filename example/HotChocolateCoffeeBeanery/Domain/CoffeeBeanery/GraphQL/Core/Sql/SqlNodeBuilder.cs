@@ -126,7 +126,7 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
                     map.EntityType == null ? map.ModelType : map.EntityType,
                     map.IsEntity);
                 
-                for (int i = 0; i < map.UpsertKeys.Count - 1; i++)
+                for (int i = 0; i < map.UpsertKeys.Count; i++)
                 {
                     tempSqlNode = new SqlNode
                     {
@@ -197,7 +197,7 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
             // ── Enum Mapping ─────────────────────────────────────────────────
             if (map.FromEnum != null && map.ToEnum != null)
             {
-                for (int i = 0; i < map.FromEnum.Count - 1; i++)
+                for (int i = 0; i < map.FromEnum.Count; i++)
                 {
                     var fromKeyParts = map.FromEnum.ElementAt(i).Key.Split('~');
                     var toKeyParts   = map.ToEnum.ElementAt(i).Key.Split('~');

@@ -266,7 +266,6 @@ namespace CoffeeBeanery.Service
             sqlStructure.ModelTrees = SqlNodeRegistry.ModelTrees;
             sqlStructure.EntityTrees = SqlNodeRegistry.EntityTrees;
             sqlStructure.SqlNodes = SqlNodeRegistry.EntityNodes.Select(a => a.Value).ToArray();
-            sqlStructure.EntityMapping = sqlStructure.SplitOnDapper;
 
             var parameters = new ProcessQueryParameters
             {

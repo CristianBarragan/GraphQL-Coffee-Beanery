@@ -5,173 +5,126 @@ using Domain.Model;
 using DataEntity = Database.Entity;
 using Npgsql;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace Domain.Shared.Query;
-
-public class CustomerCustomerEdgeQueryHandler<M> : ProcessQuery<M>,
-    IQuery<ProcessQueryParameters,
-    (List<M> list, int? startCursor, int? endCursor, int? totalCount, int? totalPageRecords)>
-    where M : class
+namespace Domain.Shared.Query
 {
-    private readonly IMapper _mapper;
-
-    public CustomerCustomerEdgeQueryHandler(
-        ILoggerFactory loggerFactory,
-        NpgsqlConnection dbConnection,
-        IMapper mapper)
-        : base(loggerFactory, dbConnection)
+    public class CustomerCustomerEdgeQueryHandler<M> : ProcessQuery<M>,
+        IQuery<ProcessQueryParameters,
+        (List<M> list, int? startCursor, int? endCursor, int? totalCount, int? totalPageRecords)>
+        where M : class
     {
-        _mapper = mapper;
-    }
+        private readonly IMapper _mapper;
 
-    public override (List<M>, int?, int?, int?, int?) MappingConfiguration(
-        List<M> models,
-        SqlStructure sqlStructure,
-        object[] map)
-    {
-        Console.WriteLine("=== MAPPING CONFIGURATION START ===");
-
-        var wrapper = new Wrapper { CustomerCustomerEdge = new List<CustomerCustomerEdge>() };
-
-        int totalCount = 0;
-        int pageRecords = 0;
-
-        if (map == null || map.Length == 0)
+        public CustomerCustomerEdgeQueryHandler(
+            ILoggerFactory loggerFactory,
+            NpgsqlConnection dbConnection,
+            IMapper mapper)
+            : base(loggerFactory, dbConnection)
         {
-            Console.WriteLine("Dapper map is null or empty.");
-            return (new List<M>(), 0, 0, 0, 0);
+            _mapper = mapper;
         }
 
-        foreach (var item in map)
+        public override (List<M>, int?, int?, int?, int?)
+            MappingConfiguration(List<M> models, SqlStructure sqlStructure, object[] map)
         {
-            if (item == null)
+            Console.WriteLine("=== MAPPING CONFIGURATION START ===");
+
+            var wrapper = new Wrapper
             {
-                Console.WriteLine("NULL ITEM FROM DAPPER");
-                continue;
-            }
-
-            Console.WriteLine($"ITEM TYPE: {item.GetType().FullName}");
-
-            if (item is TotalPageRecords tpr)
-            {
-                pageRecords = tpr.PageRecords;
-                Console.WriteLine($"TotalPageRecords: {pageRecords}");
-                continue;
-            }
-
-            if (item is TotalRecordCount trc)
-            {
-                totalCount = trc.RecordCount;
-                Console.WriteLine($"TotalRecordCount: {totalCount}");
-                continue;
-            }
-
-            try
-            {
-                // 🔥 Map whatever we can from the entity to models
-                var wrapped = WrapEntityByName(item);
-                wrapper = Merge(wrapper, wrapped);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Exception wrapping entity: {ex.Message}");
-            }
-        }
-
-        Console.WriteLine("=== MAPPING CONFIGURATION END ===");
-        return (new List<M> { (M)(object)wrapper },
-            sqlStructure.Pagination?.StartCursor,
-            sqlStructure.Pagination?.EndCursor,
-            totalCount,
-            pageRecords);
-    }
-
-    private Wrapper WrapEntityByName(object entity)
-    {
-        var wrapper = new Wrapper { CustomerCustomerEdge = new List<CustomerCustomerEdge>() };
-
-        Console.WriteLine($"Wrapping entity type: {entity.GetType().Name}");
-
-        if (entity is DataEntity.CustomerCustomerRelationship ccr)
-        {
-            Console.WriteLine("Mapping CustomerCustomerRelationship using property names...");
-
-            // Map the relationship itself
-            var relationshipModel = _mapper.MapToModel<CustomerCustomerRelationship>(ccr, "CustomerCustomerRelationship");
-
-            // Create the edge and set keys from entity
-            var edge = new CustomerCustomerEdge
-            {
-                CustomerCustomerRelationship = relationshipModel,
-                CustomerCustomerRelationshipKey = ccr.CustomerCustomerRelationshipKey,
-                InnerCustomerKey = ccr.InnerCustomerKey,
-                OuterCustomerKey = ccr.OuterCustomerKey
+                CustomerCustomerEdge = new List<CustomerCustomerEdge>()
             };
 
-            // Map InnerCustomer and OuterCustomer objects if they exist
-            if (HasProperty(entity, "InnerCustomer"))
-                edge.InnerCustomer = _mapper.MapByAlias(typeof(Customer), GetPropertyValue(entity, "InnerCustomer"), "InnerCustomer") as Customer;
+            int totalCount = 0;
+            int pageRecords = 0;
 
-            if (HasProperty(entity, "OuterCustomer"))
-                edge.OuterCustomer = _mapper.MapByAlias(typeof(Customer), GetPropertyValue(entity, "OuterCustomer"), "OuterCustomer") as Customer;
+            if (map == null || map.Length == 0)
+                return (new List<M>(), 0, 0, 0, 0);
 
-            wrapper.CustomerCustomerEdge.Add(edge);
-            Console.WriteLine("Added CustomerCustomerEdge to wrapper with keys set.");
-        }
-        else
-        {
-            Console.WriteLine($"Unknown entity type, skipping wrap: {entity.GetType().Name}");
-        }
+            foreach (var item in map)
+            {
+                if (item == null)
+                {
+                    Console.WriteLine("NULL ITEM FROM DAPPER");
+                    continue;
+                }
 
-        return wrapper;
-    }
+                Console.WriteLine($"Map item type: {item.GetType().FullName}");
 
-    // Helpers to check property by name
-    private static bool HasProperty(object obj, string propName) =>
-        obj.GetType().GetProperty(propName) != null;
+                if (item is TotalPageRecords tpr)
+                {
+                    pageRecords = tpr.PageRecords;
+                    continue;
+                }
 
-    private static object GetPropertyValue(object obj, string propName) =>
-        obj.GetType().GetProperty(propName)?.GetValue(obj);
+                if (item is TotalRecordCount trc)
+                {
+                    totalCount = trc.RecordCount;
+                    continue;
+                }
 
-    private Wrapper Merge(Wrapper current, Wrapper incoming)
-    {
-        if (incoming?.CustomerCustomerEdge == null) return current;
+                // 🔥 Wrap the entity dynamically using EntityMapping
+                if (item is DataEntity.CustomerCustomerRelationship ccrEntity)
+                {
+                    var edge = wrapper.CustomerCustomerEdge
+                        .FirstOrDefault(e => e.CustomerCustomerRelationshipKey == ccrEntity.CustomerCustomerRelationshipKey);
 
-        current.CustomerCustomerEdge ??= new List<CustomerCustomerEdge>();
+                    if (edge == null)
+                    {
+                        edge = new CustomerCustomerEdge
+                        {
+                            CustomerCustomerRelationship = _mapper.MapByAlias(typeof(DataEntity.CustomerCustomerRelationship), ccrEntity, "CustomerCustomerRelationship") as CustomerCustomerRelationship,
+                            CustomerCustomerRelationshipKey = ccrEntity.CustomerCustomerRelationshipKey,
+                            InnerCustomerKey = ccrEntity.InnerCustomerKey,
+                            OuterCustomerKey = ccrEntity.OuterCustomerKey
+                        };
+                        wrapper.CustomerCustomerEdge.Add(edge);
+                        Console.WriteLine("Added new CustomerCustomerEdge to wrapper");
+                    }
 
-        foreach (var edge in incoming.CustomerCustomerEdge)
-        {
-            var existing = current.CustomerCustomerEdge.FirstOrDefault(x =>
-                x.InnerCustomerKey == edge.InnerCustomerKey &&
-                x.OuterCustomerKey == edge.OuterCustomerKey &&
-                x.CustomerCustomerRelationshipKey == edge.CustomerCustomerRelationshipKey
+                    // Map InnerCustomer dynamically
+                    if (sqlStructure.EntityMapping.TryGetValue("InnerCustomer", out var innerType))
+                    {
+                        var innerEntity = GetPropertyValue<object>(ccrEntity, "InnerCustomer");
+                        if (innerEntity != null)
+                            edge.InnerCustomer = _mapper.MapByAlias(innerType, innerEntity, "InnerCustomer") as Customer;
+                    }
+
+                    // Map OuterCustomer dynamically
+                    if (sqlStructure.EntityMapping.TryGetValue("OuterCustomer", out var outerType))
+                    {
+                        var outerEntity = GetPropertyValue<object>(ccrEntity, "OuterCustomer");
+                        if (outerEntity != null)
+                            edge.OuterCustomer = _mapper.MapByAlias(outerType, outerEntity, "OuterCustomer") as Customer;
+                    }
+                }
+                else
+                {
+                    Console.WriteLine($"Unknown entity type: {item.GetType().Name}, skipping wrap.");
+                }
+            }
+
+            Console.WriteLine("=== MAPPING CONFIGURATION END ===");
+
+            var result = new List<M> { (M)(object)wrapper };
+
+            return (
+                result,
+                sqlStructure.Pagination?.StartCursor,
+                sqlStructure.Pagination?.EndCursor,
+                totalCount,
+                pageRecords
             );
-
-            if (existing == null)
-            {
-                Console.WriteLine("Adding new CustomerCustomerEdge to wrapper");
-                current.CustomerCustomerEdge.Add(edge);
-            }
-            else
-            {
-                Console.WriteLine("Merging existing CustomerCustomerEdge");
-                MergeEdge(existing, edge);
-            }
         }
 
-        return current;
-    }
-
-    private void MergeEdge(CustomerCustomerEdge current, CustomerCustomerEdge incoming)
-    {
-        current.Clause = incoming.Clause ?? current.Clause;
-        current.LevelDepth = incoming.LevelDepth ?? current.LevelDepth;
-        current.LevelDirection = incoming.LevelDirection ?? current.LevelDirection;
-        current.GraphType = incoming.GraphType ?? current.GraphType;
-        current.InnerCustomer = incoming.InnerCustomer ?? current.InnerCustomer;
-        current.OuterCustomer = incoming.OuterCustomer ?? current.OuterCustomer;
-        current.CustomerCustomerRelationship = incoming.CustomerCustomerRelationship ?? current.CustomerCustomerRelationship;
+        // Helper to dynamically get property values using reflection
+        private static T? GetPropertyValue<T>(object obj, string propertyName)
+        {
+            if (obj == null) return default;
+            var prop = obj.GetType().GetProperty(propertyName);
+            return prop != null ? (T?)prop.GetValue(obj) : default;
+        }
     }
 }
