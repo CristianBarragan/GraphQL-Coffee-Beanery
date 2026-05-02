@@ -87,7 +87,7 @@ public class InnerCustomerMapping : IMappingRegistration
         
         cust.FieldMaps.Add(new FieldMap
         {
-            SourceName = nameof(Customer.CustomerKey),
+            SourceName = nameof(Customer.CustomerType),
             DestinationEntity = nameof(DataEntity.Customer),
             DestinationName = nameof(DataEntity.Customer.CustomerType)
         });

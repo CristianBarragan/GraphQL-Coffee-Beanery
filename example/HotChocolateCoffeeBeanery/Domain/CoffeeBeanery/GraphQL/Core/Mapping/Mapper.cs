@@ -109,7 +109,7 @@ public class Mapper : IMapper
 
     public object MapDynamicToModel(object source, Type targetType, object current, string idPropertyName)
     {
-        if (source == null) return current ?? Activator.CreateInstance(targetType)!;
+        if (source == null || current == null) return current ?? Activator.CreateInstance(targetType)!;
 
         var target = current ?? Activator.CreateInstance(targetType)!;
 
@@ -117,7 +117,7 @@ public class Mapper : IMapper
         foreach (var targetProp in props)
         {
             var entityPropName = targetProp.Name;
-            var value = GetCachedGetter(source.GetType(), entityPropName)(source);
+            var value = GetCachedGetter(source.GetType(), entityPropName)((dynamic)source);
             if (value == null) continue;
 
             Type actualType = Nullable.GetUnderlyingType(targetProp.PropertyType) ?? targetProp.PropertyType;
@@ -175,9 +175,24 @@ public class Mapper : IMapper
             Type actualType = Nullable.GetUnderlyingType(targetProp.PropertyType) ?? targetProp.PropertyType;
 
             // Assign primitives, strings, enums directly
-            if (actualType.IsPrimitive || actualType == typeof(string) || actualType.IsEnum || actualType == typeof(Guid))
+            if (actualType.IsPrimitive || actualType == typeof(string) || actualType == typeof(Guid))
             {
                 targetProp.SetValue(model, value);
+            }
+            else if (actualType.IsEnum)
+            {
+                object enumValue;
+
+                if (value is string s)
+                {
+                    enumValue = Enum.Parse(actualType, s);
+                }
+                else
+                {
+                    enumValue = Enum.ToObject(actualType, value);
+                }
+                
+                targetProp.SetValue(model, enumValue);
             }
             else
             {

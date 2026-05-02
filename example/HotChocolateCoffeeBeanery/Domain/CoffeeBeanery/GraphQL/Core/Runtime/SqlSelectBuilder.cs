@@ -192,8 +192,7 @@ public class SqlSelectBuilder
         if (graphQlSelection.SelectionSet?.Selections!
                 .FirstOrDefault(s => s.ToString().StartsWith("edges")) != null)
         {
-            GetFields(modelTrees, edgeNode.GetNodes().ToList()[1].GetNodes()
-                    .ToList()[0],
+            GetFields(modelTrees, edgeNode.GetNodes().FirstOrDefault(a => a.Kind == SyntaxKind.SelectionSet).GetNodes().FirstOrDefault(),
                 entityDictionary, modelDictionary,
                 sqlStatementNodes,
                 entityTrees.First(t =>
@@ -470,9 +469,14 @@ public class SqlSelectBuilder
         NodeTree parentTree, List<string> visitedModels, List<string> models,
         string rootEntity, List<string> entities, bool isEdge)
     {
+        if (trees.Any(a => a.Value.Alias.Matches(node.ToString())))
+        {
+            currentTree = trees[node.ToString()];
+        }
+        
         if (node != null && node.GetNodes()?.Count() == 0)
         {
-            if (linkEntityDictionaryTree.TryGetValue($"{currentTree.Alias}~{currentTree.Name}~{node.ToString()}",
+            if (linkEntityDictionaryTree.TryGetValue($"{currentTree.Alias}~{currentTree.Name}~{node.ToString().ToUpperCamelCase()}",
                     out var sqlNodeFrom)
                )
             {
@@ -500,10 +504,6 @@ public class SqlSelectBuilder
                 {
                     currentTree = trees[rootEntity];
                 }
-                else
-                {
-                    currentTree = trees[childNode.ToString().Split('{')[0]];
-                }
 
                 if (currentTree.Parents.Count == 0)
                 {
@@ -527,10 +527,9 @@ public class SqlSelectBuilder
         bool isEdge)
     {
         foreach (var entity in linkEntityDictionaryTree
-                     .Where(v => (sqlNode.Column.Matches(v.Value.Column) || 
-                                  sqlNode.UpsertKeys.Any(y => v.Key.Split('~')[1].Matches(y.Split("~")[1])) ||
-                                  sqlNode.EntityRelatedChildren.Any(y => v.Key.Split('~')[1].Matches(y.From.Split("~")[1]))) ||
-                                 sqlNode.EntityRelatedChildren.Any(y => v.Key.Split('~')[1].Matches(y.To.Split("~")[1]))))
+                     .Where(v => (sqlNode.RelationshipKey.Matches(v.Value.RelationshipKey) || 
+                                  sqlNode.RelationshipKey.Split("~")[2].Matches(v.Value.RelationshipKey.Split("~")[2]) && 
+                                  !entities.Contains(v.Value.RelationshipKey.Split("~")[0]))))
         {
             var entityCloned = (SqlNode)entity.Value.Clone();
             entityCloned.Value = sqlNode.Value;
@@ -538,17 +537,8 @@ public class SqlSelectBuilder
             entity.Value.SqlNodeTypes.Clear();
             entityCloned.SqlNodeTypes.Add(isEdge ? SqlNodeType.Edge : SqlNodeType.Node);
             entity.Value.SqlNodeTypes.Add(isEdge ? SqlNodeType.Edge : SqlNodeType.Node);
-            if (sqlStatementNodes.ContainsKey(entity.Value.RelationshipKey) &&
-                entities.Contains(entity.Value.RelationshipKey.Split("~")[0]))
-            {
-                sqlStatementNodes[entity.Value.RelationshipKey] = entityCloned;
-            }
-
-            if (!sqlStatementNodes.ContainsKey(entity.Value.RelationshipKey) &&
-                entities.Contains(entity.Value.RelationshipKey.Split("~")[0]))
-            {
-                sqlStatementNodes.Add(entity.Value.RelationshipKey, entityCloned);
-            }
+            
+            sqlStatementNodes[entity.Value.RelationshipKey] = entityCloned;
         }
     }
     
@@ -698,8 +688,7 @@ public class SqlSelectBuilder
 
         foreach (var tableColumn in currentColumns)
         {
-            var tableFieldParts = tableColumn.Key.Split('~');
-            var fieldName = tableFieldParts[2];
+            var fieldName = tableColumn.Value.Column;
 
             if (!queryColumns.Contains($"\"{fieldName
                 .ToSnakeCase(currentTree.Id)}\""))

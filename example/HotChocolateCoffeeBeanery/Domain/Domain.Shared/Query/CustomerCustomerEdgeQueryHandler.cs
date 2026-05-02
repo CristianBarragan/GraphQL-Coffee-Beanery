@@ -5,7 +5,6 @@ using Domain.Model;
 using DataEntity = Database.Entity;
 using Npgsql;
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -32,94 +31,73 @@ namespace Domain.Shared.Query
         {
             Console.WriteLine("=== MAPPING CONFIGURATION START ===");
 
-            var wrapper = new Wrapper
-            {
-                CustomerCustomerEdge = new List<CustomerCustomerEdge>()
-            };
-
+            var wrapper = new Wrapper { CustomerCustomerEdge = new List<CustomerCustomerEdge>() };
             int totalCount = 0;
             int pageRecords = 0;
 
             if (map == null || map.Length == 0)
                 return (new List<M>(), 0, 0, 0, 0);
 
-            foreach (var item in map)
+            // Create a single edge for this row
+            var edge = new CustomerCustomerEdge();
+            wrapper.CustomerCustomerEdge.Add(edge);
+
+            int i = 0;
+            foreach (var kvp in sqlStructure.EntityMapping)
             {
-                if (item == null)
+                var alias = kvp.Key;
+                var type = kvp.Value;
+
+                if (i >= map.Length)
+                    break;
+
+                var entity = map[i++];
+                if (entity == null)
                 {
-                    Console.WriteLine("NULL ITEM FROM DAPPER");
+                    Console.WriteLine($"NULL ENTITY for alias {alias}");
                     continue;
                 }
 
-                Console.WriteLine($"Map item type: {item.GetType().FullName}");
+                Console.WriteLine($"Mapping alias '{alias}' for entity type '{entity.GetType().Name}'");
 
-                if (item is TotalPageRecords tpr)
+                var mappedModel = _mapper.MapByAlias(type, entity, alias);
+
+                if (mappedModel == null)
                 {
-                    pageRecords = tpr.PageRecords;
+                    Console.WriteLine($"MapByAlias returned null for alias {alias}");
                     continue;
                 }
 
-                if (item is TotalRecordCount trc)
+                switch (alias)
                 {
-                    totalCount = trc.RecordCount;
-                    continue;
-                }
+                    case "CustomerCustomerRelationship":
+                        edge.CustomerCustomerRelationship = mappedModel as CustomerCustomerRelationship;
+                        edge.CustomerCustomerRelationshipKey = GetPropertyValue<Guid?>(entity, "CustomerCustomerRelationshipKey");
+                        edge.InnerCustomerKey = GetPropertyValue<Guid?>(entity, "InnerCustomerKey");
+                        edge.OuterCustomerKey = GetPropertyValue<Guid?>(entity, "OuterCustomerKey");
+                        break;
 
-                // 🔥 Wrap the entity dynamically using EntityMapping
-                if (item is DataEntity.CustomerCustomerRelationship ccrEntity)
-                {
-                    var edge = wrapper.CustomerCustomerEdge
-                        .FirstOrDefault(e => e.CustomerCustomerRelationshipKey == ccrEntity.CustomerCustomerRelationshipKey);
+                    case "InnerCustomer":
+                        edge.InnerCustomer = mappedModel as Customer;
+                        break;
 
-                    if (edge == null)
-                    {
-                        edge = new CustomerCustomerEdge
-                        {
-                            CustomerCustomerRelationship = _mapper.MapByAlias(typeof(DataEntity.CustomerCustomerRelationship), ccrEntity, "CustomerCustomerRelationship") as CustomerCustomerRelationship,
-                            CustomerCustomerRelationshipKey = ccrEntity.CustomerCustomerRelationshipKey,
-                            InnerCustomerKey = ccrEntity.InnerCustomerKey,
-                            OuterCustomerKey = ccrEntity.OuterCustomerKey
-                        };
-                        wrapper.CustomerCustomerEdge.Add(edge);
-                        Console.WriteLine("Added new CustomerCustomerEdge to wrapper");
-                    }
+                    case "OuterCustomer":
+                        edge.OuterCustomer = mappedModel as Customer;
+                        break;
 
-                    // Map InnerCustomer dynamically
-                    if (sqlStructure.EntityMapping.TryGetValue("InnerCustomer", out var innerType))
-                    {
-                        var innerEntity = GetPropertyValue<object>(ccrEntity, "InnerCustomer");
-                        if (innerEntity != null)
-                            edge.InnerCustomer = _mapper.MapByAlias(innerType, innerEntity, "InnerCustomer") as Customer;
-                    }
-
-                    // Map OuterCustomer dynamically
-                    if (sqlStructure.EntityMapping.TryGetValue("OuterCustomer", out var outerType))
-                    {
-                        var outerEntity = GetPropertyValue<object>(ccrEntity, "OuterCustomer");
-                        if (outerEntity != null)
-                            edge.OuterCustomer = _mapper.MapByAlias(outerType, outerEntity, "OuterCustomer") as Customer;
-                    }
-                }
-                else
-                {
-                    Console.WriteLine($"Unknown entity type: {item.GetType().Name}, skipping wrap.");
+                    // Add other cases if needed
+                    default:
+                        Console.WriteLine($"Alias '{alias}' not handled explicitly");
+                        break;
                 }
             }
 
             Console.WriteLine("=== MAPPING CONFIGURATION END ===");
 
             var result = new List<M> { (M)(object)wrapper };
-
-            return (
-                result,
-                sqlStructure.Pagination?.StartCursor,
-                sqlStructure.Pagination?.EndCursor,
-                totalCount,
-                pageRecords
-            );
+            return (result, sqlStructure.Pagination?.StartCursor, sqlStructure.Pagination?.EndCursor, totalCount, pageRecords);
         }
 
-        // Helper to dynamically get property values using reflection
         private static T? GetPropertyValue<T>(object obj, string propertyName)
         {
             if (obj == null) return default;
