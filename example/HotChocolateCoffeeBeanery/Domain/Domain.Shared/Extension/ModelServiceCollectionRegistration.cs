@@ -2,6 +2,7 @@
 using CoffeeBeanery.GraphQL.Core.Sql;
 using CoffeeBeanery.Service;
 using Domain.Model;
+using Domain.Shared.Query;
 // using Domain.Shared.Query;
 using FASTER.core;
 using Microsoft.Extensions.DependencyInjection;
@@ -11,7 +12,7 @@ namespace Domain.Shared.Extension
 {
     public static class ModelServiceCollectionRegistration
     {
-        public static IServiceCollection AddBankingDomainModelServiceCollection(
+        public static IServiceCollection AddDomainModelServiceCollection(
             this IServiceCollection services,
             string postgresConnectionString)
         {
@@ -20,28 +21,12 @@ namespace Domain.Shared.Extension
 
             services = AddCache(services);
 
-            // services.AddScoped<IProcessService<dynamic>, ProcessService<dynamic>>();
-            // services.AddScoped<IQuery<ProcessQueryParameters,
-            //         (List<dynamic> list, int? startCursor, int? endCursor, int? totalCount, int?
-            //         totalPageRecords)>,
-            //     CustomerCustomerEdgeQueryHandler<dynamic>>();
-
-            services.AddScoped<IProcessService<Wrapper>, ProcessService<Wrapper>>();
-            // services.AddScoped<IQuery<ProcessQueryParameters,
-            //         (List<CustomerCustomerEdge> list, int? startCursor, int? endCursor, int? totalCount, int?
-            //         totalPageRecords)>,
-            //     CustomerCustomerEdgeQueryHandler<CustomerCustomerEdge>>();
-            
             services.AddScoped<
                 IQuery<ProcessQueryParameters,
                     (List<Wrapper>, int?, int?, int?, int?)>,
-                ProcessQuery<Wrapper>
-            >();
+                CustomerCustomerEdgeQueryHandler<Wrapper>>();
 
-            // services.AddScoped<IQuery<ProcessQueryParameters,
-            //         (List<CustomerCustomerEdge> list, int? startCursor, int? endCursor, int? totalCount,
-            //         int? totalPageRecords)>,
-            //     CustomerCustomerEdgeQueryHandler<CustomerCustomerEdge>>();
+            services.AddScoped<IProcessService<Wrapper>, ProcessService<Wrapper>>();
 
             services.AddScoped<IQueryDispatcher, QueryDispatcher>();
             services.AddScoped<UnitOfWork, UnitOfWork>();

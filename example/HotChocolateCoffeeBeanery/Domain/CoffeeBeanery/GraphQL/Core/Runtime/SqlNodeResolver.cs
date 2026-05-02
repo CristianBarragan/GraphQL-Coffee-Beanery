@@ -142,14 +142,13 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                 var enumKeyValue = sqlNodeTo.FromEnumeration.FirstOrDefault(a => a.Key
                     .Matches(key));
                 
-                if (enumKeyValue.Value != null)
+                if (String.IsNullOrEmpty(enumKeyValue.Value.Item1))
                 {
                     var keyParts = key.Split('~');
                     sqlNodeTo.Column = previousNode.Split(':')[0].ToUpperCamelCase();
                     key = $"{keyParts[0]}~{keyParts[1]}~{sqlNodeTo.Column}";
                     sqlNodeTo.RelationshipKey = key;
-                    value = sqlNodeTo.ToEnumeration
-                        .FirstOrDefault(e => e.Key.Matches(keyTo)).Value;
+                    value = enumKeyValue.Value.Item2.ToString();
                 }
                 else
                 {

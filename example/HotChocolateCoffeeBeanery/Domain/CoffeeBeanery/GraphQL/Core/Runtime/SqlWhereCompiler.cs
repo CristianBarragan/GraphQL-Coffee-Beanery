@@ -178,12 +178,12 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
 
             if (linkModelDictionaryTreeNode.TryGetValue($"{nodeTree.Name}~{field}", out var sqlNodeTo))
             {
-                if (sqlNodeTo.FromEnumeration.TryGetValue(value,
-                        out var enumValue))
+                var enumValue = sqlNodeTo.FromEnumeration.FirstOrDefault(a => a.Value.Item1.Matches(value)).Value;
+                if (!string.IsNullOrEmpty(enumValue.Item1))
                 {
                     var toEnum = sqlNodeTo.ToEnumeration.FirstOrDefault(e =>
-                        e.Value.Matches(enumValue)).Value;
-                    enumeration = toEnum;
+                        e.Value.Item1.Matches(enumValue.Item1)).Value;
+                    enumeration = toEnum.Item2.ToString();
                 }
                 else
                 {

@@ -337,19 +337,22 @@ public class SqlSelectBuilder
                 $"{currentTree.Alias}~{currentTree.Name}~{node.ToString()}",
                 out var sqlNodeFrom))
             {
+                var isEnum = false;
+                var enumIntValue = string.Empty;
+                
                 if (linkEntityDictionaryTree.TryGetValue(sqlNodeFrom.RelationshipKey,
                         out var sqlNodeTo))
                 {
                     if (previousNode.Split(':').Length == 2)
                     {
-                        if (sqlNodeTo.FromEnumeration.TryGetValue(
-                                previousNode.Split(':')[1].Sanitize().Replace("_", ""),
-                                out var enumValue))
+                        var enumValue = sqlNodeTo.FromEnumeration.FirstOrDefault(a => a.Value.Item1.Matches(previousNode.Split(':')[1].Sanitize().Replace("_", ""))).Value;
+                        if (!string.IsNullOrEmpty(enumValue.Item1))
                         {
+                            isEnum = true;
                             var toEnum = sqlNodeTo.FromEnumeration
                                 .FirstOrDefault(e =>
-                                e.Value.Matches(enumValue)).Value;
-                            sqlNodeTo.Value = toEnum;
+                                e.Value.Item1.Matches(enumValue.Item1)).Value;
+                            sqlNodeTo.Value = toEnum.Item2.ToString();
                         }
                         else
                         {
@@ -358,16 +361,19 @@ public class SqlSelectBuilder
                     }
 
                     AddEntity(linkEntityDictionaryTree, sqlStatementNodes, models, entities,
-                        sqlNodeTo);
+                        sqlNodeTo, isEnum);
                 }
 
                 if (previousNode.Split(':').Length == 2)
                 {
-                    if (sqlNodeFrom.ToEnumeration.TryGetValue(previousNode.Split(':')[1]
-                                .Sanitize().Replace("_", ""),
-                            out var enumValue))
+                    var enumValue = sqlNodeTo.FromEnumeration.FirstOrDefault(a => a.Value.Item1.Matches(previousNode.Split(':')[1].Sanitize().Replace("_", ""))).Value;
+                    if (!string.IsNullOrEmpty(enumValue.Item1))
                     {
-                        sqlNodeFrom.Value = enumValue;
+                        isEnum = true;
+                        var toEnum = sqlNodeTo.FromEnumeration
+                            .FirstOrDefault(e =>
+                                e.Value.Item1.Matches(enumValue.Item1)).Value;
+                        sqlNodeTo.Value = toEnum.Item2.ToString();
                     }
                     else
                     {
@@ -376,7 +382,7 @@ public class SqlSelectBuilder
                 }
 
                 AddEntity(linkEntityDictionaryTree, sqlStatementNodes, models, entities,
-                    sqlNodeFrom);
+                    sqlNodeFrom, isEnum);
             }
 
             return;
@@ -421,19 +427,28 @@ public class SqlSelectBuilder
     
     private static void AddEntity(Dictionary<string, SqlNode> linkEntityDictionaryTree,
         Dictionary<string, SqlNode> sqlStatementNodes, List<string> models, List<string> entities,
-        SqlNode? sqlNode)
+        SqlNode? sqlNode, bool isEnum)
     {
         foreach (var entity in linkEntityDictionaryTree
                      .Where(v => sqlNode.Column.Matches(v.Value.Column)))
         {
-            entity.Value.Value = sqlNode.Value;
-            entity.Value.SqlNodeTypes.Add(SqlNodeType.Mutation);
-            if (sqlStatementNodes.ContainsKey(entity.Value.RelationshipKey) &&
-                entities.Contains(entity.Value.RelationshipKey.Split("~")[1]) &&
-                !models.Contains(entity.Value.RelationshipKey.Split("~")[2]))
+            if (isEnum)
             {
-                sqlStatementNodes[entity.Value.RelationshipKey] = entity.Value;
+                var a = true;
             }
+            
+            if (string.IsNullOrEmpty(entity.Value.Value))
+            {
+                entity.Value.Value = sqlNode.Value;    
+            }
+            
+            // entity.Value.SqlNodeTypes.Add(SqlNodeType.Mutation);
+            // if (sqlStatementNodes.ContainsKey(entity.Value.RelationshipKey) &&
+            //     entities.Contains(entity.Value.RelationshipKey.Split("~")[1]) &&
+            //     !models.Contains(entity.Value.RelationshipKey.Split("~")[2]))
+            // {
+            //     sqlStatementNodes[entity.Value.RelationshipKey] = entity.Value;
+            // }
 
             if (!sqlStatementNodes.ContainsKey(entity.Value.RelationshipKey) &&
                 entities.Contains(entity.Value.RelationshipKey.Split("~")[1]) &&

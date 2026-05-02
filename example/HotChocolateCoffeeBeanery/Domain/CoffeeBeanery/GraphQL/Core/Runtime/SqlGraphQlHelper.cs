@@ -21,11 +21,11 @@ public class SqlGraphQlHelper
 
         if (linkModelDictionaryTreeNode.TryGetValue($"{nodeTree.Name}~{field}", out var sqlNodeTo))
         {
-            if (sqlNodeTo.FromEnumeration.TryGetValue(value,
-                    out var enumValue))
+            var enumValuePair = sqlNodeTo.FromEnumeration.FirstOrDefault(a => a.Value.Item1.Matches(value));
+            
+            if (enumValuePair.Value.Item1 != null)
             {
-                var toEnum = sqlNodeTo.ToEnumeration.FirstOrDefault(e =>
-                    e.Value.Matches(enumValue)).Value;
+                var toEnum = enumValuePair.Value.Item2.ToString();
                 enumeration = toEnum;
             }
             else

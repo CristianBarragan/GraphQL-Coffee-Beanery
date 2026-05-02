@@ -40,7 +40,7 @@ public class Program
 
         var connectionString = configuration.GetConnectionString("BankingConnectionString");
 
-        services.AddBankingDomainModelServiceCollection(connectionString);
+        services.AddDomainModelServiceCollection(connectionString);
         services.Init(typeof(ModelMappingRegistration).Assembly);
         SqlNodeBuilder.BuildFromMappings();
        

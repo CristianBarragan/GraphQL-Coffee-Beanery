@@ -117,24 +117,31 @@ public class ProductMapping : IMappingRegistration
         
         product.FieldMaps.Add(new FieldMap
         {
-            SourceName = nameof(Product.Amount),
+            SourceName = nameof(Product.Balance),
             DestinationEntity = nameof(DataEntity.Transaction),
             DestinationName = nameof(DataEntity.Transaction.Balance)
+        });
+        
+        product.FieldMaps.Add(new FieldMap
+        {
+            SourceName = nameof(Product.CustomerBankingRelationshipKey),
+            DestinationEntity = nameof(DataEntity.CustomerBankingRelationship),
+            DestinationName = nameof(DataEntity.CustomerBankingRelationship.CustomerBankingRelationshipKey)
         });
 
         // Enum mapping for ProductType by value
         var productEnums = EnumMapFactory.Create(
-            new Dictionary<string, (string, int)>(StringComparer.OrdinalIgnoreCase)
+            new List<KeyValuePair<string, (string, int)>>()
             {
-                { $"{nameof(Product)}~{nameof(DataEntity.ContactPoint)}~{DataEntity.ContractType.CreditCard}", (ProductType.CreditCard.ToString(), (int)DataEntity.ContractType.CreditCard) },
-                { $"{nameof(Product)}~{nameof(DataEntity.ContactPoint)}~{DataEntity.ContractType.Mortgage}", (ProductType.Mortgage.ToString(), (int)DataEntity.ContractType.Mortgage) },
-                { $"{nameof(Product)}~{nameof(DataEntity.ContactPoint)}~{DataEntity.ContractType.PersonalLoan}", (ProductType.PersonalLoan.ToString(), (int)DataEntity.ContractType.PersonalLoan) }
+                new($"{nameof(Product)}~{nameof(DataEntity.ContactPoint)}~{nameof(DataEntity.ContractType)}", (ProductType.CreditCard.ToString(), (int)DataEntity.ContractType.CreditCard)),
+                new($"{nameof(Product)}~{nameof(DataEntity.ContactPoint)}~{nameof(DataEntity.ContractType)}", (ProductType.Mortgage.ToString(), (int)DataEntity.ContractType.Mortgage)),
+                new($"{nameof(Product)}~{nameof(DataEntity.ContactPoint)}~{nameof(DataEntity.ContractType)}", (ProductType.PersonalLoan.ToString(), (int)DataEntity.ContractType.PersonalLoan)),
             },
-            new Dictionary<string, (string, int)>(StringComparer.OrdinalIgnoreCase)
+            new List<KeyValuePair<string, (string, int)>>()
             {
-                { $"{nameof(DataEntity.ContactPoint)}~{nameof(Product)}~{ProductType.CreditCard}", (DataEntity.ContractType.CreditCard.ToString(), (int)ProductType.CreditCard) },
-                { $"{nameof(DataEntity.ContactPoint)}~{nameof(Product)}~{ProductType.Mortgage}", (DataEntity.ContractType.Mortgage.ToString(), (int)ProductType.Mortgage) },
-                { $"{nameof(DataEntity.ContactPoint)}~{nameof(Product)}~{ProductType.PersonalLoan}", (DataEntity.ContractType.PersonalLoan.ToString(), (int)ProductType.PersonalLoan) }
+                new($"{nameof(DataEntity.ContactPoint)}~{nameof(Product)}~{nameof(DataEntity.ContractType)}", (DataEntity.ContractType.CreditCard.ToString(), (int)ProductType.CreditCard)),
+                new($"{nameof(DataEntity.ContactPoint)}~{nameof(Product)}~{nameof(DataEntity.ContractType)}", (DataEntity.ContractType.Mortgage.ToString(), (int)ProductType.Mortgage)),
+                new($"{nameof(DataEntity.ContactPoint)}~{nameof(Product)}~{nameof(DataEntity.ContractType)}", (DataEntity.ContractType.PersonalLoan.ToString(), (int)ProductType.PersonalLoan)),
             });
 
         product.FromEnum = productEnums.from;

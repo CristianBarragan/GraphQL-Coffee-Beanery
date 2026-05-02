@@ -21,8 +21,8 @@ namespace CoffeeBeanery.GraphQL.Core.Mapping
         public List<LinkKey> ModelToEntityLinks { get; private set; } = new List<LinkKey>();
 
         // ENUMS
-        public Dictionary<string, string> FromEnum { get; set; } = new Dictionary<string, string>();
-        public Dictionary<string, string> ToEnum { get; set; } = new Dictionary<string, string>();
+        public List<KeyValuePair<string, (string, int)>> FromEnum { get; set; } = new();
+        public List<KeyValuePair<string, (string, int)>> ToEnum { get; set; } = new();
         
         public bool IsGraph { get; set; }
         

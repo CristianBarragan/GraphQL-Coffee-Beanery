@@ -1,4 +1,5 @@
 ﻿using CoffeeBeanery.CQRS;
+using CoffeeBeanery.GraphQL.Core.Sql;
 using Dapper;
 using Npgsql;
 
@@ -6,12 +7,14 @@ namespace CoffeeBeanery.Service;
 
 public class ProcessQuery<M> : IQuery<ProcessQueryParameters,
     (List<M> list, int? startCursor, int? endCursor, int? totalCount, int? totalPageRecords)>
-    where M : class, new()
+    where M : class
 {
     private readonly ILogger<ProcessQuery<M>> _logger;
     private readonly NpgsqlConnection _db;
 
-    public ProcessQuery(ILoggerFactory loggerFactory, NpgsqlConnection db)
+    public ProcessQuery(
+        ILoggerFactory loggerFactory,
+        NpgsqlConnection db)
     {
         _logger = loggerFactory.CreateLogger<ProcessQuery<M>>();
         _db = db;
@@ -24,39 +27,26 @@ public class ProcessQuery<M> : IQuery<ProcessQueryParameters,
         var types = parameters.SqlStructure.SplitOnDapper.Values.ToList();
         var splitOn = parameters.SqlStructure.SplitOnDapper.Keys.ToList();
 
-        var query = parameters.SqlStructure.SqlUpsert + ";" + parameters.SqlStructure.SqlQuery;
+        var query = parameters.SqlStructure.SqlUpsert + ";" +
+                    parameters.SqlStructure.SqlQuery;
 
-        var edgeDict = new Dictionary<string, M>();
+        var models = new List<M>();
 
         int? totalCount = null;
         int? totalPageRecords = null;
-        int? startCursor = null;
-        int? endCursor = null;
 
         await _db.OpenAsync(ct);
         var tx = await _db.BeginTransactionAsync(ct);
 
         try
         {
-            Console.WriteLine("=== DAPPER FINAL DEBUG ===");
-            Console.WriteLine($"splitOn: {string.Join(",", splitOn)}");
-            Console.WriteLine($"types ({types.Count}): {string.Join(", ", types.Select(t => t?.Name ?? "null"))}");
-            Console.WriteLine($"query first 400: {parameters.SqlStructure.SqlQuery[..Math.Min(400, parameters.SqlStructure.SqlQuery.Length)]}");
-            
             await _db.QueryAsync(
                 query,
                 types.ToArray(),
                 (object[] map) =>
                 {
-                    GraphMaterializer.MergeRow(
-                        map,
-                        parameters.SqlStructure.SqlNodes,
-                        parameters.SqlStructure.EntityTrees,
-                        parameters.SqlStructure.EntityMapping,
-                        edgeDict,
-                        parameters.Model,
-                        ref totalCount,
-                        ref totalPageRecords);
+                    var set = MappingConfiguration(models, parameters.SqlStructure, map);
+                    models = set.models;
 
                     return 0;
                 },
@@ -66,9 +56,9 @@ public class ProcessQuery<M> : IQuery<ProcessQueryParameters,
             await tx.CommitAsync(ct);
 
             return (
-                edgeDict.Values.ToList(),
-                startCursor,
-                endCursor,
+                models,
+                parameters.SqlStructure.Pagination?.StartCursor,
+                parameters.SqlStructure.Pagination?.EndCursor,
                 totalCount,
                 totalPageRecords
             );
@@ -83,5 +73,25 @@ public class ProcessQuery<M> : IQuery<ProcessQueryParameters,
         {
             await _db.CloseAsync();
         }
+    }
+    
+    public virtual (List<M> models, int? startCursor, int? endCursor, int? totalCount, int? totalPageRecords)
+        MappingConfiguration(List<M> models, SqlStructure sqlStructure, object[] map)
+    {
+        throw new NotImplementedException();
+    }
+
+    private static Dictionary<int, string> BuildAliasIndex(
+        Dictionary<string, Type> entityMapping)
+    {
+        var dict = new Dictionary<int, string>();
+        int i = 0;
+
+        foreach (var kv in entityMapping)
+        {
+            dict[i++] = kv.Key;
+        }
+
+        return dict;
     }
 }

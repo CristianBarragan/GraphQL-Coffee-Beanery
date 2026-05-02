@@ -115,15 +115,15 @@ public class InnerCustomerMapping : IMappingRegistration
 
         // Enum mapping for CustomerType
         var custEnums = EnumMapFactory.Create(
-            new Dictionary<string, (string, int)>(StringComparer.OrdinalIgnoreCase)
+            new List<KeyValuePair<string, (string, int)>>()
             {
-                { $"{nameof(DataEntity.CustomerCustomerRelationship.InnerCustomer)}~{nameof(DataEntity.Customer)}~{DataEntity.CustomerType.Person}", (CustomerType.Person.ToString(), (int)CustomerType.Person) },
-                { $"{nameof(DataEntity.CustomerCustomerRelationship.InnerCustomer)}~{nameof(DataEntity.Customer)}~{DataEntity.CustomerType.Organisation}", (CustomerType.Organisation.ToString(), (int)CustomerType.Organisation) }
+                new($"{nameof(DataEntity.CustomerCustomerRelationship.InnerCustomer)}~{nameof(DataEntity.Customer)}~{nameof(DataEntity.CustomerType)}", (CustomerType.Person.ToString(), (int)CustomerType.Person)),
+                new($"{nameof(DataEntity.CustomerCustomerRelationship.InnerCustomer)}~{nameof(DataEntity.Customer)}~{nameof(DataEntity.CustomerType)}", (CustomerType.Organisation.ToString(), (int)CustomerType.Organisation)),
             },
-            new Dictionary<string, (string, int)>(StringComparer.OrdinalIgnoreCase)
+            new List<KeyValuePair<string, (string, int)>>()
             {
-                { $"{nameof(DataEntity.Customer)}~{nameof(Customer)}~{CustomerType.Person}", (DataEntity.CustomerType.Person.ToString(), (int)CustomerType.Person) },
-                { $"{nameof(DataEntity.Customer)}~{nameof(Customer)}~{CustomerType.Organisation}", (DataEntity.CustomerType.Organisation.ToString(), (int)CustomerType.Organisation) }
+                new($"{nameof(DataEntity.Customer)}~{nameof(Customer)}~{nameof(DataEntity.CustomerType)}", (DataEntity.CustomerType.Person.ToString(), (int)CustomerType.Person)),
+                new($"{nameof(DataEntity.Customer)}~{nameof(Customer)}~{nameof(DataEntity.CustomerType)}", (DataEntity.CustomerType.Organisation.ToString(), (int)CustomerType.Organisation))
             });
 
         cust.FromEnum = custEnums.from;
