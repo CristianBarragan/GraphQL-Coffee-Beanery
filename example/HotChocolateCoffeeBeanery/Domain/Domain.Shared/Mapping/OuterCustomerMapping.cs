@@ -1,132 +1,69 @@
 ﻿using CoffeeBeanery.GraphQL.Core.Mapping;
 using CoffeeBeanery.GraphQL.Core.Sql;
 using Domain.Model;
-
-namespace Domain.Shared.Mapping;
 using DataEntity = Database.Entity;
 
-public class OuterCustomerMapping : IMappingRegistration
+namespace Domain.Shared.Mapping;
+
+public class OuterCustomerMapping : BaseMappingRegistration<Customer, DataEntity.Customer>
 {
-    public void RegisterNodeMap(Dictionary<string, NodeMap> mappings)
+    protected override string Alias => nameof(DataEntity.CustomerCustomerRelationship.OuterCustomer);
+
+    protected override NodeMap BuildMap()
     {
-        var cust = new NodeMap
+        var map = new NodeMap
         {
-            Alias = nameof(DataEntity.CustomerCustomerRelationship.OuterCustomer),
-            Schema = nameof(DataEntity.Schema.Banking),
-            EntityChildren = new List<LinkKey>()
-            {
-                new LinkKey()
-                {
-                    From = nameof(DataEntity.Customer),
-                    FromColumn = nameof(DataEntity.Customer.Id),
-                    To = nameof(DataEntity.ContactPoint),
-                    ToColumn = nameof(DataEntity.ContactPoint.CustomerId)
-                },
-                new LinkKey()
-                {
-                    From = nameof(DataEntity.Customer),
-                    FromColumn = nameof(DataEntity.Customer.Id),
-                    To = nameof(DataEntity.CustomerBankingRelationship),
-                    ToColumn = nameof(DataEntity.CustomerBankingRelationship.CustomerId)
-                }
-            },
-            EntityParents = new List<LinkKey>()
-            {
-                new LinkKey()
-                {
-                    From = nameof(DataEntity.Customer),
-                    FromColumn = nameof(DataEntity.Customer.Id),
-                    To = nameof(DataEntity.CustomerCustomerRelationship),
-                    ToColumn = nameof(DataEntity.CustomerCustomerRelationship.OuterCustomerId)
-                },
-                new LinkKey()
-                {
-                    From = nameof(DataEntity.Customer),
-                    FromColumn = nameof(DataEntity.Customer.Id),
-                    To = nameof(DataEntity.CustomerCustomerRelationship),
-                    ToColumn = nameof(DataEntity.CustomerCustomerRelationship.OuterCustomerId)
-                }
-            },
-            ModelToEntityLinks =
-            {
-                new LinkKey()
-                {
-                    From = nameof(Customer),
-                    FromColumn = nameof(Customer.CustomerKey),
-                    To = nameof(DataEntity.Customer),
-                    ToColumn = nameof(DataEntity.Customer.CustomerKey)
-                }
-            }
+            Schema = nameof(DataEntity.Schema.Banking)
         };
 
-        cust.IsEntity = true;
-        cust.IsModel = true;
-
-        cust.UpsertKeys.Add(new UpsertKey(nameof(DataEntity.Customer), nameof(DataEntity.Customer.CustomerKey)));
-
-        cust.FieldMaps.Add(new FieldMap
+        map.EntityChildren.AddRange(new[]
         {
-            SourceName = nameof(DataEntity.Customer.Id),
-            DestinationEntity = nameof(DataEntity.Customer),
-            DestinationName = nameof(DataEntity.Customer.Id)
+            new LinkKey { From = nameof(DataEntity.Customer), FromColumn = nameof(DataEntity.Customer.Id), To = nameof(DataEntity.ContactPoint),                ToColumn = nameof(DataEntity.ContactPoint.CustomerId) },
+            new LinkKey { From = nameof(DataEntity.Customer), FromColumn = nameof(DataEntity.Customer.Id), To = nameof(DataEntity.CustomerBankingRelationship), ToColumn = nameof(DataEntity.CustomerBankingRelationship.CustomerId) }
         });
 
-        cust.FieldMaps.Add(new FieldMap
+        map.EntityParents.Add(new LinkKey
         {
-            SourceName = nameof(Customer.CustomerKey),
-            DestinationEntity = nameof(DataEntity.Customer),
-            DestinationName = nameof(DataEntity.Customer.CustomerKey)
-        });
-        
-        cust.FieldMaps.Add(new FieldMap
-        {
-            SourceName = nameof(Customer.CustomerType),
-            DestinationEntity = nameof(DataEntity.Customer),
-            DestinationName = nameof(DataEntity.Customer.CustomerType)
+            From       = nameof(DataEntity.Customer),
+            FromColumn = nameof(DataEntity.Customer.Id),
+            To         = nameof(DataEntity.CustomerCustomerRelationship),
+            ToColumn   = nameof(DataEntity.CustomerCustomerRelationship.OuterCustomerId)
         });
 
-        cust.FieldMaps.Add(new FieldMap
+        map.ModelToEntityLinks.AddRange(new[]
         {
-            SourceName = nameof(Customer.FirstNaming),
-            DestinationEntity = nameof(DataEntity.Customer),
-            DestinationName = nameof(DataEntity.Customer.FirstName)
+            new LinkKey { From = nameof(CustomerCustomerEdge.InnerCustomer), FromColumn = nameof(CustomerCustomerEdge.InnerCustomerKey), To = nameof(DataEntity.Customer), ToColumn = nameof(DataEntity.Customer.CustomerKey) },
+            new LinkKey { From = nameof(CustomerCustomerEdge.OuterCustomer), FromColumn = nameof(CustomerCustomerEdge.OuterCustomerKey), To = nameof(DataEntity.Customer), ToColumn = nameof(DataEntity.Customer.CustomerKey) }
         });
 
-        cust.FieldMaps.Add(new FieldMap
-        {
-            SourceName = nameof(Customer.LastNaming),
-            DestinationEntity = nameof(DataEntity.Customer),
-            DestinationName = nameof(DataEntity.Customer.LastName)
-        });
+        map.UpsertKeys.Add(new UpsertKey(
+            nameof(DataEntity.Customer),
+            nameof(DataEntity.Customer.CustomerKey)
+        ));
 
-        cust.FieldMaps.Add(new FieldMap
+        map.FieldMaps.AddRange(new[]
         {
-            SourceName = nameof(Customer.FullNaming),
-            DestinationEntity = nameof(DataEntity.Customer),
-            DestinationName = nameof(DataEntity.Customer.FullName)
-        });
-
-        // Enum mapping for CustomerType
-        var custEnums = EnumMapFactory.Create(
-            new List<KeyValuePair<string, (string, int)>>()
+            new FieldMap { SourceName = nameof(DataEntity.Customer.Id), DestinationEntity = nameof(DataEntity.Customer), DestinationName = nameof(DataEntity.Customer.Id) },
+            new FieldMap { SourceName = nameof(Customer.CustomerKey),   DestinationEntity = nameof(DataEntity.Customer), DestinationName = nameof(DataEntity.Customer.CustomerKey) },
+            new FieldMap
             {
-                new($"{nameof(DataEntity.CustomerCustomerRelationship.OuterCustomer)}~{nameof(DataEntity.Customer)}~{nameof(DataEntity.CustomerType)}", (CustomerType.Person.ToString(), (int)CustomerType.Person)),
-                new($"{nameof(DataEntity.CustomerCustomerRelationship.OuterCustomer)}~{nameof(DataEntity.Customer)}~{nameof(DataEntity.CustomerType)}", (CustomerType.Organisation.ToString(), (int)CustomerType.Organisation)),
+                SourceName = nameof(Customer.CustomerType),  DestinationEntity = nameof(DataEntity.Customer), DestinationName = nameof(DataEntity.Customer.CustomerType),
+                FromEnum = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+                {
+                    { CustomerType.Person.ToString(), (int)CustomerType.Person },
+                    { CustomerType.Organisation.ToString(), (int)CustomerType.Organisation }
+                },
+                ToEnum = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+                {
+                    { DataEntity.CustomerType.Person.ToString(), (int)DataEntity.CustomerType.Person },
+                    { DataEntity.CustomerType.Organisation.ToString(), (int)DataEntity.CustomerType.Organisation },
+                }
             },
-            new List<KeyValuePair<string, (string, int)>>()
-            {
-                new($"{nameof(DataEntity.Customer)}~{nameof(Customer)}~{nameof(DataEntity.CustomerType)}", (DataEntity.CustomerType.Person.ToString(), (int)CustomerType.Person)),
-                new($"{nameof(DataEntity.Customer)}~{nameof(Customer)}~{nameof(DataEntity.CustomerType)}", (DataEntity.CustomerType.Organisation.ToString(), (int)CustomerType.Organisation))
-            });
+            new FieldMap { SourceName = nameof(Customer.FirstNaming),   DestinationEntity = nameof(DataEntity.Customer), DestinationName = nameof(DataEntity.Customer.FirstName) },
+            new FieldMap { SourceName = nameof(Customer.LastNaming),    DestinationEntity = nameof(DataEntity.Customer), DestinationName = nameof(DataEntity.Customer.LastName) },
+            new FieldMap { SourceName = nameof(Customer.FullNaming),    DestinationEntity = nameof(DataEntity.Customer), DestinationName = nameof(DataEntity.Customer.FullName) }
+        });
 
-        cust.FromEnum = custEnums.from;
-        cust.ToEnum = custEnums.to;
-        
-        mappings.TryAdd(nameof(DataEntity.CustomerCustomerRelationship.OuterCustomer), MappingRegistry.Register(typeof(Customer), typeof(DataEntity.Customer), cust, nameof(DataEntity.CustomerCustomerRelationship.OuterCustomer)));
-    }
-
-    public void Register(Dictionary<string, NodeMap> mappings)
-    {
-        RegisterNodeMap(mappings);
+        return map;
     }
 }

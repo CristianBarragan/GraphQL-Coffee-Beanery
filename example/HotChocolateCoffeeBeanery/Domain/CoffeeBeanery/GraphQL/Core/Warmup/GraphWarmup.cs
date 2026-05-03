@@ -18,12 +18,12 @@ public static class GraphWarmup
             if (typeof(IMappingRegistration).IsAssignableFrom(type) && !type.IsAbstract)
             {
                 var typeMapping = (IMappingRegistration)Activator.CreateInstance(type);
-                typeMapping.Register(mappings);
+                typeMapping.Register();
             }
         }
 
-        MappingWarmup.Warmup(mappings);
+        MappingWarmup.Warmup(MappingRegistry.Registry);
         
-        services.AddSingleton<IMapper>(new Mapper(mappings));
+        services.AddSingleton<IMapper>(new Mapper(MappingRegistry.Registry));
     }
 }

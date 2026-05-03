@@ -2,6 +2,6 @@
 {
     public interface IMappingRegistration
     {
-        void Register(Dictionary<string, NodeMap> mappings);
+        void Register();
     }    
 }

@@ -35,9 +35,8 @@
         // For edges
         public string RelationshipKey { get; set; } = "";
 
-        // For enum mapping
-        public List<KeyValuePair<string, (string, int)>> FromEnumeration { get; set; } = new();
-        public List<KeyValuePair<string, (string, int)>> ToEnumeration { get; set; } = new();
+        public Dictionary<string, int> FromEnumeration { get; set; } = new();
+        public Dictionary<string, int> ToEnumeration { get; set; } = new();
 
         public bool IsGraph => SqlNodeTypes.Contains(SqlNodeType.Graph);
         public bool IsEdge => SqlNodeTypes.Contains(SqlNodeType.Edge);

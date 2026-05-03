@@ -67,8 +67,8 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
                     Table           = (table ?? map.EntityType?.Name) ?? string.Empty,
                     Column          = field.DestinationName,
                     RelationshipKey = $"{alias}~{map.ModelType.Name}~{field.SourceName}",
-                    FromEnumeration = map.FromEnum,
-                    ToEnumeration   = map.ToEnum,
+                    FromEnumeration = field.FromEnum,
+                    ToEnumeration   = field.ToEnum,
                     EntityChildren = map.EntityChildren,
                     EntityParents = map.EntityParents,
                     EntityRelatedChildren = map.EntityRelatedChildren,
@@ -101,8 +101,8 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
                     Table           = (table ?? map.EntityType?.Name) ?? string.Empty,
                     Column          = field.DestinationName,
                     RelationshipKey = $"{alias}~{map.ModelType.Name}~{field.SourceName}",
-                    FromEnumeration = map.FromEnum,
-                    ToEnumeration   = map.ToEnum,
+                    FromEnumeration = field.FromEnum,
+                    ToEnumeration   = field.ToEnum,
                     EntityChildren = map.EntityChildren,
                     EntityParents = map.EntityParents,
                     EntityRelatedChildren = map.EntityRelatedChildren,
@@ -135,8 +135,8 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
                         Table           = (table ?? map.EntityType?.Name) ?? string.Empty,
                         Column          = map.UpsertKeys[i].Key,
                         RelationshipKey = $"{alias}~{map.ModelType.Name}~{map.UpsertKeys[i].Key}",
-                        FromEnumeration = map.FromEnum,
-                        ToEnumeration   = map.ToEnum,
+                        FromEnumeration = field.FromEnum,
+                        ToEnumeration   = field.ToEnum,
                         EntityChildren = map.EntityChildren,
                         EntityParents = map.EntityParents,
                         EntityRelatedChildren = map.EntityRelatedChildren,
@@ -167,8 +167,8 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
                         Table           = (table ?? map.EntityType?.Name) ?? string.Empty,
                         Column          = map.UpsertKeys[i].Key,
                         RelationshipKey = $"{alias}~{map.ModelType.Name}~{map.UpsertKeys[i].Key}",
-                        FromEnumeration = map.FromEnum,
-                        ToEnumeration   = map.ToEnum,
+                        FromEnumeration = field.FromEnum,
+                        ToEnumeration   = field.ToEnum,
                         EntityChildren = map.EntityChildren,
                         EntityParents = map.EntityParents,
                         EntityRelatedChildren = map.EntityRelatedChildren,
@@ -188,80 +188,6 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
                     SqlNodeRegistry.RegisterNode(
                         $"{alias}~{map.ModelType.Name}~{map.UpsertKeys[i].Key}", 
                         $"{alias}~{map.ModelType.Name}~{map.UpsertKeys[i].Key}",
-                        tempSqlNode, map.ModelType,
-                        map.EntityType == null ? map.ModelType : map.EntityType,
-                        map.IsEntity);
-                }
-            }
-
-            // ── Enum Mapping ─────────────────────────────────────────────────
-            if (map.FromEnum != null && map.ToEnum != null)
-            {
-                for (int i = 0; i < map.FromEnum.Count; i++)
-                {
-                    var fromKeyParts = map.FromEnum.ElementAt(i).Key.Split('~');
-                    var toKeyParts   = map.ToEnum.ElementAt(i).Key.Split('~');
-
-                    var tempSqlNode = new SqlNode
-                    {
-                        Id              = map.Id.ToString(),
-                        Schema          = map.Schema,
-                        Table           = fromKeyParts[0],
-                        Column          = fromKeyParts[2],
-                        RelationshipKey = $"{alias}~{toKeyParts[1]}~{toKeyParts[2]}",
-                        FromEnumeration = map.FromEnum,
-                        ToEnumeration   = map.ToEnum,
-                        EntityChildren = map.EntityChildren,
-                        EntityParents = map.EntityParents,
-                        EntityRelatedChildren = map.EntityRelatedChildren,
-                        EntityRelatedParents = map.EntityRelatedParents,
-                        UpsertKeys      = SqlNodeRegistry.EntityTrees.ContainsKey(alias)
-                            ? SqlNodeRegistry.EntityTrees[alias].UpsertKeys.Select(b => $"{toKeyParts[0]}~{b}").ToList()
-                            : map.EntityType != null && SqlNodeRegistry.EntityTrees.ContainsKey(map.EntityType.Name)
-                                ? SqlNodeRegistry.EntityTrees[map.EntityType.Name].UpsertKeys.Select(b => $"{toKeyParts[0]}~{b}").ToList()
-                                : new List<string>()
-                    };
-                    tempSqlNode.LinkKeys.AddRange(linkKeys);
-                    tempSqlNode.SqlNodeTypes ??= new List<SqlNodeType>();
-
-                    if (map.IsGraph)
-                        tempSqlNode.SqlNodeTypes.Add(SqlNodeType.Graph);
-                    
-                    SqlNodeRegistry.RegisterNode(
-                        $"{alias}~{toKeyParts[1]}~{toKeyParts[2]}",
-                        $"{alias}~{toKeyParts[1]}~{toKeyParts[2]}",
-                        tempSqlNode, map.ModelType,
-                        map.EntityType == null ? map.ModelType : map.EntityType,
-                        map.IsEntity);
-                    
-                    tempSqlNode = new SqlNode
-                    {
-                        Id              = map.Id.ToString(),
-                        Schema          = map.Schema,
-                        Table           = fromKeyParts[0],
-                        Column          = fromKeyParts[2],
-                        RelationshipKey = $"{alias}~{toKeyParts[1]}~{toKeyParts[2]}",
-                        FromEnumeration = map.FromEnum,
-                        ToEnumeration   = map.ToEnum,
-                        EntityChildren = map.EntityChildren,
-                        EntityParents = map.EntityParents,
-                        EntityRelatedChildren = map.EntityRelatedChildren,
-                        EntityRelatedParents = map.EntityRelatedParents,
-                        UpsertKeys      = SqlNodeRegistry.EntityTrees.ContainsKey(alias)
-                            ? SqlNodeRegistry.EntityTrees[alias].UpsertKeys.Select(b => $"{toKeyParts[0]}~{b}").ToList()
-                            : map.EntityType != null && SqlNodeRegistry.EntityTrees.ContainsKey(map.EntityType.Name)
-                                ? SqlNodeRegistry.EntityTrees[map.EntityType.Name].UpsertKeys.Select(b => $"{toKeyParts[0]}~{b}").ToList()
-                                : new List<string>()
-                    };
-                    tempSqlNode.LinkKeys.AddRange(linkKeys);
-                    tempSqlNode.SqlNodeTypes ??= new List<SqlNodeType>();
-
-                    if (map.IsGraph)
-                        tempSqlNode.SqlNodeTypes.Add(SqlNodeType.Graph);
-                    
-                    SqlNodeRegistry.RegisterNode(
-                        $"{alias}~{toKeyParts[1]}~{toKeyParts[2]}",
-                        $"{alias}~{toKeyParts[1]}~{toKeyParts[2]}",
                         tempSqlNode, map.ModelType,
                         map.EntityType == null ? map.ModelType : map.EntityType,
                         map.IsEntity);
@@ -354,7 +280,6 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
                     IsGraph            = map.IsGraph,
                     UpsertKeys         = map.UpsertKeys.Select(b => b.Key).ToList()
                 };
-                
                 SqlNodeRegistry.ModelTrees[modelNameAux] = new NodeTree
                 {
                     Id                 = map.Id,
@@ -369,6 +294,7 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
                     IsGraph            = map.IsGraph,
                     UpsertKeys         = map.UpsertKeys.Select(b => b.Key).ToList()
                 };
+
             }
         }
     }

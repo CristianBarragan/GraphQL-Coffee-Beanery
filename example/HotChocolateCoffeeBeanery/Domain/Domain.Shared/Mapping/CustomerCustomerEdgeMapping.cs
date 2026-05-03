@@ -2,100 +2,46 @@
 using CoffeeBeanery.GraphQL.Core.Sql;
 using Domain.Model;
 using DataEntity = Database.Entity;
-using DataGraph = Database.Graph;
 
 namespace Domain.Shared.Mapping;
 
 public class CustomerCustomerEdgeMapping
+    : BaseMappingRegistration<CustomerCustomerEdge, DataEntity.CustomerCustomerRelationship>
 {
-    public void RegisterNodeMap(Dictionary<string, NodeMap> mappings)
+    protected override string Alias    => nameof(CustomerCustomerEdge);
+    protected override bool   IsEntity => false;
+
+    protected override NodeMap BuildMap()
     {
-        var customerCustomerEdge = new NodeMap
-        {
-            ModelChildren = new List<LinkKey>()
-            {
-                new LinkKey()
-                {
-                    From = nameof(CustomerCustomerEdge),
-                    FromColumn = nameof(CustomerCustomerEdge.OuterCustomerKey),
-                    To = nameof(Customer),
-                    ToColumn = nameof(Customer.CustomerKey)
-                },
-                new LinkKey()
-                {
-                    From = nameof(CustomerCustomerEdge),
-                    FromColumn = nameof(CustomerCustomerEdge.InnerCustomerKey),
-                    To = nameof(Customer),
-                    ToColumn = nameof(Customer.CustomerKey)
-                }
-            },
-            ModelToEntityLinks =
-            {
-                new LinkKey()
-                {
-                    From = nameof(CustomerCustomerEdge),
-                    FromColumn = nameof(CustomerCustomerEdge.CustomerCustomerRelationshipKey),
-                    To = nameof(DataEntity.CustomerCustomerRelationship),
-                    ToColumn = nameof(DataEntity.CustomerCustomerRelationship.CustomerCustomerRelationshipKey)
-                },
-                new LinkKey()
-                {
-                    From = nameof(CustomerCustomerEdge),
-                    FromColumn = nameof(CustomerCustomerEdge.InnerCustomerKey),
-                    To = nameof(DataEntity.Customer),
-                    ToColumn = nameof(DataEntity.Customer.CustomerKey)
-                },
-                new LinkKey()
-                {
-                    From = nameof(CustomerCustomerEdge),
-                    FromColumn = nameof(CustomerCustomerEdge.OuterCustomerKey),
-                    To = nameof(DataEntity.Customer),
-                    ToColumn = nameof(DataEntity.Customer.CustomerKey)
-                }
-            }
-        };
-        
-        customerCustomerEdge.IsModel = true;
-        
-        customerCustomerEdge.UpsertKeys.Add(
-            new UpsertKey(nameof(DataEntity.CustomerCustomerRelationship),
-                nameof(DataEntity.CustomerCustomerRelationship.InnerCustomerKey)));
+        var map = new NodeMap();
 
-        customerCustomerEdge.UpsertKeys.Add(
-            new UpsertKey(nameof(DataEntity.CustomerCustomerRelationship),
-                nameof(DataEntity.CustomerCustomerRelationship.OuterCustomerKey)));
+        map.ModelChildren.AddRange(new[]
+        {
+            new LinkKey { From = nameof(CustomerCustomerEdge), FromColumn = nameof(CustomerCustomerEdge.OuterCustomerKey), To = nameof(Customer), ToColumn = nameof(Customer.CustomerKey) },
+            new LinkKey { From = nameof(CustomerCustomerEdge), FromColumn = nameof(CustomerCustomerEdge.InnerCustomerKey), To = nameof(Customer), ToColumn = nameof(Customer.CustomerKey) }
+        });
 
-        customerCustomerEdge.UpsertKeys.Add(
-            new UpsertKey(nameof(DataEntity.CustomerCustomerRelationship),
-                nameof(DataEntity.CustomerCustomerRelationship.CustomerCustomerRelationshipKey)));
-        
-        customerCustomerEdge.FieldMaps.Add(new FieldMap
+        map.ModelToEntityLinks.AddRange(new[]
         {
-            SourceName = nameof(CustomerCustomerEdge.InnerCustomerKey),
-            DestinationEntity = nameof(CustomerCustomerEdge.InnerCustomer),
-            DestinationName = nameof(CustomerCustomerEdge.InnerCustomerKey)
+            new LinkKey { From = nameof(CustomerCustomerEdge), FromColumn = nameof(CustomerCustomerEdge.CustomerCustomerRelationshipKey), To = nameof(DataEntity.CustomerCustomerRelationship), ToColumn = nameof(DataEntity.CustomerCustomerRelationship.CustomerCustomerRelationshipKey) },
+            new LinkKey { From = nameof(CustomerCustomerEdge), FromColumn = nameof(CustomerCustomerEdge.InnerCustomerKey),               To = nameof(DataEntity.Customer),                    ToColumn = nameof(DataEntity.Customer.CustomerKey) },
+            new LinkKey { From = nameof(CustomerCustomerEdge), FromColumn = nameof(CustomerCustomerEdge.OuterCustomerKey),               To = nameof(DataEntity.Customer),                    ToColumn = nameof(DataEntity.Customer.CustomerKey) }
         });
-        
-        customerCustomerEdge.FieldMaps.Add(new FieldMap
-        {
-            SourceName = nameof(CustomerCustomerEdge.OuterCustomerKey),
-            DestinationEntity = nameof(CustomerCustomerEdge.OuterCustomer),
-            DestinationName = nameof(CustomerCustomerEdge.OuterCustomerKey)
-        });
-        
-        customerCustomerEdge.FieldMaps.Add(new FieldMap
-        {
-            SourceName = nameof(CustomerCustomerEdge.CustomerCustomerRelationshipKey),
-            DestinationEntity = nameof(CustomerCustomerEdge.CustomerCustomerRelationship),
-            DestinationName = nameof(CustomerCustomerEdge.CustomerCustomerRelationshipKey)
-        });
-    
-        mappings.TryAdd(nameof(CustomerCustomerEdge), MappingRegistry.Register(typeof(CustomerCustomerEdge), typeof(DataEntity.CustomerCustomerRelationship),
-            customerCustomerEdge));
-    }
 
-    public void Register(Dictionary<string, NodeMap> mappings)
-    {
-        RegisterNodeMap(mappings);
+        map.UpsertKeys.AddRange(new[]
+        {
+            new UpsertKey(nameof(DataEntity.CustomerCustomerRelationship), nameof(DataEntity.CustomerCustomerRelationship.InnerCustomerKey)),
+            new UpsertKey(nameof(DataEntity.CustomerCustomerRelationship), nameof(DataEntity.CustomerCustomerRelationship.OuterCustomerKey)),
+            new UpsertKey(nameof(DataEntity.CustomerCustomerRelationship), nameof(DataEntity.CustomerCustomerRelationship.CustomerCustomerRelationshipKey))
+        });
+
+        map.FieldMaps.AddRange(new[]
+        {
+            new FieldMap { SourceName = nameof(CustomerCustomerEdge.InnerCustomerKey),                DestinationEntity = nameof(CustomerCustomerEdge.InnerCustomer),                DestinationName = nameof(CustomerCustomerEdge.InnerCustomerKey) },
+            new FieldMap { SourceName = nameof(CustomerCustomerEdge.OuterCustomerKey),                DestinationEntity = nameof(CustomerCustomerEdge.OuterCustomer),                DestinationName = nameof(CustomerCustomerEdge.OuterCustomerKey) },
+            new FieldMap { SourceName = nameof(CustomerCustomerEdge.CustomerCustomerRelationshipKey), DestinationEntity = nameof(CustomerCustomerEdge.CustomerCustomerRelationship), DestinationName = nameof(CustomerCustomerEdge.CustomerCustomerRelationshipKey) }
+        });
+
+        return map;
     }
 }

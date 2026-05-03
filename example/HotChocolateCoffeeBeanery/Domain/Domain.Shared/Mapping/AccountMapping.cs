@@ -1,97 +1,66 @@
 ﻿using CoffeeBeanery.GraphQL.Core.Mapping;
 using CoffeeBeanery.GraphQL.Core.Sql;
 using Domain.Model;
-
-namespace Domain.Shared.Mapping;
 using DataEntity = Database.Entity;
 
-public class AccountMapping : IMappingRegistration
+namespace Domain.Shared.Mapping;
+
+public class AccountMapping : BaseMappingRegistration<Account, DataEntity.Account>
 {
-    public void RegisterNodeMap(Dictionary<string, NodeMap> mappings)
+    protected override string Alias => nameof(Account);
+
+    protected override NodeMap BuildMap()
     {
-        var acct = new NodeMap
+        var map = new NodeMap
         {
-            Schema = nameof(DataEntity.Schema.Account),
-            EntityRelatedParents = new List<LinkKey>()
-            {
-                new LinkKey()
-                {
-                    From = nameof(DataEntity.Account),
-                    FromColumn = nameof(DataEntity.Account.Id),
-                    To = nameof(DataEntity.Contract),
-                    ToColumn = nameof(DataEntity.Contract.AccountId)
-                }
-            },
-            EntityChildren = new List<LinkKey>()
-            {
-                new LinkKey()
-                {
-                    From = nameof(DataEntity.Account),
-                    FromColumn = nameof(DataEntity.Account.Id),
-                    To = nameof(DataEntity.Transaction),
-                    ToColumn = nameof(DataEntity.Transaction.AccountId)
-                }
-            },
-            ModelParents = new List<LinkKey>()
-            {
-                new LinkKey()
-                {
-                    From = nameof(Account),
-                    FromColumn = nameof(DataEntity.Account.AccountKey),
-                    To = nameof(Product),
-                    ToColumn = nameof(Product.AccountKey)
-                } 
-            },
-            ModelToEntityLinks =
-            {
-                new LinkKey()
-                {
-                    From = nameof(Account),
-                    FromColumn = nameof(Account.AccountKey),
-                    To = nameof(DataEntity.Account),
-                    ToColumn = nameof(DataEntity.Account.AccountKey)
-                }
-            }
+            Schema = nameof(DataEntity.Schema.Account)
         };
 
-        acct.IsEntity = true;
-        acct.IsModel = true;
-
-        acct.UpsertKeys.Add(new UpsertKey(nameof(DataEntity.Account), nameof(DataEntity.Account.AccountKey)));
-
-        acct.FieldMaps.Add(new FieldMap
+        map.EntityRelatedParents.Add(new LinkKey
         {
-            SourceName = nameof(DataEntity.Account.Id),
-            DestinationEntity = nameof(DataEntity.Account),
-            DestinationName = nameof(DataEntity.Account.Id)
+            From       = nameof(DataEntity.Account),
+            FromColumn = nameof(DataEntity.Account.Id),
+            To         = nameof(DataEntity.Contract),
+            ToColumn   = nameof(DataEntity.Contract.AccountId)
         });
 
-        acct.FieldMaps.Add(new FieldMap
+        map.EntityChildren.Add(new LinkKey
         {
-            SourceName = nameof(Account.AccountKey),
-            DestinationEntity = nameof(DataEntity.Account),
-            DestinationName = nameof(DataEntity.Account.AccountKey)
+            From       = nameof(DataEntity.Account),
+            FromColumn = nameof(DataEntity.Account.Id),
+            To         = nameof(DataEntity.Transaction),
+            ToColumn   = nameof(DataEntity.Transaction.AccountId)
         });
 
-        acct.FieldMaps.Add(new FieldMap
+        map.ModelParents.Add(new LinkKey
         {
-            SourceName = nameof(Account.AccountNumber),
-            DestinationEntity = nameof(DataEntity.Account),
-            DestinationName = nameof(DataEntity.Account.AccountNumber)
+            From       = nameof(Account),
+            FromColumn = nameof(DataEntity.Account.AccountKey),
+            To         = nameof(Product),
+            ToColumn   = nameof(Product.AccountKey)
         });
 
-        acct.FieldMaps.Add(new FieldMap
+        map.ModelToEntityLinks.Add(new LinkKey
         {
-            SourceName = nameof(Account.AccountName),
-            DestinationEntity = nameof(DataEntity.Account),
-            DestinationName = nameof(DataEntity.Account.AccountName)
+            From       = nameof(Account),
+            FromColumn = nameof(Account.AccountKey),
+            To         = nameof(DataEntity.Account),
+            ToColumn   = nameof(DataEntity.Account.AccountKey)
         });
-        
-        mappings.TryAdd(nameof(Account), MappingRegistry.Register(typeof(Account), typeof(DataEntity.Account), acct));
-    }
 
-    public void Register(Dictionary<string, NodeMap> mappings)
-    {
-        RegisterNodeMap(mappings);
+        map.UpsertKeys.Add(new UpsertKey(
+            nameof(DataEntity.Account),
+            nameof(DataEntity.Account.AccountKey)
+        ));
+
+        map.FieldMaps.AddRange(new[]
+        {
+            new FieldMap { SourceName = nameof(DataEntity.Account.Id),  DestinationEntity = nameof(DataEntity.Account), DestinationName = nameof(DataEntity.Account.Id) },
+            new FieldMap { SourceName = nameof(Account.AccountKey),     DestinationEntity = nameof(DataEntity.Account), DestinationName = nameof(DataEntity.Account.AccountKey) },
+            new FieldMap { SourceName = nameof(Account.AccountNumber),  DestinationEntity = nameof(DataEntity.Account), DestinationName = nameof(DataEntity.Account.AccountNumber) },
+            new FieldMap { SourceName = nameof(Account.AccountName),    DestinationEntity = nameof(DataEntity.Account), DestinationName = nameof(DataEntity.Account.AccountName) }
+        });
+
+        return map;
     }
 }

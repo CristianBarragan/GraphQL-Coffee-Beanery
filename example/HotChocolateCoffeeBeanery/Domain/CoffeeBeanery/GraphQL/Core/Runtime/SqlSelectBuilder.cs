@@ -348,14 +348,14 @@ public class SqlSelectBuilder
                 {
                     if (previousNode.Split(':').Length == 2)
                     {
-                        var enumValue = sqlNodeTo.FromEnumeration.FirstOrDefault(a => a.Value.Item1.Matches(previousNode.Split(':')[1].Sanitize().Replace("_", ""))).Value;
-                        if (!string.IsNullOrEmpty(enumValue.Item1))
+                        var enumValue = sqlNodeTo.FromEnumeration.FirstOrDefault(a => a.Key.Matches(previousNode.Split(':')[1].Sanitize().Replace("_", "")));
+                        if (!string.IsNullOrEmpty(enumValue.Key))
                         {
                             isEnum = true;
                             var toEnum = sqlNodeTo.FromEnumeration
                                 .FirstOrDefault(e =>
-                                e.Value.Item1.Matches(enumValue.Item1)).Value;
-                            sqlNodeTo.Value = toEnum.Item2.ToString();
+                                e.Key.Matches(enumValue.Key)).Value;
+                            sqlNodeTo.Value = toEnum.ToString();
                         }
                         else
                         {
@@ -369,14 +369,14 @@ public class SqlSelectBuilder
 
                 if (previousNode.Split(':').Length == 2)
                 {
-                    var enumValue = sqlNodeTo.FromEnumeration.FirstOrDefault(a => a.Value.Item1.Matches(previousNode.Split(':')[1].Sanitize().Replace("_", ""))).Value;
-                    if (!string.IsNullOrEmpty(enumValue.Item1))
+                    var enumValue = sqlNodeTo.FromEnumeration.FirstOrDefault(a => a.Key.Matches(previousNode.Split(':')[1].Sanitize().Replace("_", "")));
+                    if (!string.IsNullOrEmpty(enumValue.Key))
                     {
                         isEnum = true;
                         var toEnum = sqlNodeTo.FromEnumeration
                             .FirstOrDefault(e =>
-                                e.Value.Item1.Matches(enumValue.Item1)).Value;
-                        sqlNodeTo.Value = toEnum.Item2.ToString();
+                                e.Key.Matches(enumValue.Key)).Value;
+                        sqlNodeTo.Value = toEnum.ToString();
                     }
                     else
                     {

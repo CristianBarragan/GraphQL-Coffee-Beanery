@@ -1,24 +1,23 @@
-﻿
-using CoffeeBeanery.GraphQL.Core.Mapping;
+﻿using CoffeeBeanery.GraphQL.Core.Mapping;
 
 namespace Domain.Shared.Mapping
 {
-    public class ModelMappingRegistration : IMappingRegistration
+    public class ModelMappingRegistration
     {
-        public void Register(Dictionary<string, NodeMap> mappings)
+        public void Register()
         {
-            new AccountMapping().Register(mappings);
-            new ContactPointMapping().Register(mappings);
-            new ContractMapping().Register(mappings);
-            new CustomerBankingRelationshipMapping().Register(mappings);
-            new CustomerCustomerRelationshipEdgeMapping().Register(mappings);
-            new CustomerCustomerRelationshipMapping().Register(mappings);
-            new InnerCustomerMapping().Register(mappings);
-            new OuterCustomerMapping().Register(mappings);
-            new ProductMapping().Register(mappings);
-            new TransactionMapping().Register(mappings);
-            new CustomerCustomerEdgeMapping().Register(mappings);
-            
+            new AccountMapping().Register();
+            new ContactPointMapping().Register();
+            new ContractMapping().Register();
+            new CustomerBankingRelationshipMapping().Register();
+            // new CustomerCustomerRelationshipEdgeMapping().Register();
+            new CustomerCustomerRelationshipMapping().Register();
+            new InnerCustomerMapping().Register();
+            new OuterCustomerMapping().Register();
+            new ProductMapping().Register();
+            new TransactionMapping().Register();
+            new CustomerCustomerEdgeMapping().Register();
+
             MappingRegistry.BuildDottedAliases();
         }
     }
