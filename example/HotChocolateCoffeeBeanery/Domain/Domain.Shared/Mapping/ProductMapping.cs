@@ -5,8 +5,20 @@ using DataEntity = Database.Entity;
 
 namespace Domain.Shared.Mapping;
 
+public class ProductMappingSet : IMappingSet<CustomerMappingType>
+{
+    public void Register(CustomerMappingType type)
+    {
+        new ProductMapping(type.ToString()).Register();
+    }
+}
+
 public class ProductMapping : BaseModelMappingRegistration<Product>
 {
+    public ProductMapping(string alias) : base(alias)
+    {
+    }
+
     protected override NodeMap BuildMap()
     {
         var map = new NodeMap

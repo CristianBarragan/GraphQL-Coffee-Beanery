@@ -1,7 +1,9 @@
 ﻿using CoffeeBeanery.CQRS;
+using CoffeeBeanery.GraphQL.Core.Mapping;
 using CoffeeBeanery.GraphQL.Core.Sql;
 using CoffeeBeanery.Service;
 using Domain.Model;
+using Domain.Shared.Mapping;
 using Domain.Shared.Query;
 // using Domain.Shared.Query;
 using FASTER.core;
@@ -25,6 +27,10 @@ namespace Domain.Shared.Extension
                 IQuery<ProcessQueryParameters,
                     (List<Wrapper>, int?, int?, int?, int?)>,
                 CustomerCustomerEdgeQueryHandler<Wrapper>>();
+            
+            services.Init<IMappingSet<CustomerMappingType>, CustomerMappingType>(
+                typeof(ModelMappingRegistration).Assembly);
+            SqlNodeBuilder.BuildFromMappings();
 
             services.AddScoped<IProcessService<Wrapper>, ProcessService<Wrapper>>();
 

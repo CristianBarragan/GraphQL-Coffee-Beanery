@@ -20,7 +20,7 @@ public class SqlQueryStructure
         
     public bool Visited { get; set; }
 
-    public Dictionary<string, string> ChildrenJoinColumns { get; set; } = new Dictionary<string, string>();
+    public Dictionary<string, string> ChildrenJoinColumns { get; set; } = new Dictionary<string, string>(StringComparer.InvariantCultureIgnoreCase);
     
     public List<LinkKey> LinkKeys { get; set; } = new();
 
@@ -28,5 +28,5 @@ public class SqlQueryStructure
     
     public string WhereClause { get; set; } = string.Empty;
 
-    public string JoinOneKey { get; set; } = string.Empty;
-}
+    public string JoinOnKey { get; set; } = string.Empty;
+} 

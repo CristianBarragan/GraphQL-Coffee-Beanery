@@ -5,10 +5,20 @@ using DataEntity = Database.Entity;
 
 namespace Domain.Shared.Mapping;
 
+public class CustomerCustomerRelationshipMappingSet : IMappingSet<CustomerMappingType>
+{
+    public void Register(CustomerMappingType type)
+    {
+        new CustomerCustomerRelationshipMapping(type.ToString()).Register();
+    }
+}
+
 public class CustomerCustomerRelationshipMapping
     : BaseMappingRegistration<CustomerCustomerRelationship, DataEntity.CustomerCustomerRelationship>
 {
-    protected override string Alias => nameof(CustomerCustomerRelationship);
+    public CustomerCustomerRelationshipMapping(string alias) : base(alias)
+    {
+    }
 
     protected override NodeMap BuildMap()
     {

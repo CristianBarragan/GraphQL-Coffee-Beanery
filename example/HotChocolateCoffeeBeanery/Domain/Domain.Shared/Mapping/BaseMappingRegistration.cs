@@ -7,7 +7,19 @@ namespace Domain.Shared.Mapping
         where TModel : class
         where TEntity : class
     {
-        protected virtual string? Alias    => null;
+        private string? _alias;
+
+        protected BaseMappingRegistration(string alias)
+        {
+            _alias = alias;
+        }
+
+        protected virtual string? Alias
+        {
+            get => _alias;
+            set => _alias = value;
+        }
+
         protected virtual bool    IsEntity => true;
         protected virtual bool    IsModel  => true;
         protected virtual bool    IsGraph  => false;
@@ -29,11 +41,22 @@ namespace Domain.Shared.Mapping
             MappingRegistry.Register(typeof(TModel), typeof(TEntity), map, Alias);
         }
     }
-
+    
     public abstract class BaseModelMappingRegistration<TModel> : IMappingRegistration
         where TModel : class
     {
-        protected virtual string? Alias => null;
+        private string? _alias;
+        
+        public BaseModelMappingRegistration(string alias)
+        {
+            _alias = $"{alias}{typeof(TModel).Name}";
+        }
+
+        protected virtual string? Alias
+        {
+            get => _alias;
+            set => _alias = value;
+        }
         
         protected virtual EnumMap? EnumMap => null;
         

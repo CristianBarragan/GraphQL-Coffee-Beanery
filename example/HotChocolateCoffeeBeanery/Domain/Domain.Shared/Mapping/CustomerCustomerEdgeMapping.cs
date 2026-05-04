@@ -5,10 +5,21 @@ using DataEntity = Database.Entity;
 
 namespace Domain.Shared.Mapping;
 
+public class CustomerCustomerEdgeMappingSet : IMappingSet<CustomerMappingType>
+{
+    public void Register(CustomerMappingType type)
+    {
+        new CustomerCustomerEdgeMapping(type.ToString()).Register();
+    }
+}
+
 public class CustomerCustomerEdgeMapping
     : BaseMappingRegistration<CustomerCustomerEdge, DataEntity.CustomerCustomerRelationship>
 {
-    protected override string Alias    => nameof(CustomerCustomerEdge);
+    public CustomerCustomerEdgeMapping(string alias) : base(alias)
+    {
+    }
+
     protected override bool   IsEntity => false;
 
     protected override NodeMap BuildMap()

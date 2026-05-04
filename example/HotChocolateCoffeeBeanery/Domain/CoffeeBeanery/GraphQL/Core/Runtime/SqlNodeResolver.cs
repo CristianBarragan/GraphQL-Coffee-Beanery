@@ -271,6 +271,8 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
 
             if (node == null)
                 return;
+            
+            Console.WriteLine($"[Models] {string.Join(", ", SqlNodeRegistry.ModelNames)}");
 
             foreach (var childNode in node.GetNodes())
             {

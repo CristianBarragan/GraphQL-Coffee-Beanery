@@ -5,10 +5,20 @@ using Domain.Model;
 namespace Domain.Shared.Mapping;
 using DataEntity = Database.Entity;
 
-    public class TransactionMapping 
+public class TransactionMappingSet : IMappingSet<CustomerMappingType>
+{
+    public void Register(CustomerMappingType type)
+    {
+        new TransactionMapping(type.ToString()).Register();
+    }
+}
+
+public class TransactionMapping 
     : BaseMappingRegistration<Transaction, DataEntity.Transaction>
 {
-    protected override string Alias => nameof(Transaction);
+    public TransactionMapping(string alias) : base(alias)
+    {
+    }
 
     protected override NodeMap BuildMap()
     {

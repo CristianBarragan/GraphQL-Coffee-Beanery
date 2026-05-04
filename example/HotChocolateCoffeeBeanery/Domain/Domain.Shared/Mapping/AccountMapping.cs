@@ -5,9 +5,19 @@ using DataEntity = Database.Entity;
 
 namespace Domain.Shared.Mapping;
 
+public class AccountMappingSet : IMappingSet<CustomerMappingType>
+{
+    public void Register(CustomerMappingType type)
+    {
+        new AccountMapping(type.ToString()).Register();
+    }
+}
+
 public class AccountMapping : BaseMappingRegistration<Account, DataEntity.Account>
 {
-    protected override string Alias => nameof(Account);
+    public AccountMapping(string alias) : base(alias)
+    {
+    }
 
     protected override NodeMap BuildMap()
     {

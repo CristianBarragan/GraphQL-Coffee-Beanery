@@ -5,9 +5,19 @@ using DataEntity = Database.Entity;
 
 namespace Domain.Shared.Mapping;
 
+public class ContactPointMappingSet : IMappingSet<CustomerMappingType>
+{
+    public void Register(CustomerMappingType type)
+    {
+        new ContactPointMapping(type.ToString()).Register();
+    }
+}
+
 public class ContactPointMapping : BaseMappingRegistration<ContactPoint, DataEntity.ContactPoint>
 {
-    protected override string Alias => nameof(ContactPoint);
+    public ContactPointMapping(string alias) : base(alias)
+    {
+    }
 
     protected override NodeMap BuildMap()
     {

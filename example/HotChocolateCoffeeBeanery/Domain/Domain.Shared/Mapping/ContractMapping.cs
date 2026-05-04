@@ -5,9 +5,19 @@ using DataEntity = Database.Entity;
 
 namespace Domain.Shared.Mapping;
 
+public class ContractMappingSet : IMappingSet<CustomerMappingType>
+{
+    public void Register(CustomerMappingType type)
+    {
+        new ContractMapping(type.ToString()).Register();
+    }
+}
+
 public class ContractMapping : BaseMappingRegistration<Contract, DataEntity.Contract>
 {
-    protected override string Alias => nameof(Contract);
+    public ContractMapping(string alias) : base(alias)
+    {
+    }
 
     protected override NodeMap BuildMap()
     {

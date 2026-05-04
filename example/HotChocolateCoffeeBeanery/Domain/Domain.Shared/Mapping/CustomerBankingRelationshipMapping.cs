@@ -5,10 +5,20 @@ using DataEntity = Database.Entity;
 
 namespace Domain.Shared.Mapping;
 
+public class CustomerBankingRelationshipMappingSet : IMappingSet<CustomerMappingType>
+{
+    public void Register(CustomerMappingType type)
+    {
+        new CustomerBankingRelationshipMapping(type.ToString()).Register();
+    }
+}
+
 public class CustomerBankingRelationshipMapping
     : BaseMappingRegistration<CustomerBankingRelationship, DataEntity.CustomerBankingRelationship>
 {
-    protected override string Alias => nameof(CustomerBankingRelationship);
+    public CustomerBankingRelationshipMapping(string alias) : base(alias)
+    {
+    }
 
     protected override NodeMap BuildMap()
     {
@@ -33,13 +43,16 @@ public class CustomerBankingRelationshipMapping
             ToColumn   = nameof(DataEntity.Contract.CustomerBankingRelationshipId)
         });
 
-        map.ModelParents.Add(new LinkKey
-        {
-            From       = nameof(CustomerBankingRelationship),
-            FromColumn = nameof(CustomerBankingRelationship.CustomerKey),
-            To         = nameof(Customer),
-            ToColumn   = nameof(Customer.CustomerKey)
-        });
+        map.ModelParents.AddRange(new LinkKey[]
+            {
+                new(){
+                    From       = nameof(DataEntity.CustomerBankingRelationship),
+                    FromColumn = nameof(DataEntity.CustomerBankingRelationship.CustomerId),
+                    To         = nameof(DataEntity.Customer),
+                    ToColumn   = nameof(DataEntity.Customer.Id)
+                }
+            }
+        );
 
         map.ModelChildren.Add(new LinkKey
         {
