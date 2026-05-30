@@ -46,7 +46,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                     wrapperEntityName,
                     generatedQuery,
                     mutationDict,
-                    SqlNodeRegistry.EntityTrees[fieldMap.DestinationEntity],
+                    SqlNodeRegistry.EntityTrees.First(a => a.Value.Name.Matches(fieldMap.DestinationEntity)).Value,
                     sqlWhereStatement,
                     entitiesProcessed,
                     sqlUpsertBuilder,

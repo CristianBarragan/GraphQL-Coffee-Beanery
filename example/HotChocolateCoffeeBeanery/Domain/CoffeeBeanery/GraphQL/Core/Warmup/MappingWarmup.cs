@@ -13,7 +13,6 @@ public static class MappingWarmup
         var nodeIds   = new List<KeyValuePair<string, int>>();
         var counter   = 0;
 
-        // Pass 1 — warmup property caches and compile mappers for every map
         foreach (var (_, map) in mapping)
         {
             if (map.ModelType == null || map.EntityType == null)
@@ -23,23 +22,25 @@ public static class MappingWarmup
             BulkMapper.Compile(map);
         }
 
-        // Pass 2 — build trees only for ROOT maps
-        // Since all list properties default to new List<LinkKey>() (never null),
-        // we check Count > 0 to detect non-roots.
-        // A root has:
-        //   - NO EntityParents       (no direct parent entity)
-        //   - NO EntityRelatedParents (no related parent entity)
         foreach (var (registeredKey, map) in mapping)
         {
             if (map.ModelType == null || map.EntityType == null)
+            {
+                Console.WriteLine($"[SKIP] {registeredKey} — null ModelType or EntityType");
                 continue;
+            }
 
             if (map.EntityParents.Count > 0 || map.EntityRelatedParents.Count > 0)
+            {
+                Console.WriteLine($"[SKIP] {registeredKey} — has EntityParents({map.EntityParents.Count}) or EntityRelatedParents({map.EntityRelatedParents.Count})");
                 continue;
+            }
 
-            var rootAlias = !string.IsNullOrWhiteSpace(map.Alias)
-                ? map.Alias
-                : registeredKey;
+            Console.WriteLine($"[ROOT] {registeredKey} — will generate tree");
+
+            var rootAlias = registeredKey;
+            
+            map.Alias = registeredKey;
 
             if (nodeTrees.ContainsKey(rootAlias)) continue;
 
@@ -58,6 +59,9 @@ public static class MappingWarmup
 
             try
             {
+                Console.WriteLine($"[ROOT] {registeredKey} — EntityChildren: [{string.Join(", ", map.EntityChildren.Select(c => c.To))}]");
+                Console.WriteLine($"[ROOT] {registeredKey} — EntityRelatedChildren: [{string.Join(", ", map.EntityRelatedChildren.Select(c => c.To))}]");
+                
                 NodeTreeIterator.GenerateTree(
                     nodeTrees,
                     modelInstance,

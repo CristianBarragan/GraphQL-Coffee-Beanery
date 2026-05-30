@@ -10,13 +10,13 @@ public static class MappingRegistry
     
     public static NodeMap Register(
         Type modelType,
-        Type entityType,
+        Type? entityType,
         NodeMap map,
-        string? alias = null)
+        string alias)
     {
-        map.ModelType = modelType;
+        map.ModelType  = modelType;
         map.EntityType = entityType;
-        
+
         var simpleKey = alias ?? modelType.Name;
         map.Alias = simpleKey;
         Registry[simpleKey] = map;

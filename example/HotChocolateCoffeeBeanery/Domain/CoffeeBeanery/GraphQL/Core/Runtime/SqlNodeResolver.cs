@@ -211,7 +211,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                 }
                 else if (visitedModels.Count > 0)
                 {
-                    currentTree = trees[visitedModels.Last()];
+                    currentTree = trees.First(a => a.Value.Alias.Matches(visitedModels.Last())).Value;
                 }
 
                 if (linkModelDictionaryTree.TryGetValue(
@@ -283,7 +283,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                     if (node.ToString().Matches("nodes") || node.ToString().Matches("node"))
                         currentTree = trees.OrderBy(a => a.Value.Id).First().Value;
                     else
-                        currentTree = trees[childNode.ToString().Split('{')[0]];
+                        currentTree = trees.First(a => a.Value.Name.Matches(childNode.ToString().Split('{')[0])).Value;
 
                     parentTree = currentTree.Parents.Count == 0
                         ? currentTree

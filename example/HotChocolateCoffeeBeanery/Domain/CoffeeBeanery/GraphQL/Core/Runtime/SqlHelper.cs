@@ -129,7 +129,7 @@ public static class SqlHelper
         }
 
         var upsertingEntity = sqlUpsertStatementNodes.FirstOrDefault(s =>
-            s.Value.UpsertKeys[0].Split('~')[0].Matches(currentTree.Name) && s.Key.Split('~')[0].Matches(currentTree.Alias));
+            s.Value.UpsertKeys[0].Split('~')[0].Matches(currentTree.Name) && s.Key.Split('~')[1].Matches(currentTree.Name));
         
         var sql = string.Empty;
         
@@ -306,7 +306,7 @@ public static class SqlHelper
 
         foreach (var modelToEntity in currentTree.ModelToEntityLinks)
         {
-            var modelTree = trees[modelToEntity.From];
+            var modelTree = trees[modelToEntity.AliasTo];
             
             if (!currentColumns.Any(a => modelTree.UpsertKeys.Any(k => k.Matches(a.Value.Column))))
             {

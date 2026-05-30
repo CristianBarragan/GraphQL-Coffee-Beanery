@@ -28,40 +28,50 @@ public class ContractMapping : BaseMappingRegistration<Contract, DataEntity.Cont
 
         map.EntityParents.Add(new LinkKey
         {
+            AliasFrom    = A(nameof(DataEntity.Contract)),
             From       = nameof(DataEntity.Contract),
             FromColumn = nameof(DataEntity.Contract.CustomerBankingRelationshipId),
+            AliasTo    = A(nameof(DataEntity.CustomerBankingRelationship)),
             To         = nameof(DataEntity.CustomerBankingRelationship),
             ToColumn   = nameof(DataEntity.CustomerBankingRelationship.Id)
         });
 
         map.EntityRelatedChildren.Add(new LinkKey
         {
+            AliasFrom    = A(nameof(DataEntity.Contract)),
             From       = nameof(DataEntity.Contract),
             FromColumn = nameof(DataEntity.Contract.AccountId),
+            AliasTo    = A(nameof(DataEntity.Account)),
             To         = nameof(DataEntity.Account),
             ToColumn   = nameof(DataEntity.Account.Id)
         });
 
         map.ModelParents.Add(new LinkKey
         {
+            AliasFrom    = A(nameof(Contract)),
             From       = nameof(Contract),
             FromColumn = nameof(Contract.CustomerBankingRelationshipKey),
-            To         = nameof(CustomerBankingRelationship),
+            AliasTo    = A(nameof(DataEntity.CustomerBankingRelationship)),
+            To         = nameof(DataEntity.CustomerBankingRelationship),
             ToColumn   = nameof(CustomerBankingRelationship.CustomerBankingRelationshipKey)
         });
 
         map.ModelChildren.Add(new LinkKey
         {
+            AliasFrom    = A(nameof(Contract)),
             From       = nameof(Contract),
             FromColumn = nameof(Contract.ContractKey),
-            To         = nameof(Transaction),
+            AliasTo    = A(nameof(DataEntity.Transaction)),
+            To         = nameof(DataEntity.Transaction),
             ToColumn   = nameof(Transaction.ContractKey)
         });
 
         map.ModelToEntityLinks.Add(new LinkKey
         {
+            AliasFrom    = A(nameof(Contract)),
             From       = nameof(Contract),
             FromColumn = nameof(Contract.ContractKey),
+            AliasTo    = A(nameof(DataEntity.Contract)),
             To         = nameof(DataEntity.Contract),
             ToColumn   = nameof(DataEntity.Contract.ContractKey)
         });

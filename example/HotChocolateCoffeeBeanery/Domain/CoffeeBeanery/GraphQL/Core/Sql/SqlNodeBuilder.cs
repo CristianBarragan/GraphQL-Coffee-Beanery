@@ -8,15 +8,16 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
     {
         public static void BuildFromMappings()
         {
-            foreach (var (modelName, map) in MappingRegistry.GetAll())
-            {
+            var all = MappingRegistry.GetAll();
+            Console.WriteLine($"Registry count: {all.Count}");
+            foreach (var kvp in all)
+                Console.WriteLine($"  [{kvp.Key}] IsModel={kvp.Value.IsModel} IsEntity={kvp.Value.IsEntity}");
+
+            foreach (var (modelName, map) in all)
                 BuildTree(modelName, map);
-            }
-            
-            foreach (var (modelName, map) in MappingRegistry.GetAll())
-            {
+
+            foreach (var (modelName, map) in all)
                 BuildModel(modelName, map);
-            }
         }
         
         public static void BuildModel(string model, NodeMap map)
@@ -30,21 +31,22 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
             }
             
             var linkKeys  = map.LinkKeys;
+            var alias = model;           
             
-            var alias = map.Alias.Split('.').Last();
+            // var alias = map.Alias.Split('.').Last();
 
-            if (!map.IsEntity)
-            {
-                alias = modelName;
-            }
-            else if (map.IsEntity && string.IsNullOrWhiteSpace(alias))
-            {
-                alias = SqlNodeRegistry.EntityTrees.ContainsKey(alias)
-                    ? alias
-                    : map.EntityType == null
-                        ? map.ModelType.Name
-                        : map.EntityType.Name;
-            }
+            // if (!map.IsEntity)
+            // {
+            //     alias = modelName;
+            // }
+            // else if (map.IsEntity && string.IsNullOrWhiteSpace(alias))
+            // {
+            //     alias = SqlNodeRegistry.EntityTrees.ContainsKey(alias)
+            //         ? alias
+            //         : map.EntityType == null
+            //             ? map.ModelType.Name
+            //             : map.EntityType.Name;
+            // }
             
             foreach (var fieldMap in map.FieldMaps)
             {
@@ -73,11 +75,7 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
                     EntityParents = map.EntityParents,
                     EntityRelatedChildren = map.EntityRelatedChildren,
                     EntityRelatedParents = map.EntityRelatedParents,
-                    UpsertKeys      = SqlNodeRegistry.EntityTrees.ContainsKey(alias)
-                        ? SqlNodeRegistry.EntityTrees[alias].UpsertKeys.Select(b => $"{field.DestinationEntity}~{b}").ToList()
-                        : map.EntityType != null && SqlNodeRegistry.EntityTrees.ContainsKey(map.EntityType.Name)
-                            ? SqlNodeRegistry.EntityTrees[map.EntityType.Name].UpsertKeys.Select(b => $"{field.DestinationEntity}~{b}").ToList()
-                            : new List<string>()
+                    UpsertKeys      = map.UpsertKeys.Select(a => $"{a.Entity}~{a.Key}").ToList()
                 };
                 tempSqlNode.LinkKeys.AddRange(linkKeys);
                 tempSqlNode.SqlNodeTypes ??= new List<SqlNodeType>();
@@ -107,11 +105,7 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
                     EntityParents = map.EntityParents,
                     EntityRelatedChildren = map.EntityRelatedChildren,
                     EntityRelatedParents = map.EntityRelatedParents,
-                    UpsertKeys      = SqlNodeRegistry.EntityTrees.ContainsKey(alias)
-                        ? SqlNodeRegistry.EntityTrees[alias].UpsertKeys.Select(b => $"{field.DestinationEntity}~{b}").ToList()
-                        : map.EntityType != null && SqlNodeRegistry.EntityTrees.ContainsKey(map.EntityType.Name)
-                            ? SqlNodeRegistry.EntityTrees[map.EntityType.Name].UpsertKeys.Select(b => $"{field.DestinationEntity}~{b}").ToList()
-                            : new List<string>()
+                    UpsertKeys      = map.UpsertKeys.Select(a => $"{a.Entity}~{a.Key}").ToList()
                 };
                 tempSqlNode.LinkKeys.AddRange(linkKeys);
                 tempSqlNode.SqlNodeTypes ??= new List<SqlNodeType>();
@@ -141,11 +135,7 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
                         EntityParents = map.EntityParents,
                         EntityRelatedChildren = map.EntityRelatedChildren,
                         EntityRelatedParents = map.EntityRelatedParents,
-                        UpsertKeys      = SqlNodeRegistry.EntityTrees.ContainsKey(alias)
-                            ? SqlNodeRegistry.EntityTrees[alias].UpsertKeys.Select(b => $"{map.EntityType.Name}~{b}").ToList()
-                            : map.EntityType != null && SqlNodeRegistry.EntityTrees.ContainsKey(map.EntityType.Name)
-                                ? SqlNodeRegistry.EntityTrees[map.EntityType.Name].UpsertKeys.Select(b => $"{map.EntityType.Name}~{b}").ToList()
-                                : new List<string>()
+                        UpsertKeys      = map.UpsertKeys.Select(a => $"{a.Entity}~{a.Key}").ToList()
                     };
                     tempSqlNode.LinkKeys.AddRange(linkKeys);
                     tempSqlNode.SqlNodeTypes ??= new List<SqlNodeType>();
@@ -173,11 +163,7 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
                         EntityParents = map.EntityParents,
                         EntityRelatedChildren = map.EntityRelatedChildren,
                         EntityRelatedParents = map.EntityRelatedParents,
-                        UpsertKeys      = SqlNodeRegistry.EntityTrees.ContainsKey(alias)
-                            ? SqlNodeRegistry.EntityTrees[alias].UpsertKeys.Select(b => $"{map.EntityType.Name}~{b}").ToList()
-                            : map.EntityType != null && SqlNodeRegistry.EntityTrees.ContainsKey(map.EntityType.Name)
-                                ? SqlNodeRegistry.EntityTrees[map.EntityType.Name].UpsertKeys.Select(b => $"{map.EntityType.Name}~{b}").ToList()
-                                : new List<string>()
+                        UpsertKeys      = map.UpsertKeys.Select(a => $"{a.Entity}~{a.Key}").ToList()
                     };
                     tempSqlNode.LinkKeys.AddRange(linkKeys);
                     tempSqlNode.SqlNodeTypes ??= new List<SqlNodeType>();
@@ -197,104 +183,112 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
         
         public static void BuildTree(string modelName, NodeMap map)
         {
-            var modelNameAux = modelName.Split('.').Length > 1
-                ? modelName.Split('.')[1]
-                : modelName;
+            // FIXED: guard ModelTree and EntityTree independently
+            // instead of bailing out entirely when EntityTree already exists
+            var modelTreeMissing  = !SqlNodeRegistry.ModelTrees.ContainsKey(modelName);
+            var entityTreeMissing = !SqlNodeRegistry.EntityTrees.ContainsKey(modelName);
 
-            if (SqlNodeRegistry.EntityTrees.ContainsKey(modelNameAux))
+            // Nothing to do at all
+            if (!modelTreeMissing && !entityTreeMissing)
                 return;
 
-            if (map.IsModel)
+            if (map.IsModel && modelTreeMissing)
             {
-                SqlNodeRegistry.ModelTrees[modelNameAux] = new NodeTree
+                SqlNodeRegistry.ModelTrees[modelName] = new NodeTree
                 {
                     Id                 = map.Id,
-                    Alias              = modelNameAux,
+                    Alias              = modelName,
                     Name               = map.ModelType.Name,
                     EntityType         = map.EntityType,
-                    ModelType         = map.ModelType,
+                    ModelType          = map.ModelType,
                     Children           = map.EntityChildren,
                     Parents            = map.EntityParents,
                     RelatedParents     = map.EntityRelatedParents,
-                    NodeMap = map,
+                    NodeMap            = map,
                     RelatedChildren    = map.EntityRelatedChildren,
                     ModelToEntityLinks = map.ModelToEntityLinks,
                     Mapping            = map.FieldMaps.Select(a => new FieldMap
                     {
                         DestinationEntity = a.DestinationEntity,
-                        DestinationName = a.DestinationName,
-                        SourceModel = map.ModelType.Name,
-                        SourceName = a.SourceName
+                        DestinationName   = a.DestinationName,
+                        SourceModel       = map.ModelType.Name,
+                        SourceName        = a.SourceName
                     }).ToList(),
-                    IsGraph            = map.IsGraph,
-                    IsEntity          = map.IsEntity,
-                    IsModel          = map.IsModel,
-                    UpsertKeys         = map.UpsertKeys.Select(b => b.Key).ToList()
+                    IsGraph    = map.IsGraph,
+                    IsEntity   = map.IsEntity,
+                    IsModel    = map.IsModel,
+                    UpsertKeys      = map.UpsertKeys.Select(a => $"{a.Entity}~{a.Key}").ToList()
                 };
             }
 
-            if (map.IsEntity)
+            if (map.IsEntity && entityTreeMissing)
             {
-                SqlNodeRegistry.EntityTrees[modelNameAux] = new NodeTree
+                SqlNodeRegistry.EntityTrees[modelName] = new NodeTree
                 {
                     Id                 = map.Id,
-                    Alias              = modelNameAux,
+                    Alias              = modelName,
                     Name               = map.EntityType.Name,
                     EntityType         = map.EntityType,
-                    ModelType         = map.ModelType,
+                    ModelType          = map.ModelType,
                     Schema             = map.Schema,
                     Children           = map.EntityChildren,
                     Parents            = map.EntityParents,
                     RelatedParents     = map.EntityRelatedParents,
-                    NodeMap = map,
+                    NodeMap            = map,
                     RelatedChildren    = map.EntityRelatedChildren,
                     ModelToEntityLinks = map.ModelToEntityLinks,
                     Mapping            = map.FieldMaps.Select(a => new FieldMap
                     {
                         DestinationEntity = a.DestinationEntity,
-                        DestinationName = a.DestinationName,
-                        SourceModel = map.ModelType.Name,
-                        SourceName = a.SourceName
+                        DestinationName   = a.DestinationName,
+                        SourceModel       = map.ModelType.Name,
+                        SourceName        = a.SourceName
                     }).ToList(),
-                    IsGraph            = map.IsGraph,
-                    IsEntity          = map.IsEntity,
-                    IsModel          = map.IsModel,
-                    UpsertKeys         = map.UpsertKeys.Select(b => b.Key).ToList()
+                    IsGraph    = map.IsGraph,
+                    IsEntity   = map.IsEntity,
+                    IsModel    = map.IsModel,
+                    UpsertKeys      = map.UpsertKeys.Select(a => $"{a.Entity}~{a.Key}").ToList()
                 };
             }
-            
+
             if (map.IsGraph)
             {
-                SqlNodeRegistry.EntityTrees[modelNameAux] = new NodeTree
+                if (entityTreeMissing)
                 {
-                    Id                 = map.Id,
-                    Alias              = modelNameAux,
-                    Name               = map.EntityType.Name,
-                    Schema             = map.Schema,
-                    Children           = map.EntityChildren,
-                    Parents            = map.EntityParents,
-                    RelatedParents     = map.EntityRelatedParents,
-                    RelatedChildren    = map.EntityRelatedChildren,
-                    ModelToEntityLinks = map.ModelToEntityLinks,
-                    Mapping            = map.FieldMaps,
-                    IsGraph            = map.IsGraph,
-                    UpsertKeys         = map.UpsertKeys.Select(b => b.Key).ToList()
-                };
-                SqlNodeRegistry.ModelTrees[modelNameAux] = new NodeTree
-                {
-                    Id                 = map.Id,
-                    Alias              = modelNameAux,
-                    Name               = map.ModelType.Name,
-                    Children           = map.EntityChildren,
-                    Parents            = map.EntityParents,
-                    RelatedParents     = map.EntityRelatedParents,
-                    RelatedChildren    = map.EntityRelatedChildren,
-                    ModelToEntityLinks = map.ModelToEntityLinks,
-                    Mapping            = map.FieldMaps,
-                    IsGraph            = map.IsGraph,
-                    UpsertKeys         = map.UpsertKeys.Select(b => b.Key).ToList()
-                };
+                    SqlNodeRegistry.EntityTrees[modelName] = new NodeTree
+                    {
+                        Id                 = map.Id,
+                        Alias              = modelName,
+                        Name               = map.EntityType.Name,
+                        Schema             = map.Schema,
+                        Children           = map.EntityChildren,
+                        Parents            = map.EntityParents,
+                        RelatedParents     = map.EntityRelatedParents,
+                        RelatedChildren    = map.EntityRelatedChildren,
+                        ModelToEntityLinks = map.ModelToEntityLinks,
+                        Mapping            = map.FieldMaps,
+                        IsGraph            = map.IsGraph,
+                        UpsertKeys      = map.UpsertKeys.Select(a => $"{a.Entity}~{a.Key}").ToList()
+                    };
+                }
 
+                if (modelTreeMissing)
+                {
+                    SqlNodeRegistry.ModelTrees[modelName] = new NodeTree
+                    {
+                        Id                 = map.Id,
+                        Alias              = modelName,
+                        Name               = map.ModelType.Name,
+                        Children           = map.EntityChildren,
+                        Parents            = map.EntityParents,
+                        RelatedParents     = map.EntityRelatedParents,
+                        RelatedChildren    = map.EntityRelatedChildren,
+                        ModelToEntityLinks = map.ModelToEntityLinks,
+                        Mapping            = map.FieldMaps,
+                        IsGraph            = map.IsGraph,
+                        UpsertKeys      = map.UpsertKeys.Select(a => $"{a.Entity}~{a.Key}").ToList()
+                    };
+                }
             }
         }
     }

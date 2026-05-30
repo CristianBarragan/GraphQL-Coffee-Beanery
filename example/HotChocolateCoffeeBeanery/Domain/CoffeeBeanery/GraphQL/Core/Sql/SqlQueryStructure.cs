@@ -10,6 +10,8 @@ public class SqlQueryStructure
 
     public SqlNode SqlNode { get; set; }
     
+    public string Name { get; set; }
+    
     public string Alias { get; set; }
 
     public List<string> Columns { get; set; } = new List<string>();
@@ -19,6 +21,8 @@ public class SqlQueryStructure
     public List<string> SelectColumns { get; set; } = new List<string>();
         
     public bool Visited { get; set; }
+
+    public bool HasChildren { get; set; }
 
     public Dictionary<string, string> ChildrenJoinColumns { get; set; } = new Dictionary<string, string>(StringComparer.InvariantCultureIgnoreCase);
     

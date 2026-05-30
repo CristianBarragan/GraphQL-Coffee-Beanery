@@ -149,19 +149,19 @@ namespace CoffeeBeanery.Service
             var ctx = new SqlCompilationContext();
             var transformedToParent = false;
 
-            var modelToEntityLink = SqlNodeRegistry.ModelTrees[modelName].ModelToEntityLinks[0];
-
-            var entityName = modelToEntityLink.From;
+            var modelToEntityLink = SqlNodeRegistry.ModelTrees.First(a => 
+                a.Value.Name.Matches(modelName)).Value.ModelToEntityLinks[0];
             
-            var rootTree = SqlNodeRegistry.ModelTrees[rootName];
+            var rootTree = SqlNodeRegistry.ModelTrees.First(a => 
+                a.Value.Name.Matches(rootName)).Value;
             
-            var rootTreeNode = SqlNodeRegistry.ModelTrees[modelName];
-
             var mutationStatementNodes = new Dictionary<string, SqlNode>(StringComparer.OrdinalIgnoreCase);
 
             var argument = selection.SyntaxNode.Arguments.FirstOrDefault(a => a.Name.Value.Matches(wrapperName));
             wrapperName = argument.GetNodes().Last().GetNodes().FirstOrDefault(a => a.ToString().Contains("model")).ToString().Split(":")[1].Replace("_","").Trim(' ');
-            wrapperName = SqlNodeRegistry.ModelTrees[wrapperName].ModelToEntityLinks[0].To;
+            wrapperName = 
+                SqlNodeRegistry.ModelTrees.First(a => 
+                    a.Value.Name.Matches(wrapperName)).Value.ModelToEntityLinks[0].To;
 
             // if (
             //     argument.GetNodes().ToList()[1].ToString().StartsWith("["))

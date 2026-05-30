@@ -45,7 +45,7 @@ public class ProcessQuery<M> : IQuery<ProcessQueryParameters,
                 types.ToArray(),
                 (object[] map) =>
                 {
-                    var set = MappingConfiguration(models, parameters.SqlStructure, map);
+                    var set = MappingConfiguration(models, parameters.SqlStructure, map, types);
                     models = set.models;
 
                     return 0;
@@ -76,7 +76,7 @@ public class ProcessQuery<M> : IQuery<ProcessQueryParameters,
     }
     
     public virtual (List<M> models, int? startCursor, int? endCursor, int? totalCount, int? totalPageRecords)
-        MappingConfiguration(List<M> models, SqlStructure sqlStructure, object[] map)
+        MappingConfiguration(List<M> models, SqlStructure sqlStructure, object[] map, List<Type> types)
     {
         throw new NotImplementedException();
     }

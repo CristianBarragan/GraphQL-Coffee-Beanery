@@ -28,25 +28,31 @@ public class ContactPointMapping : BaseMappingRegistration<ContactPoint, DataEnt
 
         map.EntityParents.Add(new LinkKey
         {
+            AliasFrom    = A(nameof(DataEntity.ContactPoint)),
             From       = nameof(DataEntity.ContactPoint),
             FromColumn = nameof(DataEntity.ContactPoint.CustomerId),
+            AliasTo    = A(nameof(DataEntity.Customer)),
             To         = nameof(DataEntity.Customer),
             ToColumn   = nameof(DataEntity.Customer.Id)
         });
 
         map.ModelParents.Add(new LinkKey
         {
+            AliasFrom    = A(nameof(ContactPoint)),
             From       = nameof(ContactPoint),
             FromColumn = nameof(ContactPoint.CustomerKey),
+            AliasTo    = A(nameof(Customer)),
             To         = nameof(Customer),
             ToColumn   = nameof(Customer.CustomerKey)
         });
 
         map.ModelToEntityLinks.Add(new LinkKey
         {
+            AliasFrom    = A(nameof(ContactPoint)),
             From       = nameof(ContactPoint),
             FromColumn = nameof(ContactPoint.ContactPointKey),
-            To         = nameof(DataEntity.ContactPoint),
+            AliasTo    = A(nameof(DataEntity.Customer)),
+            To         = nameof(DataEntity.Customer),
             ToColumn   = nameof(DataEntity.ContactPoint.ContactPointKey)
         });
 

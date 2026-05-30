@@ -35,13 +35,15 @@ public class InnerCustomerMapping : CustomerBaseMapping<InnerCustomerMapping>
          {
              From       = nameof(DataEntity.Customer),
              FromColumn = nameof(DataEntity.Customer.Id),
+             AliasTo = A(nameof(DataEntity.CustomerCustomerRelationship)),
              To         = nameof(DataEntity.CustomerCustomerRelationship),
              ToColumn   = nameof(DataEntity.CustomerCustomerRelationship.InnerCustomerId)
          });
 
          map.ModelToEntityLinks.AddRange(new[]
          {
-             new LinkKey { From = nameof(CustomerCustomerEdge.InnerCustomer), FromColumn = nameof(CustomerCustomerEdge.InnerCustomerKey), To = nameof(DataEntity.Customer), ToColumn = nameof(DataEntity.Customer.CustomerKey) },
+             new LinkKey { From = nameof(CustomerCustomerEdge.InnerCustomer), FromColumn = nameof(CustomerCustomerEdge.InnerCustomerKey), AliasTo = A(nameof(DataEntity.Customer)), 
+                 To = nameof(DataEntity.Customer), ToColumn = nameof(DataEntity.Customer.CustomerKey) },
          });
          
          return map;
@@ -62,20 +64,22 @@ public class OuterCustomerMapping : CustomerBaseMapping<OuterCustomerMapping>
         {
             From       = nameof(DataEntity.Customer),
             FromColumn = nameof(DataEntity.Customer.Id),
+            AliasTo = A(nameof(DataEntity.CustomerCustomerRelationship)),
             To         = nameof(DataEntity.CustomerCustomerRelationship),
             ToColumn   = nameof(DataEntity.CustomerCustomerRelationship.OuterCustomerId)
         });
 
         map.ModelToEntityLinks.AddRange(new[]
         {
-            new LinkKey { From = nameof(CustomerCustomerEdge.OuterCustomer), FromColumn = nameof(CustomerCustomerEdge.OuterCustomerKey), To = nameof(DataEntity.Customer), ToColumn = nameof(DataEntity.Customer.CustomerKey) },
+            new LinkKey { From = nameof(CustomerCustomerEdge.OuterCustomer), FromColumn = nameof(CustomerCustomerEdge.OuterCustomerKey), 
+                AliasTo = A(nameof(DataEntity.Customer)), To = nameof(DataEntity.Customer), ToColumn = nameof(DataEntity.Customer.CustomerKey) },
         });
          
         return map;
     }
 }
 
-public abstract class CustomerBaseMapping<TAlias> 
+public abstract class CustomerBaseMapping<TAlias>
     : BaseMappingRegistration<Customer, DataEntity.Customer>
 {
     protected CustomerBaseMapping(string alias) : base(alias)
@@ -88,11 +92,27 @@ public abstract class CustomerBaseMapping<TAlias>
         {
             Schema = nameof(DataEntity.Schema.Banking)
         };
-
+        
         map.EntityChildren.AddRange(new[]
         {
-            new LinkKey { From = nameof(DataEntity.Customer), FromColumn = nameof(DataEntity.Customer.Id), To = nameof(DataEntity.ContactPoint),                ToColumn = nameof(DataEntity.ContactPoint.CustomerId) },
-            new LinkKey { From = nameof(DataEntity.Customer), FromColumn = nameof(DataEntity.Customer.Id), To = nameof(DataEntity.CustomerBankingRelationship), ToColumn = nameof(DataEntity.CustomerBankingRelationship.CustomerId) }
+            new LinkKey
+            {
+                AliasFrom    = A(nameof(DataEntity.Customer)), 
+                From       = nameof(DataEntity.Customer),
+                FromColumn = nameof(DataEntity.Customer.Id),
+                AliasTo    = A(nameof(DataEntity.ContactPoint)),
+                To         = nameof(DataEntity.ContactPoint),
+                ToColumn   = nameof(DataEntity.ContactPoint.CustomerId)
+            },
+            new LinkKey
+            {
+                AliasFrom    = A(nameof(DataEntity.Customer)),
+                From       = nameof(DataEntity.Customer),
+                FromColumn = nameof(DataEntity.Customer.Id),
+                AliasTo    = A(nameof(DataEntity.CustomerBankingRelationship)),
+                To         = nameof(DataEntity.CustomerBankingRelationship),
+                ToColumn   = nameof(DataEntity.CustomerBankingRelationship.CustomerId)
+            }
         });
 
         map.UpsertKeys.Add(new UpsertKey(
@@ -106,23 +126,25 @@ public abstract class CustomerBaseMapping<TAlias>
             new FieldMap { SourceName = nameof(Customer.CustomerKey),   DestinationEntity = nameof(DataEntity.Customer), DestinationName = nameof(DataEntity.Customer.CustomerKey) },
             new FieldMap
             {
-                SourceName = nameof(Customer.CustomerType),  DestinationEntity = nameof(DataEntity.Customer), DestinationName = nameof(DataEntity.Customer.CustomerType),
+                SourceName        = nameof(Customer.CustomerType),
+                DestinationEntity = nameof(DataEntity.Customer),
+                DestinationName   = nameof(DataEntity.Customer.CustomerType),
                 FromEnum = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
                 {
-                    { CustomerType.Person.ToString(), (int)CustomerType.Person },
+                    { CustomerType.Person.ToString(),       (int)CustomerType.Person },
                     { CustomerType.Organisation.ToString(), (int)CustomerType.Organisation }
                 },
                 ToEnum = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
                 {
-                    { DataEntity.CustomerType.Person.ToString(), (int)DataEntity.CustomerType.Person },
-                    { DataEntity.CustomerType.Organisation.ToString(), (int)DataEntity.CustomerType.Organisation },
+                    { DataEntity.CustomerType.Person.ToString(),       (int)DataEntity.CustomerType.Person },
+                    { DataEntity.CustomerType.Organisation.ToString(), (int)DataEntity.CustomerType.Organisation }
                 }
             },
-            new FieldMap { SourceName = nameof(Customer.FirstNaming),   DestinationEntity = nameof(DataEntity.Customer), DestinationName = nameof(DataEntity.Customer.FirstName) },
-            new FieldMap { SourceName = nameof(Customer.LastNaming),    DestinationEntity = nameof(DataEntity.Customer), DestinationName = nameof(DataEntity.Customer.LastName) },
-            new FieldMap { SourceName = nameof(Customer.FullNaming),    DestinationEntity = nameof(DataEntity.Customer), DestinationName = nameof(DataEntity.Customer.FullName) }
+            new FieldMap { SourceName = nameof(Customer.FirstNaming), DestinationEntity = nameof(DataEntity.Customer), DestinationName = nameof(DataEntity.Customer.FirstName) },
+            new FieldMap { SourceName = nameof(Customer.LastNaming),  DestinationEntity = nameof(DataEntity.Customer), DestinationName = nameof(DataEntity.Customer.LastName) },
+            new FieldMap { SourceName = nameof(Customer.FullNaming),  DestinationEntity = nameof(DataEntity.Customer), DestinationName = nameof(DataEntity.Customer.FullName) }
         });
-        
+
         return map;
     }
 }

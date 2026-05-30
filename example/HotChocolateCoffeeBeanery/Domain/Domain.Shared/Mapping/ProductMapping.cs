@@ -28,22 +28,29 @@ public class ProductMapping : BaseModelMappingRegistration<Product>
 
         map.ModelChildren.AddRange(new[]
         {
-            new LinkKey { From = nameof(Product), FromColumn = nameof(Product.ContractKey),                    To = nameof(Contract),                   ToColumn = nameof(Contract.ContractKey) },
-            new LinkKey { From = nameof(Product), FromColumn = nameof(Product.AccountKey),                     To = nameof(Account),                    ToColumn = nameof(Account.AccountKey) },
-            new LinkKey { From = nameof(Product), FromColumn = nameof(Product.CustomerBankingRelationshipKey), To = nameof(CustomerBankingRelationship), ToColumn = nameof(CustomerBankingRelationship.CustomerBankingRelationshipKey) }
+            new LinkKey { AliasFrom    = A(nameof(Product)), From = nameof(Product), FromColumn = nameof(Product.ContractKey),
+                AliasTo    = A(nameof(Contract)),
+                To         = nameof(Contract), ToColumn = nameof(Contract.ContractKey) },
+            new LinkKey { AliasFrom    = A(nameof(Product)), From = nameof(Product), FromColumn = nameof(Product.AccountKey), 
+                AliasTo    = A(nameof(Account)),
+                To         = nameof(Account), ToColumn = nameof(Account.AccountKey) },
+            new LinkKey { AliasFrom    = A(nameof(Product)), From = nameof(Product), FromColumn = nameof(Product.CustomerBankingRelationshipKey), 
+                AliasTo    = A(nameof(CustomerBankingRelationship)),
+                To         = nameof(CustomerBankingRelationship),
+                ToColumn = nameof(CustomerBankingRelationship.CustomerBankingRelationshipKey) }
         });
 
         map.ModelParents.Add(new LinkKey
         {
-            From = nameof(Product), FromColumn = nameof(Product.CustomerKey),
+            AliasFrom    = A(nameof(Product)), From = nameof(Product), FromColumn = nameof(Product.CustomerKey),
             To   = nameof(Customer), ToColumn  = nameof(Customer.CustomerKey)
         });
 
         map.ModelToEntityLinks.AddRange(new[]
         {
-            new LinkKey { From = nameof(Product), FromColumn = nameof(Product.CustomerBankingRelationshipKey), To = nameof(DataEntity.CustomerBankingRelationship), ToColumn = nameof(DataEntity.CustomerBankingRelationship.CustomerBankingRelationshipKey) },
-            new LinkKey { From = nameof(Product), FromColumn = nameof(Product.ContractKey),                    To = nameof(DataEntity.Contract),                    ToColumn = nameof(DataEntity.Contract.ContractKey) },
-            new LinkKey { From = nameof(Product), FromColumn = nameof(Product.AccountKey),                     To = nameof(DataEntity.Account),                     ToColumn = nameof(DataEntity.Account.AccountKey) }
+            new LinkKey { AliasFrom    = A(nameof(Product)), From = nameof(Product), FromColumn = nameof(Product.CustomerBankingRelationshipKey), To = A(nameof(CustomerBankingRelationship)), ToColumn = nameof(DataEntity.CustomerBankingRelationship.CustomerBankingRelationshipKey) },
+            new LinkKey { AliasFrom    = A(nameof(Product)), From = nameof(Product), FromColumn = nameof(Product.ContractKey),                    To = A(nameof(Contract)),                    ToColumn = nameof(DataEntity.Contract.ContractKey) },
+            new LinkKey { AliasFrom    = A(nameof(Product)), From = nameof(Product), FromColumn = nameof(Product.AccountKey),                     To = A(nameof(Account)),                     ToColumn = nameof(DataEntity.Account.AccountKey) }
         });
 
         map.FieldMaps.AddRange(new[]

@@ -7,6 +7,7 @@ using Npgsql;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 
 namespace Domain.Shared.Query
 {
@@ -26,83 +27,96 @@ namespace Domain.Shared.Query
             _mapper = mapper;
         }
 
-        public override (List<M>, int?, int?, int?, int?)
-            MappingConfiguration(List<M> models, SqlStructure sqlStructure, object[] map)
+        public override (List<M> models, int? startCursor, int? endCursor, int? totalCount, int? totalPageRecords)
+            MappingConfiguration(List<M> models, SqlStructure sqlStructure, object[] map, List<Type> types)
         {
-            Console.WriteLine("=== MAPPING CONFIGURATION START ===");
+            var customerCustomerEdges = models.OfType<CustomerCustomerEdge>().ToList();
+            var totalCount  = 0;
+            var pageRecords = 0;
+            var customerCustomerEdge = new CustomerCustomerEdge();
 
-            var wrapper = new Wrapper { CustomerCustomerEdge = new List<CustomerCustomerEdge>() };
-            int totalCount = 0;
-            int pageRecords = 0;
-
-            if (map == null || map.Length == 0)
-                return (new List<M>(), 0, 0, 0, 0);
-
-            // Create a single edge for this row
-            var edge = new CustomerCustomerEdge();
-            wrapper.CustomerCustomerEdge.Add(edge);
-
-            int i = 0;
-            foreach (var kvp in sqlStructure.EntityMapping)
+            for (int i = 0; i < map.Length; i++)
             {
-                var alias = kvp.Key;
-                var type = kvp.Value;
-
-                if (i >= map.Length)
-                    break;
-
-                var entity = map[i++];
-                if (entity == null)
+                if (map[i] is TotalPageRecords totalPageRecords)
                 {
-                    Console.WriteLine($"NULL ENTITY for alias {alias}");
-                    continue;
+                    pageRecords = totalPageRecords.PageRecords;
                 }
-
-                Console.WriteLine($"Mapping alias '{alias}' for entity type '{entity.GetType().Name}'");
-
-                var mappedModel = _mapper.MapByAlias(type, entity, alias);
-
-                if (mappedModel == null)
+                else if (map[i] is TotalRecordCount totalRecordCount)
                 {
-                    Console.WriteLine($"MapByAlias returned null for alias {alias}");
-                    continue;
+                    totalCount = totalRecordCount.RecordCount;
                 }
-
-                switch (alias)
+                else
                 {
-                    case "CustomerCustomerRelationship":
-                        edge.CustomerCustomerRelationship = mappedModel as CustomerCustomerRelationship;
-                        edge.CustomerCustomerRelationshipKey = GetPropertyValue<Guid?>(entity, "CustomerCustomerRelationshipKey");
-                        edge.InnerCustomerKey = GetPropertyValue<Guid?>(entity, "InnerCustomerKey");
-                        edge.OuterCustomerKey = GetPropertyValue<Guid?>(entity, "OuterCustomerKey");
-                        break;
+                    var incomingType = map[i].GetType();
+                    var targetModelType = types[i];
 
-                    case "InnerCustomer":
-                        edge.InnerCustomer = mappedModel as Customer;
-                        break;
+                    // Resolve alias from registry matching both EntityType and ModelType
+                    var alias = MappingRegistry.Registry
+                        .Where(kvp =>
+                            kvp.Value.EntityType == incomingType &&
+                            kvp.Value.ModelType  == targetModelType)
+                        .Select(kvp => kvp.Key)
+                        .FirstOrDefault();
 
-                    case "OuterCustomer":
-                        edge.OuterCustomer = mappedModel as Customer;
-                        break;
+                    // Resolve idPropertyName dynamically from the NodeMap for this alias —
+                    // find the first FieldMap whose DestinationEntity matches the incoming
+                    // entity type and whose DestinationName is "Id" or falls back to the
+                    // first available FieldMap destination as the unique key
+                    var idPropertyName = ResolveIdPropertyName(incomingType, alias);
 
-                    // Add other cases if needed
-                    default:
-                        Console.WriteLine($"Alias '{alias}' not handled explicitly");
-                        break;
+                    customerCustomerEdge = (CustomerCustomerEdge)_mapper.MapDynamicToModel(
+                        customerCustomerEdge,   // dynamic source  — existing TModel to preserve
+                        targetModelType,        // Type            — target model type
+                        map[i],                 // object current  — incoming entity
+                        idPropertyName,         // string id       — resolved per entity type
+                        alias                   // string alias    — resolved NodeMap key
+                    );
                 }
             }
 
-            Console.WriteLine("=== MAPPING CONFIGURATION END ===");
+            var existingCustomerIndex = customerCustomerEdges.FindIndex(c =>
+                c.InnerCustomerKey == customerCustomerEdge.InnerCustomerKey);
 
-            var result = new List<M> { (M)(object)wrapper };
-            return (result, sqlStructure.Pagination?.StartCursor, sqlStructure.Pagination?.EndCursor, totalCount, pageRecords);
+            if (existingCustomerIndex >= 0)
+                customerCustomerEdges[existingCustomerIndex] = customerCustomerEdge;
+            else
+                customerCustomerEdges.Add(customerCustomerEdge);
+
+            dynamic list = customerCustomerEdges;
+            return (list, sqlStructure.Pagination?.StartCursor, sqlStructure.Pagination?.EndCursor,
+                totalCount, pageRecords);
         }
 
-        private static T? GetPropertyValue<T>(object obj, string propertyName)
+        /// <summary>
+        /// Resolves the unique ID property name on the incoming entity type by:
+        /// 1. Looking for a FieldMap with DestinationName == "Id" in the aliased NodeMap
+        /// 2. Falling back to the first FieldMap destination in the NodeMap
+        /// 3. Falling back to "Id" by convention if no NodeMap is found
+        /// </summary>
+        private static string ResolveIdPropertyName(Type incomingEntityType, string? alias)
         {
-            if (obj == null) return default;
-            var prop = obj.GetType().GetProperty(propertyName);
-            return prop != null ? (T?)prop.GetValue(obj) : default;
+            if (alias != null && MappingRegistry.Registry.TryGetValue(alias, out var nodeMap))
+            {
+                // Prefer a FieldMap explicitly named "Id" on the incoming entity side
+                var idFieldMap = nodeMap.FieldMaps
+                    .FirstOrDefault(f =>
+                        f.DestinationEntity.Equals(incomingEntityType.Name, StringComparison.OrdinalIgnoreCase) &&
+                        f.DestinationName.Equals("Id", StringComparison.OrdinalIgnoreCase));
+
+                if (idFieldMap != null)
+                    return idFieldMap.DestinationName;
+
+                // Fall back to first FieldMap for this entity as the key
+                var fallbackFieldMap = nodeMap.FieldMaps
+                    .FirstOrDefault(f =>
+                        f.DestinationEntity.Equals(incomingEntityType.Name, StringComparison.OrdinalIgnoreCase));
+
+                if (fallbackFieldMap != null)
+                    return fallbackFieldMap.DestinationName;
+            }
+
+            // Final convention fallback — most entities have an "Id" property
+            return "Id";
         }
     }
 }
