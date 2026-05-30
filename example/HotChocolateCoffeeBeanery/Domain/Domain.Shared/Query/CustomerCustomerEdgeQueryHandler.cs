@@ -1,3 +1,4 @@
+// CustomerCustomerEdgeQueryHandler.cs
 using CoffeeBeanery.CQRS;
 using CoffeeBeanery.GraphQL.Core.Sql;
 using CoffeeBeanery.Service;
@@ -30,6 +31,7 @@ namespace Domain.Shared.Query
         public override (List<M> models, int? startCursor, int? endCursor, int? totalCount, int? totalPageRecords)
             MappingConfiguration(List<M> models, SqlStructure sqlStructure, object[] map, List<Type> types)
         {
+            var existingWrappers = models.OfType<Wrapper>().ToList();
             var customerCustomerEdges = models.OfType<CustomerCustomerEdge>().ToList();
             var totalCount  = 0;
             var pageRecords = 0;
@@ -47,10 +49,15 @@ namespace Domain.Shared.Query
                 }
                 else
                 {
-                    var incomingType = map[i].GetType();
+                    if (map[i] == null)
+                    {
+                        continue;
+                    }
+                    
+                    var incomingType    = map[i].GetType();
                     var targetModelType = types[i];
 
-                    // Resolve alias from registry matching both EntityType and ModelType
+                    // Step 1 — exact match on both EntityType and ModelType
                     var alias = MappingRegistry.Registry
                         .Where(kvp =>
                             kvp.Value.EntityType == incomingType &&
@@ -58,18 +65,34 @@ namespace Domain.Shared.Query
                         .Select(kvp => kvp.Key)
                         .FirstOrDefault();
 
-                    // Resolve idPropertyName dynamically from the NodeMap for this alias —
-                    // find the first FieldMap whose DestinationEntity matches the incoming
-                    // entity type and whose DestinationName is "Id" or falls back to the
-                    // first available FieldMap destination as the unique key
+                    // Step 2 — fallback: match by EntityType name only
+                    // handles cases like CustomerCustomerRelationship where model == entity
+                    if (alias == null)
+                    {
+                        alias = MappingRegistry.Registry
+                            .Where(kvp =>
+                                kvp.Value.EntityType?.Name.Equals(
+                                    incomingType.Name, StringComparison.OrdinalIgnoreCase) == true)
+                            .Select(kvp => kvp.Key)
+                            .FirstOrDefault();
+                    }
+
+                    // Step 3 — fallback: match by registry key suffix
+                    if (alias == null)
+                    {
+                        alias = MappingRegistry.Registry.Keys
+                            .FirstOrDefault(k => k.EndsWith(
+                                incomingType.Name, StringComparison.OrdinalIgnoreCase));
+                    }
+
                     var idPropertyName = ResolveIdPropertyName(incomingType, alias);
 
                     customerCustomerEdge = (CustomerCustomerEdge)_mapper.MapDynamicToModel(
-                        customerCustomerEdge,   // dynamic source  — existing TModel to preserve
-                        targetModelType,        // Type            — target model type
-                        map[i],                 // object current  — incoming entity
-                        idPropertyName,         // string id       — resolved per entity type
-                        alias                   // string alias    — resolved NodeMap key
+                        customerCustomerEdge,
+                        targetModelType,
+                        map[i],
+                        idPropertyName,
+                        alias
                     );
                 }
             }
@@ -82,40 +105,39 @@ namespace Domain.Shared.Query
             else
                 customerCustomerEdges.Add(customerCustomerEdge);
 
-            dynamic list = customerCustomerEdges;
+            var wrapper = existingWrappers.FirstOrDefault() ?? new Wrapper();
+            wrapper.CustomerCustomerEdge = customerCustomerEdges;
+
+            var wrappers = new List<Wrapper> { wrapper };
+
+            // Cast back to List<M> via dynamic
+            dynamic list = wrappers;
             return (list, sqlStructure.Pagination?.StartCursor, sqlStructure.Pagination?.EndCursor,
                 totalCount, pageRecords);
         }
 
-        /// <summary>
-        /// Resolves the unique ID property name on the incoming entity type by:
-        /// 1. Looking for a FieldMap with DestinationName == "Id" in the aliased NodeMap
-        /// 2. Falling back to the first FieldMap destination in the NodeMap
-        /// 3. Falling back to "Id" by convention if no NodeMap is found
-        /// </summary>
         private static string ResolveIdPropertyName(Type incomingEntityType, string? alias)
         {
             if (alias != null && MappingRegistry.Registry.TryGetValue(alias, out var nodeMap))
             {
-                // Prefer a FieldMap explicitly named "Id" on the incoming entity side
                 var idFieldMap = nodeMap.FieldMaps
                     .FirstOrDefault(f =>
-                        f.DestinationEntity.Equals(incomingEntityType.Name, StringComparison.OrdinalIgnoreCase) &&
+                        f.DestinationEntity.Equals(incomingEntityType.Name,
+                            StringComparison.OrdinalIgnoreCase) &&
                         f.DestinationName.Equals("Id", StringComparison.OrdinalIgnoreCase));
 
                 if (idFieldMap != null)
                     return idFieldMap.DestinationName;
 
-                // Fall back to first FieldMap for this entity as the key
                 var fallbackFieldMap = nodeMap.FieldMaps
                     .FirstOrDefault(f =>
-                        f.DestinationEntity.Equals(incomingEntityType.Name, StringComparison.OrdinalIgnoreCase));
+                        f.DestinationEntity.Equals(incomingEntityType.Name,
+                            StringComparison.OrdinalIgnoreCase));
 
                 if (fallbackFieldMap != null)
                     return fallbackFieldMap.DestinationName;
             }
 
-            // Final convention fallback — most entities have an "Id" property
             return "Id";
         }
     }

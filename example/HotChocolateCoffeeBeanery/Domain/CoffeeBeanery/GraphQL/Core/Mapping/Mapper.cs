@@ -1,4 +1,5 @@
-﻿using System;
+﻿// Mapper.cs
+using System;
 using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -81,7 +82,7 @@ public class Mapper : IMapper
 
     // ── Public API ────────────────────────────────────────────────────────────
 
-    public TModel MapToModel<TModel>(object entity) where TModel : class // FIXED: added constraint
+    public TModel MapToModel<TModel>(object entity) where TModel : class
     {
         if (entity == null) return default!;
         var modelType = typeof(TModel);
@@ -94,7 +95,7 @@ public class Mapper : IMapper
         return model;
     }
 
-    public object MapToEntity<TModel>(TModel model) where TModel : class // FIXED: added constraint
+    public object MapToEntity<TModel>(TModel model) where TModel : class
     {
         throw new NotImplementedException();
     }
@@ -128,33 +129,49 @@ public class Mapper : IMapper
         string idPropertyName,
         string? mappingAlias = null)
     {
-        if (source == null)          throw new ArgumentNullException(nameof(source));
-        if (targetType == null)      throw new ArgumentNullException(nameof(targetType));
-        if (current == null)         throw new ArgumentNullException(nameof(current));
+        if (source == null)     throw new ArgumentNullException(nameof(source));
+        if (targetType == null) throw new ArgumentNullException(nameof(targetType));
+        if (current == null)    throw new ArgumentNullException(nameof(current));
         if (string.IsNullOrWhiteSpace(idPropertyName))
             throw new ArgumentNullException(nameof(idPropertyName));
 
         var sourceModelType    = ((object)source).GetType();
         var incomingEntityType = current.GetType();
 
-        // Step 1 — resolve NodeMap
+        // Step 1 — resolve NodeMap via alias, then fallbacks
         NodeMap nodeMap;
         if (mappingAlias != null)
         {
             if (!_mappings.TryGetValue(mappingAlias, out nodeMap))
-                throw new InvalidOperationException(
-                    $"No mapping found for alias '{mappingAlias}'.");
+            {
+                // FIXED: alias provided but not found — fall back to entity type scan
+                nodeMap = _mappings.Values.FirstOrDefault(m =>
+                              m.EntityType == incomingEntityType &&
+                              m.ModelType  == targetType)
+                          ?? _mappings.Values.FirstOrDefault(m =>
+                              m.EntityType?.Name.Equals(
+                                  incomingEntityType.Name,
+                                  StringComparison.OrdinalIgnoreCase) == true)
+                          ?? throw new InvalidOperationException(
+                              $"No mapping found for alias '{mappingAlias}' or entity " +
+                              $"'{incomingEntityType.Name}' / model '{targetType.Name}'. " +
+                              $"Registered keys: [{string.Join(", ", _mappings.Keys)}]");
+            }
         }
         else
         {
             nodeMap = _mappings.Values
-                .FirstOrDefault(m =>
-                    m.EntityType == incomingEntityType &&
-                    m.ModelType  == targetType)
-                ?? throw new InvalidOperationException(
-                    $"No mapping found for entity '{incomingEntityType.Name}' " +
-                    $"and model '{targetType.Name}'. " +
-                    $"Consider passing a mappingAlias explicitly.");
+                          .FirstOrDefault(m =>
+                              m.EntityType == incomingEntityType &&
+                              m.ModelType  == targetType)
+                      ?? _mappings.Values.FirstOrDefault(m =>
+                          m.EntityType?.Name.Equals(
+                              incomingEntityType.Name,
+                              StringComparison.OrdinalIgnoreCase) == true)
+                      ?? throw new InvalidOperationException(
+                          $"No mapping found for entity '{incomingEntityType.Name}' " +
+                          $"and model '{targetType.Name}'. " +
+                          $"Consider passing a mappingAlias explicitly.");
         }
 
         // Step 2 — infer model-side ID property name from FieldMaps
@@ -184,7 +201,6 @@ public class Mapper : IMapper
 
         foreach (var fieldMap in nodeMap.FieldMaps)
         {
-            // Skip fields belonging to a different entity
             if (!string.IsNullOrEmpty(fieldMap.DestinationEntity) &&
                 !fieldMap.DestinationEntity.Equals(incomingEntityType.Name,
                     StringComparison.OrdinalIgnoreCase))
@@ -197,27 +213,37 @@ public class Mapper : IMapper
             var value = sourceProp.GetValue(current);
             if (value == null) continue;
 
-            // FIXED: use fieldMap.ToEnum (Dictionary<string,int> on FieldMap, not NodeMap)
             if (fieldMap.ToEnum is { Count: > 0 })
             {
                 var valueStr = value.ToString()!;
                 if (fieldMap.ToEnum.TryGetValue(valueStr, out var enumInt))
                     value = enumInt;
                 else if (int.TryParse(valueStr, out var intVal) &&
-                         fieldMap.ToEnum.Values.Cast<int?>().FirstOrDefault(v => v == intVal)
-                             is { } matched)
+                         fieldMap.ToEnum.Values.Cast<int?>()
+                             .FirstOrDefault(v => v == intVal) is { } matched)
                     value = matched;
             }
 
-            if (!nodeMap.ModelProperties.TryGetValue(fieldMap.SourceName, out var destProp))
-                continue;
+            // FIXED: resolve destProp directly from targetType (mappedModel's actual type)
+            // instead of nodeMap.ModelProperties which may belong to a different type
+            // when the fallback alias resolution picked a NodeMap for the wrong model
+            var destProp = targetType
+                .GetProperty(fieldMap.SourceName, BindingFlags.Public | BindingFlags.Instance);
+
+            if (destProp == null || !destProp.CanWrite) continue;
 
             var actualType = Nullable.GetUnderlyingType(destProp.PropertyType)
                              ?? destProp.PropertyType;
 
-            // Coerce int → enum on model side when needed
             if (actualType.IsEnum && value is int intValue)
                 value = Enum.ToObject(actualType, intValue);
+
+            // FIXED: guard type compatibility before setting to avoid TargetException
+            if (value != null && !actualType.IsAssignableFrom(value.GetType()))
+            {
+                try { value = Convert.ChangeType(value, actualType); }
+                catch { continue; } // skip incompatible values silently
+            }
 
             destProp.SetValue(mappedModel, value);
         }
@@ -276,8 +302,9 @@ public class Mapper : IMapper
             // Step 7b — no List<T>: overlay non-default FieldMap fields onto mergedModel
             foreach (var fieldMap in nodeMap.FieldMaps)
             {
-                if (!nodeMap.ModelProperties.TryGetValue(fieldMap.SourceName, out var mappedProp))
-                    continue;
+                var mappedProp = targetType
+                    .GetProperty(fieldMap.SourceName, BindingFlags.Public | BindingFlags.Instance);
+                if (mappedProp == null) continue;
 
                 var mappedValue  = mappedProp.GetValue(mappedModel);
                 var defaultValue = mappedProp.PropertyType.IsValueType
@@ -286,9 +313,24 @@ public class Mapper : IMapper
 
                 if (Equals(mappedValue, defaultValue)) continue;
 
-                sourceModelType
-                    .GetProperty(fieldMap.SourceName, BindingFlags.Public | BindingFlags.Instance)
-                    ?.SetValue(mergedModel, mappedValue);
+                // FIXED: write onto mergedModel using sourceModelType property
+                var mergedProp = sourceModelType
+                    .GetProperty(fieldMap.SourceName, BindingFlags.Public | BindingFlags.Instance);
+                if (mergedProp == null || !mergedProp.CanWrite) continue;
+
+                // Guard type compatibility
+                if (mappedValue != null)
+                {
+                    var mergedActualType = Nullable.GetUnderlyingType(mergedProp.PropertyType)
+                                           ?? mergedProp.PropertyType;
+                    if (!mergedActualType.IsAssignableFrom(mappedValue.GetType()))
+                    {
+                        try { mappedValue = Convert.ChangeType(mappedValue, mergedActualType); }
+                        catch { continue; }
+                    }
+                }
+
+                mergedProp.SetValue(mergedModel, mappedValue);
             }
         }
 
@@ -306,7 +348,8 @@ public class Mapper : IMapper
         foreach (var fieldMap in nodeMap.FieldMaps)
         {
             if (!string.IsNullOrEmpty(fieldMap.DestinationEntity) &&
-                !fieldMap.DestinationEntity.Equals(entityTypeName, StringComparison.OrdinalIgnoreCase))
+                !fieldMap.DestinationEntity.Equals(entityTypeName,
+                    StringComparison.OrdinalIgnoreCase))
                 continue;
 
             var value = GetCachedGetter(entityType, fieldMap.DestinationName)(entity);
@@ -325,7 +368,6 @@ public class Mapper : IMapper
             }
             else if (actualType.IsEnum)
             {
-                // FIXED: fieldMap.ToEnum (Dictionary<string,int>), not nodeMap.ToEnum
                 if (fieldMap.ToEnum is { Count: > 0 })
                 {
                     var valueStr = value.ToString()!;
@@ -371,7 +413,6 @@ public class Mapper : IMapper
         }
     }
 
-    // Overlays non-null FieldMap values from entity onto an existing model instance
     private object MergeIntoExisting(object existing, object entity, NodeMap nodeMap)
     {
         var entityType = entity.GetType();
@@ -380,7 +421,8 @@ public class Mapper : IMapper
         foreach (var fieldMap in nodeMap.FieldMaps)
         {
             if (!string.IsNullOrEmpty(fieldMap.DestinationEntity) &&
-                !fieldMap.DestinationEntity.Equals(entityType.Name, StringComparison.OrdinalIgnoreCase))
+                !fieldMap.DestinationEntity.Equals(entityType.Name,
+                    StringComparison.OrdinalIgnoreCase))
                 continue;
 
             var value = GetCachedGetter(entityType, fieldMap.DestinationName)(entity);
