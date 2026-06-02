@@ -15,6 +15,7 @@
         public string Schema { get; set; } = "public";
         public string Table { get; set; } = "";
         public string Column { get; set; } = "";
+        public string SourceColumn { get; set; } = "";
         public string Value { get; set; } = "";
         public List<string> UpsertKeys { get; set; } = new();
         public List<LinkKey> LinkKeys { get; set; } = new();
@@ -42,12 +43,14 @@
         public bool IsGraph => SqlNodeTypes.Contains(SqlNodeType.Graph);
         public bool IsEdge => SqlNodeTypes.Contains(SqlNodeType.Edge);
         public bool IsNode => SqlNodeTypes.Contains(SqlNodeType.Node);
+        public bool FromComplexModel { get; set; }
         
         public object Clone()
         {
             return new SqlNode()
             {
                 Schema = this.Schema,
+                Alias = this.Alias,
                 Table = this.Table,
                 Column = this.Column,
                 Value = this.Value,

@@ -140,7 +140,7 @@ public class SqlSelectBuilder
                     foreach (var mutationNode in mutationNodeToProcess.GetNodes().Last().GetNodes())
                     {
                         GetMutations(modelTrees, mutationNode,
-                            entityDictionary, modelDictionary,
+                            modelDictionary, entityDictionary,
                             sqlUpsertStatementNodes, modelTrees
                                 .First(t =>
                                     t.Key.Matches(rootEntityName)).Value, string.Empty,
@@ -153,7 +153,7 @@ public class SqlSelectBuilder
                 else
                 {
                     GetMutations(modelTrees, mutationNodeToProcess,
-                        entityDictionary, modelDictionary,
+                        modelDictionary, entityDictionary,
                         sqlUpsertStatementNodes, modelTrees
                             .First(t =>
                                 t.Key.Matches(rootEntityName)).Value, string.Empty,
@@ -326,56 +326,43 @@ public class SqlSelectBuilder
     }
     
     public static void GetMutations(Dictionary<string, NodeTree> trees, ISyntaxNode node,
-        Dictionary<string, SqlNode> linkEntityDictionaryTree,
         Dictionary<string, SqlNode> linkModelDictionaryTree,
+        Dictionary<string, SqlNode> linkEntityDictionaryTree,
         Dictionary<string, SqlNode> sqlStatementNodes, NodeTree currentTree,
         string previousNode, NodeTree parentTree, List<string> models, List<string> entities,
         List<string> visitedModels)
     {
-            // if (node.ToString().StartsWith("["))
-            // {
-            //     foreach (var childNode in node.GetNodes())
-            //     {
-            //         GetMutations(trees, node, linkEntityDictionaryTree, linkModelDictionaryTree,
-            //             sqlStatementNodes, currentTree, node.ToString(),
-            //             parentTree, models, entities, visitedModels);
-            //     }
-            // }
-            // else
-            // {
-                if (linkModelDictionaryTree.TryGetValue(
-                        $"{currentTree.Alias}~{currentTree.Name}~{node.ToString()}",
-                        out var sqlNodeFrom))
+        if (linkModelDictionaryTree.TryGetValue(
+                $"{currentTree.Alias}~{currentTree.Name}~{node.ToString()}",
+                out var sqlNodeFrom))
+        {
+            var isEnum = false;
+            var enumIntValue = string.Empty;
+        
+            if (linkEntityDictionaryTree.TryGetValue(sqlNodeFrom.RelationshipKey,
+                    out var sqlNodeTo))
+            {
+                if (previousNode.Split(':').Length == 2)
                 {
-                    var isEnum = false;
-                    var enumIntValue = string.Empty;
-                
-                    if (linkEntityDictionaryTree.TryGetValue(sqlNodeFrom.RelationshipKey,
-                            out var sqlNodeTo))
+                    var enumValue = sqlNodeTo.FromEnumeration.FirstOrDefault(a => a.Key.Matches(previousNode.Split(':')[1].Sanitize().Replace("_", "")));
+                    if (!string.IsNullOrEmpty(enumValue.Key))
                     {
-                        if (previousNode.Split(':').Length == 2)
-                        {
-                            var enumValue = sqlNodeTo.FromEnumeration.FirstOrDefault(a => a.Key.Matches(previousNode.Split(':')[1].Sanitize().Replace("_", "")));
-                            if (!string.IsNullOrEmpty(enumValue.Key))
-                            {
-                                isEnum = true;
-                                var toEnum = sqlNodeTo.FromEnumeration
-                                    .FirstOrDefault(e =>
-                                        e.Key.Matches(enumValue.Key)).Value;
-                                sqlNodeTo.Value = toEnum.ToString().ToUpperCamelCase();
-                            }
-                            else
-                            {
-                                sqlNodeTo.Value = previousNode.Split(':')[1].Sanitize().ToUpperCamelCase();
-                            }
-                        }
-
-                        AddEntity(linkEntityDictionaryTree, sqlStatementNodes, trees, currentTree,
-                            sqlNodeTo, isEnum);
+                        isEnum = true;
+                        var toEnum = sqlNodeTo.FromEnumeration
+                            .FirstOrDefault(e =>
+                                e.Key.Matches(enumValue.Key)).Value;
+                        sqlNodeTo.Value = toEnum.ToString();
                     }
-                // }
-            // }
-            
+                    else
+                    {
+                        sqlNodeTo.Value = previousNode.Split(':')[1].Sanitize();
+                    }
+                }
+
+                AddEntity(linkEntityDictionaryTree, sqlStatementNodes, trees, currentTree,
+                    sqlNodeTo, isEnum);
+            }
+        
             return;
         }
 
@@ -386,31 +373,6 @@ public class SqlSelectBuilder
 
         foreach (var childNode in node.GetNodes())
         {
-            // if (models.Any(e => e.Matches(childNode.ToString().Split('{')[0])) ||
-            //     node.ToString().Matches("nodes") ||
-            //     node.ToString().Matches("node"))
-            // {
-            //     var childName = node.ToString().Split('{')[0].Trim();
-            //     if (node.ToString().Matches("nodes") ||
-            //         node.ToString().Matches("node"))
-            //     {
-            //         currentTree = trees.First(a => a.Value.Name.Matches(models.Last())).Value;
-            //     }
-            //     else if (currentTree.NodeMap?.ModelChildren.Any(l => l.To.Matches(childName)) == true)
-            //     {
-            //         currentTree = trees.First(a => a.Value.ModelName.Matches(childName)).Value;
-            //     }
-            //
-            //     if (currentTree.Parents.Count == 0)
-            //     {
-            //         parentTree = currentTree;
-            //     }
-            //     else
-            //     {
-            //         parentTree = trees[currentTree.Parents[0].To];
-            //     }
-            // }
-            
             var childName = node.GetNodes().FirstOrDefault(a => a.Kind == SyntaxKind.Name);
             
             if (childName != null && models.Any(e => e.Matches(childName.ToString())) ||
@@ -422,9 +384,9 @@ public class SqlSelectBuilder
                 else
                     currentTree = trees.First(a => a.Value.Name.Matches(childName.ToString())).Value;
             }
-            else if (childName != null  && currentTree.NodeMap?.ModelChildren.Any(l => l.To.Matches(childName.ToString())) == true)
+            else if (childName != null  && trees.FirstOrDefault(a => a.Value.ModelName.Matches(childName.ToString().ToUpperCamelCase())).Value != null)
             {
-                currentTree = trees.First(a => a.Value.ModelName.Matches(childName.ToString())).Value;
+                currentTree = trees.FirstOrDefault(a => a.Value.ModelName.Matches(childName.ToString().ToUpperCamelCase())).Value;
             }
 
             GetMutations(trees, childNode, linkEntityDictionaryTree, linkModelDictionaryTree,
@@ -437,54 +399,30 @@ public class SqlSelectBuilder
         Dictionary<string, SqlNode> sqlStatementNodes, Dictionary<string, NodeTree> entityTrees, NodeTree currentTree,
         SqlNode? sqlNode, bool isEnum)
     {
-
-        var entity = sqlNode.Clone() as SqlNode;
-        var setted = false;
-        // foreach (var entity in 
-        //              .Where(v => sqlNode.Alias.Matches(v.Value.Alias) && sqlNode.Column.Matches(v.Value.Column)))
-        // {
-        //     if (isEnum)
-        //     {
-        //         var a = true;
-        //     }
+        
+        foreach (var auxFieldMap in currentTree.NodeMap?.FieldMaps
+                     .Where(f => f.SourceName.Matches(sqlNode.RelationshipKey.Split('~')[2])))
+        {
+            var entity = sqlNode.Clone() as SqlNode;
             
             if (string.IsNullOrEmpty(entity.Value))
             {
                 entity.Value = sqlNode.Value;
             }
             
-            // if (entityTrees.TryGetValue(fieldMap.DestinationAlias, out var targetEntityTree))
-            // {
-                foreach (var auxFieldMap in currentTree.NodeMap?.FieldMaps
-                             .Where(f => f.SourceName.Equals(sqlNode.Column, 
-                                 StringComparison.OrdinalIgnoreCase)))
-                {
-                    setted = true;
-                    entity.RelationshipKey =
-                        $"{auxFieldMap?.DestinationAlias}~{auxFieldMap.DestinationEntity}~{sqlNode?.Column.ToUpperCamelCase()}";
-                    break;
-                }
-            // }
-            // else
-            // 
-
-            if (!setted)
-            {
-                foreach (var linkKey in sqlNode.LinkKeys.Where(a => a.ToColumn.Matches(sqlNode.Column)))
-                {
-                    entity.RelationshipKey =
-                        $"{linkKey.AliasTo}~{
-                            linkKey.To}~{sqlNode.LinkKeys.First(a => a.ToColumn.Matches(sqlNode.Column)).ToColumn}";
-                    break;
-                }
-            }
-                
-            // }
-
+            entity.Alias = auxFieldMap.DestinationAlias;
+            entity.Table = (currentTree.IsEntity ? currentTree.Name : auxFieldMap.DestinationEntity);
+            entity.RelationshipKey =
+                $"{(currentTree.IsEntity ? currentTree.Alias : auxFieldMap.DestinationAlias)}~{
+                    (currentTree.IsEntity ? currentTree.Name : auxFieldMap.DestinationEntity)}~{
+                        sqlNode.RelationshipKey.Split('~')[2]}";
+            entity.FromComplexModel = !currentTree.IsEntity;
+            
             if (!sqlStatementNodes.ContainsKey(entity.RelationshipKey))
             {
                 sqlStatementNodes.Add(entity.RelationshipKey, entity);
             }
+        }
     }
     
     public static void GetFields(

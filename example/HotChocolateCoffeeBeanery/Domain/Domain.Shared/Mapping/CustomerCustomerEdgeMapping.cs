@@ -26,8 +26,8 @@ public class CustomerCustomerEdgeMapping
 
         map.ModelChildren.AddRange(new[]
         {
-            new LinkKey { AliasFrom    = A(nameof(CustomerCustomerEdge)), From = nameof(CustomerCustomerEdge), FromColumn = nameof(CustomerCustomerEdge.InnerCustomerKey), AliasTo = A(nameof(Customer)), To = nameof(CustomerCustomerRelationship.InnerCustomer), ToColumn = nameof(Customer.CustomerKey) },
-            new LinkKey { AliasFrom    = A(nameof(CustomerCustomerEdge)), From = nameof(CustomerCustomerEdge), FromColumn = nameof(CustomerCustomerEdge.OuterCustomerKey), AliasTo = A(nameof(Customer)), To = nameof(CustomerCustomerRelationship.OuterCustomer), ToColumn = nameof(Customer.CustomerKey) }
+            new LinkKey { AliasFrom    = A(nameof(CustomerCustomerEdge)), From = nameof(CustomerCustomerEdge), FromColumn = nameof(CustomerCustomerEdge.InnerCustomerKey), AliasTo = A(nameof(Customer)), To = nameof(CustomerCustomerRelationship.InnerCustomer), ToColumn = nameof(CustomerCustomerRelationship.InnerCustomerKey) },
+            new LinkKey { AliasFrom    = A(nameof(CustomerCustomerEdge)), From = nameof(CustomerCustomerEdge), FromColumn = nameof(CustomerCustomerEdge.OuterCustomerKey), AliasTo = A(nameof(Customer)), To = nameof(CustomerCustomerRelationship.OuterCustomer), ToColumn = nameof(CustomerCustomerRelationship.OuterCustomerKey) }
         });
         
         map.ModelParents.Add(new LinkKey

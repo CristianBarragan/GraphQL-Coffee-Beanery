@@ -282,20 +282,23 @@ public static class SqlHelper
             return;
         }
         
-        var linkKeys = new List<LinkKey>();
-        linkKeys.AddRange(childTree.Parents
+        var linkKeyss = childTree.Parents
             .Join(
-            trees,
-            child => child.AliasTo,
-            tree => tree.Key,
-            (child, tree) => new
-            {
-                LinkKey = child,
-                ToUpdate = !tree.Value.Mapping.Any(a => a.DestinationName.Matches(child.FromColumn)),
-                TreeId = tree.Value.Id
-            }).Where(a => a.ToUpdate).OrderBy(k => k.TreeId).Select(k => k.LinkKey));
+                trees,
+                child => child.AliasTo,
+                tree => tree.Key,
+                (child, tree) => new
+                {
+                    LinkKey = child,
+                    ToUpdate = !tree.Value.Mapping.Any(a => a.DestinationName.Matches(child.ToColumn)),
+                    TreeId = tree.Value.Id
+                }).OrderBy(k => k.TreeId).Select(k => k.LinkKey)
+            .GroupBy(a => a.AliasTo)
+            .Select(a => new { AliasTo = a.First().AliasTo, AliasFrom = a.First().AliasFrom,
+                ToColumns = a.Select(v => v.ToColumn).ToList(), 
+                FromColumns = a.Select(v => v.FromColumn).ToList() }).ToList();
         
-        foreach (var linkKey in linkKeys)
+        foreach (var linkKey in linkKeyss)
         {
             if (!trees.TryGetValue(linkKey.AliasTo, out var parentTree))
             {
@@ -319,14 +322,27 @@ public static class SqlHelper
                 continue;
             
             var upsertKeysFrom = trees[linkKey.AliasFrom].UpsertKeys;
-            
+                
             var sqlNodeChildColumn = sqlUpsertStatementNodes
                 .Where(a => upsertKeysFrom.Any(b => b.Split('~')[1].Matches(a.Value.Column))).ToList();
-     
+                
             if (sqlNodeChildColumn == null)
                 continue;
 
-            sql = GenerateStatement(childTree, sqlNodeChildColumn, linkKey.FromColumn, sqlNodeParentColumn, parentTree, linkKey.ToColumn);
+            if (linkKey.ToColumns.All(b => parentTree.Mapping.Any(a => a.DestinationName.Matches(b)))) 
+            {
+                linkKey.ToColumns.AddRange(upsertKeysTo.Select(a => a.Split('~')[1]));
+                linkKey.FromColumns.AddRange(upsertKeysTo.Select(a => a.Split('~')[1]));
+                
+                sql = GenerateStatement(childTree, linkKey.ToColumns, sqlNodeParentColumn, 
+                    parentTree, linkKey.FromColumns,
+                    sqlNodeChildColumn.Select(a => a.Value.Column).ToList(), true, sqlNodeChildColumn);
+            }
+            else
+            {
+                sql = GenerateStatement(parentTree, linkKey.FromColumns, sqlNodeParentColumn, childTree, linkKey.ToColumns, 
+                    sqlNodeParentColumn.Select(a => a.Value.Column).ToList(), false, sqlNodeChildColumn);    
+            }
 
             if (!string.IsNullOrEmpty(sql) && !statements.Contains(sql))
             {
@@ -334,8 +350,9 @@ public static class SqlHelper
             }
         }
         
-        linkKeys.Clear();
-        linkKeys.AddRange(childTree.RelatedParents.Join(
+        var linkKeys = new List<LinkKey>();
+        linkKeys.AddRange(childTree.RelatedParents
+            .Join(
             trees,
             child => child.AliasTo,
             tree => tree.Key,
@@ -366,10 +383,13 @@ public static class SqlHelper
             var sqlNodeParentColumn = sqlUpsertStatementNodes
                 .Where(a => upsertKeys.Any(b => b.Split('~')[1].Matches(a.Value.Column))).ToList();
      
-            if (sqlNodeParentColumn == null)
+            if (sqlNodeParentColumn == null || sqlNodeParentColumn.First().Value.FromComplexModel)
                 continue;
             
-            upsertKeys = trees[linkKey.AliasFrom].UpsertKeys;
+            // var upsertKeysFrom = trees[linkKey.AliasFrom].UpsertKeys.Select(a => a.Split('~')[1]).ToList();
+            //
+            // var upsertKeysStatement = sqlNodeParentColumn.Where(a => upsertKeysFrom
+            //     .Any(b => b.Matches(a.Value.Column))).Select(c => c.Value.Alias).ToList();
             
             var sqlNodeChildColumn = sqlUpsertStatementNodes
                 .Where(a => upsertKeys.Any(b => b.Split('~')[1].Matches(a.Value.Column))).ToList();
@@ -377,7 +397,9 @@ public static class SqlHelper
             if (sqlNodeChildColumn == null)
                 continue;
             
-            sql = GenerateStatement(parentTree, sqlNodeParentColumn, linkKey.ToColumn, sqlNodeChildColumn, childTree, linkKey.FromColumn);
+            sql = GenerateStatement(parentTree, new List<string>(){linkKey.ToColumn}, sqlNodeChildColumn, 
+                childTree, new List<string>(){ linkKey.FromColumn },
+                sqlNodeParentColumn.Select(a => a.Value.Column).ToList());
             
             if (!string.IsNullOrEmpty(sql) && !statements.Contains(sql))
             {
@@ -387,34 +409,61 @@ public static class SqlHelper
     }
 
     private static string GenerateStatement(NodeTree parentTree,
-        List<KeyValuePair<string, SqlNode>> sqlNodeParentColumns, string toColumn, List<KeyValuePair<string, SqlNode>> currentChildColumns, NodeTree childTree, string fromColumn)
+        List<string> toColumns, List<KeyValuePair<string, SqlNode>> currentChildColumns, 
+        NodeTree childTree, List<string> fromColumns, List<string> onConflict, bool isChild = false, List<KeyValuePair<string, SqlNode>> parentColumns = null)
     {
-        if (sqlNodeParentColumns.Count == 0)
-        {
-            return string.Empty;
-        }
+        var insertJoin = new List<string>();
         
-        var insertJoin = new List<string> { $"\"{toColumn}\"" };
-        var selectJoin = new List<string> { $"{childTree.Alias}.\"{fromColumn}\" AS \"{toColumn}\"" };
-        var excludeJoin = new List<string> { $"\"{toColumn}\" = EXCLUDED.\"{toColumn}\"" };
-     
-        insertJoin.AddRange(sqlNodeParentColumns.Select(a => $"\"{a.Value.Column}\""));
-        insertJoin.AddRange(currentChildColumns.Select(a => $"\"{a.Value.Column}\""));
-        
-        selectJoin.AddRange(sqlNodeParentColumns.Select(a => $"'{a.Value.Value}' AS \"{a.Value.Column}\""));
-        selectJoin.AddRange(currentChildColumns.Select(a => $"'{a.Value.Value}' AS \"{a.Value.Column}\""));
+        var selectJoin = new List<string>();
 
-        excludeJoin.AddRange(sqlNodeParentColumns.Select(a => $"\"{a.Value.Column}\" = EXCLUDED.\"{a.Value.Column}\""));
-        excludeJoin.AddRange(
+        var where = string.Empty;
+        
+        var excludeJoin = new List<string>();
+        
+        if (isChild)
+        {
+            // insertJoin.AddRange(fromColumns.Select(a => $"\"{a}\""));
+            //
+            // selectJoin.AddRange(toColumns.Select((a) => $"{childTree.Alias}.\"{a}\" AS \"{a}\""));
+            //
+            // excludeJoin.AddRange(fromColumns.Select(a => $"\"{a}\" = EXCLUDED.\"{a}\"").ToList());
+            
+            insertJoin.AddRange(fromColumns.Select(a => $"\"{a}\""));
+            
+            selectJoin.AddRange(fromColumns.Select((a, index) => $"{childTree.Alias}.\"{toColumns[index]}\" AS \"{a}\""));
+            
+            excludeJoin.AddRange(fromColumns.Select(a => $"\"{a}\" = EXCLUDED.\"{a}\"").ToList());
+            
+            insertJoin.AddRange(parentColumns.Select(a => $"\"{a.Value.Column}\""));
+        
+            selectJoin.AddRange(parentColumns.Select(a => $"'{a.Value.Value}' AS \"{a.Value.Column}\""));
+            
+            excludeJoin.AddRange(
+                parentColumns.Select(a => $"\"{a.Value.Column}\" = EXCLUDED.\"{a.Value.Column}\""));
+            
+            where = string.Join(" AND ", currentChildColumns
+                .Select(a => $"\"{a.Value.Column}\" = '{a.Value.Value}'"));
+        }
+        else
+        {
+            
+            insertJoin.AddRange(fromColumns.Select(a => $"\"{a}\""));
+            
+            selectJoin.AddRange(fromColumns.Select((a, index) => $"{childTree.Alias}.\"{toColumns[index]}\" AS \"{a}\""));
+            
+            excludeJoin.AddRange(fromColumns.Select(a => $"\"{a}\" = EXCLUDED.\"{a}\"").ToList());
+            
+            insertJoin.AddRange(currentChildColumns.Select(a => $"\"{a.Value.Column}\""));
+        
+            selectJoin.AddRange(currentChildColumns.Select(a => $"'{a.Value.Value}' AS \"{a.Value.Column}\""));
+            
+            excludeJoin.AddRange(
                 currentChildColumns.Select(a => $"\"{a.Value.Column}\" = EXCLUDED.\"{a.Value.Column}\""));
-
-        var where = String.Empty;
-
-        foreach (var currentChildColumn in currentChildColumns)
-        {
-            where += $"\"{currentChildColumn.Value.Column}\" = '{currentChildColumn.Value.Value}'";
+            
+            where = string.Join(" AND ", parentColumns
+                .Select(a => $"\"{a.Value.Column}\" = '{a.Value.Value}'"));
         }
-
+        
         if (string.IsNullOrEmpty(where))
             return string.Empty;
      
@@ -424,7 +473,7 @@ public static class SqlHelper
             $"( SELECT {string.Join(",", selectJoin)} " +
             $"FROM \"{childTree.Schema}\".\"{childTree.Name}\" {childTree.Alias} " +
             $"WHERE {where} ) " +
-            $"ON CONFLICT ({string.Join(",", sqlNodeParentColumns.Select(a => $"\"{a.Value.Column}\"").ToList())}) ";
+            $"ON CONFLICT ({string.Join(",", onConflict.Select((a, index) => $"\"{a}\"").ToList())}) ";
      
         sqlUpsertAux += excludeJoin.Count > 0
             ? $" DO UPDATE SET {string.Join(",", excludeJoin)}"

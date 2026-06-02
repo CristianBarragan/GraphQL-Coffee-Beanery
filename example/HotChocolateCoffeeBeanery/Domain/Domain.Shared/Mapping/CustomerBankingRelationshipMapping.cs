@@ -27,15 +27,19 @@ public class CustomerBankingRelationshipMapping
             Schema = nameof(DataEntity.Schema.Banking)
         };
 
-        map.EntityParents.Add(new LinkKey
-        {
-            AliasFrom    = A(nameof(DataEntity.CustomerBankingRelationship)),
-            From       = nameof(DataEntity.CustomerBankingRelationship),
-            FromColumn = nameof(DataEntity.CustomerBankingRelationship.CustomerId),
-            AliasTo    = A(nameof(DataEntity.Customer)),
-            To         = nameof(DataEntity.Customer),
-            ToColumn   = nameof(DataEntity.Customer.Id)
-        });
+        map.EntityParents.AddRange(new []
+            {
+                new LinkKey
+                {
+                    AliasFrom    = A(nameof(DataEntity.CustomerBankingRelationship)),
+                    From       = nameof(DataEntity.CustomerBankingRelationship),
+                    FromColumn = nameof(DataEntity.CustomerBankingRelationship.CustomerId),
+                    AliasTo    = A(nameof(DataEntity.Customer)),
+                    To         = nameof(DataEntity.Customer),
+                    ToColumn   = nameof(DataEntity.Customer.Id)
+                }
+            }
+        );
 
         map.EntityChildren.Add(new LinkKey
         {
