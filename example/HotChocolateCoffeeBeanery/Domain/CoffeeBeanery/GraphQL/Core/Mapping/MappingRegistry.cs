@@ -17,8 +17,7 @@ public static class MappingRegistry
         map.ModelType  = modelType;
         map.EntityType = entityType;
 
-        var simpleKey = alias ?? modelType.Name;
-        map.Alias = simpleKey;
+        var simpleKey = alias;
         Registry[simpleKey] = map;
 
         return map;

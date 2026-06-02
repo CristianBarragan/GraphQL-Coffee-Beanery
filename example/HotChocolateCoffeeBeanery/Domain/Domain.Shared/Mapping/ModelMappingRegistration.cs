@@ -4,7 +4,7 @@ namespace Domain.Shared.Mapping
 {
     public class ModelMappingRegistration
     {
-        private static readonly IMappingSet<CustomerMappingType>[] Sets =
+        private static readonly IMappingSet<CustomerMappingType, Domain.Model.Model>[] Sets =
         {
             new AccountMappingSet(),
             new ContactPointMappingSet(),

@@ -5,18 +5,18 @@ using DataEntity = Database.Entity;
 
 namespace Domain.Shared.Mapping;
 
-public class CustomerBankingRelationshipMappingSet : IMappingSet<CustomerMappingType>
+public class CustomerBankingRelationshipMappingSet : IMappingSet<CustomerMappingType, Domain.Model.Model>
 {
-    public void Register(CustomerMappingType type)
+    public void Register(CustomerMappingType type, Domain.Model.Model model)
     {
-        new CustomerBankingRelationshipMapping(type.ToString()).Register();
+        new CustomerBankingRelationshipMapping(type.ToString(), model.ToString()).Register();
     }
 }
 
 public class CustomerBankingRelationshipMapping
     : BaseMappingRegistration<CustomerBankingRelationship, DataEntity.CustomerBankingRelationship>
 {
-    public CustomerBankingRelationshipMapping(string alias) : base(alias)
+    public CustomerBankingRelationshipMapping(string alias, string model) : base(alias, model)
     {
     }
 
@@ -74,10 +74,10 @@ public class CustomerBankingRelationshipMapping
         {
             AliasFrom    = A(nameof(CustomerBankingRelationship)),
             From       = nameof(CustomerBankingRelationship),
-            FromColumn = nameof(CustomerBankingRelationship.CustomerBankingRelationshipKey),
+            FromColumn = nameof(CustomerBankingRelationship.CustomerKey),
             AliasTo    = A(nameof(DataEntity.CustomerBankingRelationship)),
             To         = nameof(DataEntity.CustomerBankingRelationship),
-            ToColumn   = nameof(DataEntity.CustomerBankingRelationship.CustomerBankingRelationshipKey)
+            ToColumn   = nameof(DataEntity.CustomerBankingRelationship.CustomerKey)
         });
 
         map.UpsertKeys.Add(new UpsertKey(
@@ -87,9 +87,9 @@ public class CustomerBankingRelationshipMapping
 
         map.FieldMaps.AddRange(new[]
         {
-            new FieldMap { SourceName = nameof(DataEntity.CustomerBankingRelationship.Id),                       DestinationEntity = nameof(DataEntity.CustomerBankingRelationship), DestinationName = nameof(DataEntity.CustomerBankingRelationship.Id) },
-            new FieldMap { SourceName = nameof(CustomerBankingRelationship.CustomerBankingRelationshipKey),       DestinationEntity = nameof(DataEntity.CustomerBankingRelationship), DestinationName = nameof(DataEntity.CustomerBankingRelationship.CustomerBankingRelationshipKey) },
-            new FieldMap { SourceName = nameof(CustomerBankingRelationship.CustomerKey),                         DestinationEntity = nameof(DataEntity.CustomerBankingRelationship), DestinationName = nameof(DataEntity.CustomerBankingRelationship.CustomerKey) }
+            new FieldMap { SourceAlias = A(nameof(CustomerBankingRelationship)), DestinationAlias = A(nameof(DataEntity.CustomerBankingRelationship)), SourceName = nameof(DataEntity.CustomerBankingRelationship.Id),                       DestinationEntity = nameof(DataEntity.CustomerBankingRelationship), DestinationName = nameof(DataEntity.CustomerBankingRelationship.Id) },
+            new FieldMap { SourceAlias = A(nameof(CustomerBankingRelationship)), DestinationAlias = A(nameof(DataEntity.CustomerBankingRelationship)), SourceName = nameof(CustomerBankingRelationship.CustomerBankingRelationshipKey),       DestinationEntity = nameof(DataEntity.CustomerBankingRelationship), DestinationName = nameof(DataEntity.CustomerBankingRelationship.CustomerBankingRelationshipKey) },
+            new FieldMap { SourceAlias = A(nameof(CustomerBankingRelationship)), DestinationAlias = A(nameof(DataEntity.CustomerBankingRelationship)), SourceName = nameof(CustomerBankingRelationship.CustomerKey),                         DestinationEntity = nameof(DataEntity.CustomerBankingRelationship), DestinationName = nameof(DataEntity.CustomerBankingRelationship.CustomerKey) }
         });
 
         return map;

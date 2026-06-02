@@ -31,11 +31,11 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
             var entitiesProcessed = new List<string>();
             
             var nodeTreeKeyValuePair =
-                SqlNodeRegistry.ModelTrees.FirstOrDefault(a => a.Value.ModelToEntityLinks[0].To.Matches(wrapperEntityName));
+                SqlNodeRegistry.ModelTrees.FirstOrDefault(a => a.Value.ModelToEntityLinks[0].AliasTo.Matches(wrapperEntityName));
 
             if (nodeTreeKeyValuePair.Value == null)
             {
-                nodeTreeKeyValuePair = SqlNodeRegistry.ModelTrees.FirstOrDefault(a => a.Value.ModelToEntityLinks[0].From.Matches(wrapperEntityName));
+                nodeTreeKeyValuePair = SqlNodeRegistry.ModelTrees.FirstOrDefault(a => a.Value.ModelToEntityLinks[0].AliasFrom.Matches(wrapperEntityName));
             }
 
             foreach (var fieldMap in nodeTreeKeyValuePair.Value.Mapping)

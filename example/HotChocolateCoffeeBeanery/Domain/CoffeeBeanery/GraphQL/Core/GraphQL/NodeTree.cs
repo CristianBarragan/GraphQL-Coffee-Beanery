@@ -9,6 +9,7 @@ namespace CoffeeBeanery.GraphQL.Core.GraphQL
     {
         
         public string Alias { get; set; } = "";
+        public string ModelName { get; set; } = "";
         public string Name { get; set; } = "";
         public string Schema { get; set; } = "public";
         public int Id { get; init; }

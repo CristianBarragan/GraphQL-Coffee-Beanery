@@ -3,32 +3,44 @@ using System.Linq;
 using System.Reflection;
 using CoffeeBeanery.GraphQL.Core.Mapping;
 using CoffeeBeanery.GraphQL.Core.Warmup;
+using CoffeeBeanery.GraphQL.Helper;
 
 public static class GraphWarmup
 {
     private static bool _initialized;
 
-    public static void Init<TSet, TEnum>(this IServiceCollection services, Assembly assembly)
-        where TSet : IMappingSet<TEnum>
-        where TEnum : Enum
+    public static void Init<TSet, TEnum, T2Enum>(
+        this IServiceCollection services,
+        Assembly assembly)
+        where TSet : IMappingSet<TEnum, T2Enum>
+        where TEnum  : Enum
+        where T2Enum : Enum
     {
         if (_initialized) return;
         _initialized = true;
-
-        if (!typeof(TEnum).IsEnum)
-            throw new ArgumentException($"{typeof(TEnum).Name} is not an Enum type.");
 
         var sets = assembly.GetTypes()
             .Where(t => typeof(TSet).IsAssignableFrom(t)
                         && !t.IsInterface
                         && !t.IsAbstract)
-            .Select(t => (TSet)Activator.CreateInstance(t)!);
+            .Select(t => (TSet)Activator.CreateInstance(t)!)
+            .ToList(); // materialise once — avoids re-instantiating on each iteration
+        
+        var enum1Values = Enum.GetValues(typeof(TEnum)).Cast<TEnum>().ToList();
+        var enum2Values = Enum.GetValues(typeof(T2Enum)).Cast<T2Enum>().ToList();
 
-        foreach (TEnum type in Enum.GetValues(typeof(TEnum)))
+        foreach (var type in enum1Values)
         {
-            foreach (var set in sets)
+            foreach (var type2 in enum2Values)
             {
-                set.Register(type);
+                foreach (var set in sets)
+                {
+                    if ($"{type2.ToString()}MappingSet".Matches(set.GetType().Name) ||
+                        ($"{type.ToString()}MappingSet".Matches(set.GetType().Name) && type2.ToString() == type.ToString()))
+                    {
+                        set.Register(type, type2);
+                    }
+                }
             }
         }
 

@@ -50,6 +50,8 @@ namespace CoffeeBeanery.GraphQL.Core.Mapping
 
         public string Alias { get; set; }
 
+        public string ModelName { get; set; }
+
     }
 
 }

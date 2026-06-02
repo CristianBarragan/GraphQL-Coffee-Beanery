@@ -5,17 +5,17 @@ using DataEntity = Database.Entity;
 
 namespace Domain.Shared.Mapping;
 
-public class AccountMappingSet : IMappingSet<CustomerMappingType>
+public class AccountMappingSet : IMappingSet<CustomerMappingType, Domain.Model.Model>
 {
-    public void Register(CustomerMappingType type)
+    public void Register(CustomerMappingType type, Domain.Model.Model model)
     {
-        new AccountMapping(type.ToString()).Register();
+        new AccountMapping(type.ToString(), model.ToString()).Register();
     }
 }
 
 public class AccountMapping : BaseMappingRegistration<Account, DataEntity.Account>
 {
-    public AccountMapping(string alias) : base(alias)
+    public AccountMapping(string alias, string model) : base(alias, model)
     {
     }
 
@@ -73,10 +73,10 @@ public class AccountMapping : BaseMappingRegistration<Account, DataEntity.Accoun
 
         map.FieldMaps.AddRange(new[]
         {
-            new FieldMap { SourceName = nameof(DataEntity.Account.Id),  DestinationEntity = nameof(DataEntity.Account), DestinationName = nameof(DataEntity.Account.Id) },
-            new FieldMap { SourceName = nameof(Account.AccountKey),     DestinationEntity = nameof(DataEntity.Account), DestinationName = nameof(DataEntity.Account.AccountKey) },
-            new FieldMap { SourceName = nameof(Account.AccountNumber),  DestinationEntity = nameof(DataEntity.Account), DestinationName = nameof(DataEntity.Account.AccountNumber) },
-            new FieldMap { SourceName = nameof(Account.AccountName),    DestinationEntity = nameof(DataEntity.Account), DestinationName = nameof(DataEntity.Account.AccountName) }
+            new FieldMap { SourceAlias = A(nameof(DataEntity.Account)), DestinationAlias = A(nameof(DataEntity.Account)), SourceName = nameof(DataEntity.Account.Id), DestinationEntity = nameof(DataEntity.Account), DestinationName = nameof(DataEntity.Account.Id) },
+            new FieldMap { SourceAlias = A(nameof(DataEntity.Account)), DestinationAlias = A(nameof(DataEntity.Account)), SourceName = nameof(Account.AccountKey), DestinationEntity = nameof(DataEntity.Account), DestinationName = nameof(DataEntity.Account.AccountKey) },
+            new FieldMap { SourceAlias = A(nameof(DataEntity.Account)), DestinationAlias = A(nameof(DataEntity.Account)), SourceName = nameof(Account.AccountNumber), DestinationEntity = nameof(DataEntity.Account), DestinationName = nameof(DataEntity.Account.AccountNumber) },
+            new FieldMap { SourceAlias = A(nameof(DataEntity.Account)), DestinationAlias = A(nameof(DataEntity.Account)), SourceName = nameof(Account.AccountName), DestinationEntity = nameof(DataEntity.Account), DestinationName = nameof(DataEntity.Account.AccountName) }
         });
 
         return map;

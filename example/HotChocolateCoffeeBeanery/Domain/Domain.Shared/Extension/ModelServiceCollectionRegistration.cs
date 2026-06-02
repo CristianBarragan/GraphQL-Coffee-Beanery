@@ -28,7 +28,7 @@ namespace Domain.Shared.Extension
                     (List<Wrapper>, int?, int?, int?, int?)>,
                 CustomerCustomerEdgeQueryHandler<Wrapper>>();
             
-            services.Init<IMappingSet<CustomerMappingType>, CustomerMappingType>(
+            services.Init<IMappingSet<CustomerMappingType, Domain.Model.Model>, CustomerMappingType, Domain.Model.Model>(
                 typeof(ModelMappingRegistration).Assembly);
             SqlNodeBuilder.BuildFromMappings();
 

@@ -9,7 +9,7 @@ namespace CoffeeBeanery.GraphQL.Helper
                 return false;
             }
 
-            return string.Compare(input, comparison, StringComparison.InvariantCultureIgnoreCase) == 0 &&
+            return string.Compare(input, comparison, StringComparison.OrdinalIgnoreCase) == 0 &&
                    input.Length == comparison.Length;
         }
 

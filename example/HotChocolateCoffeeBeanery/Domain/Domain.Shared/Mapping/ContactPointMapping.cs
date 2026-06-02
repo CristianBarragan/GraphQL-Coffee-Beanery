@@ -5,17 +5,17 @@ using DataEntity = Database.Entity;
 
 namespace Domain.Shared.Mapping;
 
-public class ContactPointMappingSet : IMappingSet<CustomerMappingType>
+public class ContactPointMappingSet : IMappingSet<CustomerMappingType, Domain.Model.Model>
 {
-    public void Register(CustomerMappingType type)
+    public void Register(CustomerMappingType type, Domain.Model.Model model)
     {
-        new ContactPointMapping(type.ToString()).Register();
+        new ContactPointMapping(type.ToString(), model.ToString()).Register();
     }
 }
 
 public class ContactPointMapping : BaseMappingRegistration<ContactPoint, DataEntity.ContactPoint>
 {
-    public ContactPointMapping(string alias) : base(alias)
+    public ContactPointMapping(string alias, string model) : base(alias, model)
     {
     }
 
@@ -63,10 +63,10 @@ public class ContactPointMapping : BaseMappingRegistration<ContactPoint, DataEnt
 
         map.FieldMaps.AddRange(new[]
         {
-            new FieldMap { SourceName = nameof(DataEntity.ContactPoint.Id),      DestinationEntity = nameof(DataEntity.ContactPoint), DestinationName = nameof(DataEntity.ContactPoint.Id) },
-            new FieldMap { SourceName = nameof(ContactPoint.ContactPointKey),     DestinationEntity = nameof(DataEntity.ContactPoint), DestinationName = nameof(DataEntity.ContactPoint.ContactPointKey) },
-            new FieldMap { SourceName = nameof(ContactPoint.ContactPointValue),   DestinationEntity = nameof(DataEntity.ContactPoint), DestinationName = nameof(DataEntity.ContactPoint.ContactPointValue) },
-            new FieldMap { SourceName = nameof(ContactPoint.CustomerKey),         DestinationEntity = nameof(DataEntity.ContactPoint), DestinationName = nameof(DataEntity.ContactPoint.CustomerKey) }
+            new FieldMap { SourceAlias = A(nameof(ContactPoint)), DestinationAlias = A(nameof(DataEntity.ContactPoint)), SourceName = nameof(DataEntity.ContactPoint.Id),      DestinationEntity = nameof(DataEntity.ContactPoint), DestinationName = nameof(DataEntity.ContactPoint.Id) },
+            new FieldMap { SourceAlias = A(nameof(ContactPoint)), DestinationAlias = A(nameof(DataEntity.ContactPoint)), SourceName = nameof(ContactPoint.ContactPointKey),     DestinationEntity = nameof(DataEntity.ContactPoint), DestinationName = nameof(DataEntity.ContactPoint.ContactPointKey) },
+            new FieldMap { SourceAlias = A(nameof(ContactPoint)), DestinationAlias = A(nameof(DataEntity.ContactPoint)), SourceName = nameof(ContactPoint.ContactPointValue),   DestinationEntity = nameof(DataEntity.ContactPoint), DestinationName = nameof(DataEntity.ContactPoint.ContactPointValue) },
+            new FieldMap { SourceAlias = A(nameof(ContactPoint)), DestinationAlias = A(nameof(DataEntity.ContactPoint)), SourceName = nameof(ContactPoint.CustomerKey),         DestinationEntity = nameof(DataEntity.ContactPoint), DestinationName = nameof(DataEntity.ContactPoint.CustomerKey) }
         });
 
         return map;

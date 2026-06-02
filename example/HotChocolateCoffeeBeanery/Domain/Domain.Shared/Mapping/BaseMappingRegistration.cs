@@ -8,15 +8,17 @@ namespace Domain.Shared.Mapping
         where TEntity : class
     {
         protected readonly string Prefix;
+        protected readonly string Model;
         protected readonly string RegistrationKey;
 
-        protected BaseMappingRegistration(string alias)
+        protected BaseMappingRegistration(string alias, string model)
         {
             Prefix = alias;
             // FIXED: compute directly, not via A(nameof(TModel>() which depends on Prefix
             RegistrationKey = string.IsNullOrWhiteSpace(alias)
                 ? typeof(TModel).Name
                 : $"{alias}{typeof(TModel).Name}";
+            Model = model;
         }
 
         protected string A(string name) =>
@@ -38,6 +40,7 @@ namespace Domain.Shared.Mapping
             map.IsModel  = IsModel;
             map.IsGraph  = IsGraph;
             map.Alias    = RegistrationKey;
+            map.ModelName = Model;
 
             MappingRegistry.Register(typeof(TModel), typeof(TEntity), map, RegistrationKey);
         }
@@ -47,15 +50,17 @@ namespace Domain.Shared.Mapping
         where TModel : class
     {
         protected readonly string Prefix;
+        protected readonly string Model;
         protected readonly string RegistrationKey;
 
-        protected BaseModelMappingRegistration(string alias)
+        protected BaseModelMappingRegistration(string alias, string model)
         {
             Prefix = alias;
             // FIXED: same pattern — compute directly
             RegistrationKey = string.IsNullOrWhiteSpace(alias)
                 ? typeof(TModel).Name
                 : $"{alias}{typeof(TModel).Name}";
+            Model = model;
         }
 
         protected string A(string name) =>
@@ -71,6 +76,7 @@ namespace Domain.Shared.Mapping
             map.IsModel  = true;
             map.IsEntity = false;
             map.Alias    = RegistrationKey;
+            map.ModelName = Model;
 
             MappingRegistry.Register(typeof(TModel), entityType: null, map, RegistrationKey);
         }

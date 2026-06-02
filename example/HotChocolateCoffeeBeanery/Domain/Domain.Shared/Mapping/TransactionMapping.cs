@@ -5,18 +5,18 @@ using Domain.Model;
 namespace Domain.Shared.Mapping;
 using DataEntity = Database.Entity;
 
-public class TransactionMappingSet : IMappingSet<CustomerMappingType>
+public class TransactionMappingSet : IMappingSet<CustomerMappingType, Domain.Model.Model>
 {
-    public void Register(CustomerMappingType type)
+    public void Register(CustomerMappingType type, Domain.Model.Model model)
     {
-        new TransactionMapping(type.ToString()).Register();
+        new TransactionMapping(type.ToString(), model.ToString()).Register();
     }
 }
 
 public class TransactionMapping 
     : BaseMappingRegistration<Transaction, DataEntity.Transaction>
 {
-    public TransactionMapping(string alias) : base(alias)
+    public TransactionMapping(string alias, string model) : base(alias, model)
     {
     }
 
@@ -75,10 +75,10 @@ public class TransactionMapping
 
         map.FieldMaps.AddRange(new[]
         {
-            new FieldMap { SourceName = nameof(DataEntity.Transaction.Id),  DestinationEntity = nameof(DataEntity.Transaction), DestinationName = nameof(DataEntity.Transaction.Id) },
-            new FieldMap { SourceName = nameof(Transaction.TransactionKey), DestinationEntity = nameof(DataEntity.Transaction), DestinationName = nameof(DataEntity.Transaction.TransactionKey) },
-            new FieldMap { SourceName = nameof(Transaction.Amount),         DestinationEntity = nameof(DataEntity.Transaction), DestinationName = nameof(DataEntity.Transaction.Amount) },
-            new FieldMap { SourceName = nameof(Transaction.Balance),        DestinationEntity = nameof(DataEntity.Transaction), DestinationName = nameof(DataEntity.Transaction.Balance) }
+            new FieldMap { SourceAlias = A(nameof(Transaction)), DestinationAlias = A(nameof(DataEntity.Transaction)), SourceName = nameof(DataEntity.Transaction.Id),  DestinationEntity = nameof(DataEntity.Transaction), DestinationName = nameof(DataEntity.Transaction.Id) },
+            new FieldMap { SourceAlias = A(nameof(Transaction)), DestinationAlias = A(nameof(DataEntity.Transaction)), SourceName = nameof(Transaction.TransactionKey), DestinationEntity = nameof(DataEntity.Transaction), DestinationName = nameof(DataEntity.Transaction.TransactionKey) },
+            new FieldMap { SourceAlias = A(nameof(Transaction)), DestinationAlias = A(nameof(DataEntity.Transaction)), SourceName = nameof(Transaction.Amount),         DestinationEntity = nameof(DataEntity.Transaction), DestinationName = nameof(DataEntity.Transaction.Amount) },
+            new FieldMap { SourceAlias = A(nameof(Transaction)), DestinationAlias = A(nameof(DataEntity.Transaction)), SourceName = nameof(Transaction.Balance),        DestinationEntity = nameof(DataEntity.Transaction), DestinationName = nameof(DataEntity.Transaction.Balance) }
         });
 
         return map;

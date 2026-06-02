@@ -5,17 +5,17 @@ using DataEntity = Database.Entity;
 
 namespace Domain.Shared.Mapping;
 
-public class ContractMappingSet : IMappingSet<CustomerMappingType>
+public class ContractMappingSet : IMappingSet<CustomerMappingType, Domain.Model.Model>
 {
-    public void Register(CustomerMappingType type)
+    public void Register(CustomerMappingType type, Domain.Model.Model model)
     {
-        new ContractMapping(type.ToString()).Register();
+        new ContractMapping(type.ToString(), model.ToString()).Register();
     }
 }
 
 public class ContractMapping : BaseMappingRegistration<Contract, DataEntity.Contract>
 {
-    public ContractMapping(string alias) : base(alias)
+    public ContractMapping(string alias, string model) : base(alias, model)
     {
     }
 
@@ -83,11 +83,11 @@ public class ContractMapping : BaseMappingRegistration<Contract, DataEntity.Cont
 
         map.FieldMaps.AddRange(new[]
         {
-            new FieldMap { SourceName = nameof(DataEntity.Contract.Id), DestinationEntity = nameof(DataEntity.Contract), DestinationName = nameof(DataEntity.Contract.Id) },
-            new FieldMap { SourceName = nameof(Contract.ContractKey),   DestinationEntity = nameof(DataEntity.Contract), DestinationName = nameof(DataEntity.Contract.ContractKey) },
+            new FieldMap { SourceAlias = A(nameof(Contract)), DestinationAlias = A(nameof(DataEntity.Contract)), SourceName = nameof(DataEntity.Contract.Id), DestinationEntity = nameof(DataEntity.Contract), DestinationName = nameof(DataEntity.Contract.Id) },
+            new FieldMap { SourceAlias = A(nameof(Contract)), DestinationAlias = A(nameof(DataEntity.Contract)), SourceName = nameof(Contract.ContractKey),   DestinationEntity = nameof(DataEntity.Contract), DestinationName = nameof(DataEntity.Contract.ContractKey) },
             new FieldMap
             {
-                SourceName = nameof(Product.ProductType),  DestinationEntity = nameof(DataEntity.Contract), DestinationName = nameof(DataEntity.Contract.ContractType),
+                SourceAlias = A(nameof(Product)), DestinationAlias = A(nameof(DataEntity.Contract)), SourceName = nameof(Product.ProductType),  DestinationEntity = nameof(DataEntity.Contract), DestinationName = nameof(DataEntity.Contract.ContractType),
                 FromEnum = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
                 {
                     { ContractType.CreditCard.ToString(), (int)ContractType.CreditCard },
@@ -101,7 +101,7 @@ public class ContractMapping : BaseMappingRegistration<Contract, DataEntity.Cont
                     { ProductType.PersonalLoan.ToString(), (int)ProductType.PersonalLoan }
                 }
             },
-            new FieldMap { SourceName = nameof(Contract.Amount),        DestinationEntity = nameof(DataEntity.Contract), DestinationName = nameof(DataEntity.Contract.Amount) }
+            new FieldMap { SourceAlias = A(nameof(Contract)), DestinationAlias = A(nameof(DataEntity.Contract)), SourceName = nameof(Contract.Amount),        DestinationEntity = nameof(DataEntity.Contract), DestinationName = nameof(DataEntity.Contract.Amount) }
         });
 
         return map;
