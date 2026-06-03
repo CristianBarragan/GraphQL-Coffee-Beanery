@@ -11,243 +11,50 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime;
 
 public class SqlSelectBuilder
 {
-    
-    /// <summary>
-    /// Method to handle three Selection using recursion to visit each argument and nodes
-    /// </summary>
-    /// <param name="graphQlSelection"></param>
-    /// <param name="entityTreeMap"></param>
-    /// <param name="modelTreeMap"></param>
-    /// <param name="rootEntityName"></param>
-    /// <param name="wrapperEntityName"></param>
-    /// <param name="cache"></param>
-    /// <param name="cacheKey"></param>
-    /// <param name="permissions"></param>
-    /// <typeparam name="D"></typeparam>
-    /// <typeparam name="S"></typeparam>
-    /// <returns></returns>
-    public static SqlStructure HandleGraphQL(ISelection graphQlSelection,
-        Dictionary<string, SqlNode> entityDictionary,
-        Dictionary<string, SqlNode> modelDictionary,
+    public static SqlStructure HandleGraphQL(
+        Dictionary<string, SqlNode> sqlNodes,
+        Dictionary<string, SqlNode> sqlNodeStatements,
+        Dictionary<string, string> sqlWhereStatement,
         Dictionary<string, NodeTree> entityTrees,
-        Dictionary<string, NodeTree> modelTrees,
-        List<string> entityNames,
-        List<string> modelNames, string rootEntityName, string wrapperEntityName,
-        IFasterKV<string, string> cache, string cacheKey, string modelName, string wrapperName,
+        List<string> entityNames, NodeTree currentTree,
+        IFasterKV<string, string> cache, string cacheKey,
         Dictionary<string, List<string>> permissions = null)
     {
-        var sqlWhereStatement = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        var sqlOrderStatement = string.Empty;
-        var parameters = new DynamicParameters();
-        var whereFields = new List<string>();
-        var pagination = new Pagination();
-        var hasPagination = false;
-        var hasSorting = false;
-        var isCached = false;
-        var sqlSelectStatement = string.Empty;
-        var sqlUpsertStatement = string.Empty;
-        var models = modelNames;
-        var transformedToParent = false;
-        var tranformedModel = string.Empty;
-
-        while (string.IsNullOrEmpty(tranformedModel))
-        {
-            if (modelTrees.First(a => a.Value.ModelName.Matches(modelName)).Value.Parents.Count > 0)
-            {
-                var treeTransforming = modelTrees.First(a => a.Value.ModelName.Matches(modelName))
-                    .Value;
-                tranformedModel = treeTransforming.Parents[0].AliasFrom;
-                rootEntityName = treeTransforming.Parents[0].AliasTo;
-            }
-            else
-            {
-                var treeTransforming = modelTrees.First(a => a.Value.ModelName.Matches(modelName))
-                    .Value;
-                tranformedModel = treeTransforming.ModelToEntityLinks[0].AliasFrom;
-                rootEntityName = treeTransforming.ModelToEntityLinks[0].AliasTo;
-            }
-        }
-
-        //Where conditions
-        GetFieldsWhere(modelTrees, entityDictionary,
-            modelDictionary,
-            whereFields, sqlWhereStatement, graphQlSelection.SyntaxNode.Arguments
-                .FirstOrDefault(a => a.Name.Value.Matches("where")),
-            modelTrees.Last().Value.Name, rootEntityName, wrapperEntityName,
-            string.Empty, Entity.ClauseTypes, permissions);
-
-        //Arguments
-        foreach (var argument in graphQlSelection.SyntaxNode.Arguments
-                     .Where(a => !a.Name.Value.Matches("where")))
-        {
-            switch (argument.Name.ToString())
-            {
-                case "first":
-                    pagination.First = string.IsNullOrEmpty(argument.Value?.Value?.ToString())
-                        ? 0
-                        : int.Parse(argument.Value?.Value.ToString());
-                    hasPagination = true;
-                    break;
-                case "last":
-                    pagination.Last = string.IsNullOrEmpty(argument.Value?.Value?.ToString())
-                        ? 0
-                        : int.Parse(argument.Value?.Value.ToString());
-                    hasPagination = true;
-                    break;
-                case "before":
-                    pagination.Before = string.IsNullOrEmpty(argument.Value?.Value?.ToString())
-                        ? ""
-                        : argument.Value?.Value.ToString();
-                    hasPagination = true;
-                    break;
-                case "after":
-                    pagination.After = string.IsNullOrEmpty(argument.Value?.Value?.ToString())
-                        ? ""
-                        : argument.Value?.Value.ToString();
-                    hasPagination = true;
-                    break;
-            }
-
-            if (argument.Name.ToString().Contains("order"))
-            {
-                foreach (var orderNode in argument.GetNodes())
-                {
-                    hasSorting = true;
-                    sqlOrderStatement = GetFieldsOrdering(modelTrees, orderNode,
-                        rootEntityName,
-                        wrapperEntityName, rootEntityName, modelDictionary);
-                }
-            }
-
-            var sqlUpsertStatementNodes = new Dictionary<string, SqlNode>();
-            var visitedModels = new List<string>()
-            {
-                modelName
-            };
-            
-            var mutationNodeToProcess = argument.GetNodes().Last(a => a.Kind == SyntaxKind.ObjectValue).GetNodes()
-                .FirstOrDefault(a => !a.ToString().StartsWith("model") && !a.ToString().StartsWith("cacheKey"));
-
-            if (mutationNodeToProcess != null)
-            {
-                var nodeTreeRoot = new NodeTree();
-                nodeTreeRoot.Name = string.Empty;
-                var statements = new List<string>();
-                var selectStatements = new List<string>();
-            
-                if (mutationNodeToProcess.GetNodes().Last().ToString().StartsWith("["))
-                {
-                    foreach (var mutationNode in mutationNodeToProcess.GetNodes().Last().GetNodes())
-                    {
-                        GetMutations(modelTrees, mutationNode,
-                            modelDictionary, entityDictionary,
-                            sqlUpsertStatementNodes, modelTrees
-                                .First(t =>
-                                    t.Key.Matches(rootEntityName)).Value, string.Empty,
-                            new NodeTree(), models, entityNames, visitedModels);
-                        
-                        SqlHelper.GenerateUpsertStatements(entityTrees, sqlUpsertStatementNodes, entityTrees[rootEntityName], entityNames,
-                            sqlWhereStatement, new List<string>(), statements, selectStatements);
-                    }
-                }
-                else
-                {
-                    GetMutations(modelTrees, mutationNodeToProcess,
-                        modelDictionary, entityDictionary,
-                        sqlUpsertStatementNodes, modelTrees
-                            .First(t =>
-                                t.Key.Matches(rootEntityName)).Value, string.Empty,
-                        new NodeTree(), models, entityNames, visitedModels);
-                    
-                    SqlHelper.GenerateUpsertStatements(entityTrees, sqlUpsertStatementNodes, entityTrees[rootEntityName], entityNames,
-                        sqlWhereStatement, new List<string>(), statements, selectStatements);
-                }
-                statements.Reverse();
-                sqlUpsertStatement = string.Join(";", statements);
-                sqlUpsertStatement += string.Join(";", selectStatements);
-            }
-        }
-
-        // Query Select
-        var level = 1;
-        var rootNodeTree = new NodeTree();
-
-        //Generate cache level 1
-        var edgeNode = graphQlSelection.SelectionSet?.Selections!
-            .FirstOrDefault(s => s.ToString().StartsWith("edges"));
-        var node = graphQlSelection.SelectionSet?.Selections!
-            .FirstOrDefault(s => s.ToString().StartsWith("nodes"));
-
-        //Read cache
-        // using var cacheReadSession = cache.NewSession(new SimpleFunctions<string, string>());
-        // cacheReadSession.Read(ref cacheKey, ref sqlSelectStatement);
-
-        var sqlStatementNodes = new Dictionary<string, SqlNode>();
-        var visitedFieldModel = new List<string>();
-
-        if (!graphQlSelection.SelectionSet.Selections[0].GetNodes().ToList()[0].ToString().Matches("nodes"))
-        {
-            GetFields(modelTrees, entityTrees, edgeNode.GetNodes()
-                    .FirstOrDefault(a => a.Kind == SyntaxKind.SelectionSet).GetNodes().FirstOrDefault(),
-                entityDictionary, modelDictionary, 
-                sqlStatementNodes,
-                entityTrees.First(t =>
-                    t.Key.Matches(rootEntityName)).Value,
-                new NodeTree(), visitedFieldModel, new List<string>(), models, entityNames,
-                true);
-        }
-        
-        visitedFieldModel.Clear();
-
-        if (graphQlSelection.SelectionSet.Selections[0].GetNodes().ToList()[0].ToString().Matches("nodes"))
-        {
-            GetFields(modelTrees, entityTrees, node,
-                entityDictionary, modelDictionary,
-                sqlStatementNodes,
-                modelTrees.First(t =>
-                    t.Key.Matches(rootEntityName)).Value,
-                new NodeTree(), visitedFieldModel, new List<string>(), models, entityNames,
-                false);
-        }
-
         var sqlQueryStatement = new StringBuilder();
         var sqlQueryStructures = new Dictionary<string, SqlQueryStructure>(
             StringComparer.OrdinalIgnoreCase);
         var splitOnDapper = new Dictionary<string, Type>();
         var removeOnDapper = new Dictionary<string, Type>();
         var entityOrder = new List<string>();
+        
+        var childrenSqlStatement = new Dictionary<string, string>(
+            StringComparer.OrdinalIgnoreCase);
 
-        if (string.IsNullOrEmpty(sqlSelectStatement))
+        var entityTypes = entityTrees.Select(a => a.Value.EntityType).ToList();
+
+        GenerateQuery(entityTrees,
+            entityTypes,
+            sqlNodes,
+            sqlQueryStatement, sqlNodeStatements, sqlWhereStatement,
+            entityTrees.First(a => a.Key.Matches(currentTree.ModelToEntityLinks[0].AliasTo)).Value,
+            childrenSqlStatement, entityNames, sqlQueryStructures,
+            splitOnDapper, removeOnDapper, entityOrder, new List<string>());
+        
+        var queryStructure = sqlQueryStructures.FirstOrDefault();
+
+        var sqlSelectStatement = queryStructure.Value.Query;
+
+        if (splitOnDapper.Count == 0)
         {
-            var childrenSqlStatement = new Dictionary<string, string>(
-                StringComparer.OrdinalIgnoreCase);
-
-            var entityTypes = entityTrees.Select(a => a.Value.EntityType).ToList();
-
-            GenerateQuery(entityTrees,
-                entityTypes,
-                entityDictionary,
-                sqlQueryStatement, sqlStatementNodes, sqlWhereStatement,
-                entityTrees.First(a => a.Key.Matches(rootEntityName)).Value,
-                childrenSqlStatement, entityNames, sqlQueryStructures,
-                splitOnDapper, removeOnDapper, entityOrder, new List<string>(), rootEntityName);
-            
-            var queryStructure = sqlQueryStructures.FirstOrDefault();
-
-            sqlSelectStatement = queryStructure.Value.Query;
-
-            if (splitOnDapper.Count == 0)
-            {
-                splitOnDapper.Add(queryStructure.Value.JoinOnKey, entityTypes
-                    .First(a => a.Name.Matches(queryStructure.Key)));
-            }
-
-            //Update cache
-            // if (!isCached)
-            // {
-            //     cacheReadSession.Upsert(ref cacheKey, ref sqlStament);    
-            // }
+            splitOnDapper.Add(queryStructure.Value.JoinOnKey, entityTypes
+                .First(a => a.Name.Matches(queryStructure.Key)));
         }
+
+        //Update cache
+        // if (!isCached)
+        // {
+        //     cacheReadSession.Upsert(ref cacheKey, ref sqlStament);    
+        // }
 
         var splitOnDapperOrdered = new Dictionary<string, Type>();
         var entityMapping = new Dictionary<string, Type>();
@@ -265,7 +72,7 @@ public class SqlSelectBuilder
 
         if (splitOnDapperOrdered.Count == 0)
         {
-            var entity = entityTrees[rootEntityName].EntityType;
+            var entity = currentTree.EntityType;
             splitOnDapperOrdered.Add(entity.Name, entity);
             entityMapping.Add(sqlQueryStructures.First().Key, entity);
         }
@@ -275,28 +82,16 @@ public class SqlSelectBuilder
             return default;
         }
 
-        var hasTotalCount = false;
-
-        if (hasPagination || hasSorting)
-        {
-            rootNodeTree = entityTrees[rootEntityName];
-            // Query Where, Sort, and Pagination
-            sqlSelectStatement = SqlHelper.HandleQueryClause(rootNodeTree, sqlSelectStatement,
-                sqlOrderStatement, pagination, hasTotalCount);
-        }
-
-        var sqlStructure = new SqlStructure()
+        return new SqlStructure()
         {
             SqlQuery = sqlSelectStatement,
-            Parameters = parameters,
-            SqlUpsert = sqlUpsertStatement,
+            // Parameters = parameters,
+            // SqlUpsert = sqlUpsertStatement,
             SplitOnDapper = splitOnDapperOrdered,
-            Pagination = pagination,
+            // Pagination = pagination,
             HasTotalCount = false,
             EntityMapping = entityMapping
         };
-
-        return sqlStructure;
     }
     
     public static void GetMutations(Dictionary<string, NodeTree> trees, ISyntaxNode node,
@@ -549,7 +344,7 @@ public class SqlSelectBuilder
             NodeTree currentTree, Dictionary<string, string> childrenSqlStatement,
             List<string> entityNames,
             Dictionary<string, SqlQueryStructure> sqlQueryStructures,
-            Dictionary<string, Type> splitOnDapper, Dictionary<string, Type> removeOnDapper, List<string> entityOrder, List<string> visitedEntities, string rootNodeTree)
+            Dictionary<string, Type> splitOnDapper, Dictionary<string, Type> removeOnDapper, List<string> entityOrder, List<string> visitedEntities)
     {
         var hasChildren = false;
         var children = new List<string>();
@@ -564,7 +359,7 @@ public class SqlSelectBuilder
         var currentEntityStructure = GenerateEntityQuery(entityTrees,
             linkEntityDictionaryTreeNode,
             sqlStatementNodes, currentTree, entityNames, sqlQueryStatement,
-            sqlQueryStructures, sqlWhereStatement, childrenSqlStatement, rootNodeTree, visitedEntities, hasChildren);
+            sqlQueryStructures, sqlWhereStatement, childrenSqlStatement, visitedEntities, hasChildren);
         
         if (!sqlQueryStructures.Any(a => a.Key
                 .Matches(currentTree.Alias)))
@@ -591,7 +386,7 @@ public class SqlSelectBuilder
             GenerateQuery(entityTrees, entityTypes, linkEntityDictionaryTreeNode,
                 sqlQueryStatement, sqlStatementNodes, sqlWhereStatement,
                 childTree, childrenSqlStatement, entityNames, sqlQueryStructures,
-                splitOnDapper, removeOnDapper, entityOrder, visitedEntities, rootNodeTree);
+                splitOnDapper, removeOnDapper, entityOrder, visitedEntities);
 
             if (!(sqlQueryStructures.Any(a => a.Key.Matches(childTree.Alias) &&
                                               sqlQueryStructures[childTree.Alias].Columns.ToList().Count - 1 > sqlQueryStructures[childTree.Alias].ChildrenJoinColumns.Count)) &&
@@ -665,8 +460,9 @@ public class SqlSelectBuilder
         Dictionary<string, SqlNode> sqlStatementNodes, NodeTree currentTree, List<string> entityNames,
         StringBuilder sqlQueryStatement, Dictionary<string, SqlQueryStructure> sqlQueryStructures,
         Dictionary<string, string> sqlWhereStatement, Dictionary<string, string> childrenSqlStatement,
-        string rootEntity, List<string> visitedEntities, bool hasChildren)
+        List<string> visitedEntities, bool hasChildren)
     {
+        var rootEntity = currentTree.Alias;
         var childrenJoinColumns = new Dictionary<string, string>();
         var currentColumns = new List<KeyValuePair<string, SqlNode>>(); 
         var columnToAdd = linkEntityDictionaryTreeNode
@@ -687,7 +483,9 @@ public class SqlSelectBuilder
 
         currentColumns = currentColumns.Distinct().ToList();
 
-        if (currentColumns.Count > 1 && !currentColumns.First().Value.LinkKeys.Where(b => !b.ToColumn.Matches("Id")).Any(a => currentColumns.Any(b => b.Value.Column.Matches(a.FromColumn))))
+        if (currentColumns.Count > 1 && !currentColumns.First().Value.LinkKeys.Where(a => a.ToColumn.Matches("Id"))
+                .Any(a => !currentColumns.Any(b => b.Value.Column.Matches(a.FromColumn))) &&
+            !currentColumns.Any(a => a.Value.UpsertKeys.Any(b => b.Split('~')[1].Matches(a.Value.Column))))
         {
             return new SqlQueryStructure();
         }

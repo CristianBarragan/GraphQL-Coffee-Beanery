@@ -280,9 +280,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                     node.ToString().Matches("nodes") ||
                     node.ToString().Matches("node"))
                 {
-                    if (node.ToString().Matches("nodes") || node.ToString().Matches("node"))
-                        currentTree = trees.OrderBy(a => a.Value.Id).First().Value;
-                    else
+                    if (!(node.ToString().Matches("nodes") || node.ToString().Matches("node")))
                         currentTree = trees.First(a => a.Value.Name.Matches(childNode.ToString().Split('{')[0])).Value;
 
                     parentTree = currentTree.Parents.Count == 0

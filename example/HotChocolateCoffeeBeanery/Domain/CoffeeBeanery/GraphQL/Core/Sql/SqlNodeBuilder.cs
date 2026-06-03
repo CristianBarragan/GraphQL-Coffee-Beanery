@@ -1,6 +1,5 @@
 ﻿using CoffeeBeanery.GraphQL.Core.GraphQL;
 using CoffeeBeanery.GraphQL.Core.Mapping;
-using CoffeeBeanery.GraphQL.Helper;
 
 namespace CoffeeBeanery.GraphQL.Core.Sql
 {
@@ -23,6 +22,7 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
         public static void BuildModel(string model, NodeMap map)
         {
             var modelName = map.ModelType.Name;
+            
             var table = map.EntityType?.Name;
             var linkKeys  = map.LinkKeys;
             var alias = model;
@@ -125,6 +125,7 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
                     Name               = map.ModelType.Name,
                     EntityType         = map.EntityType,
                     ModelType          = map.ModelType,
+                    Schema             = map.Schema,
                     Children           = map.EntityChildren,
                     Parents            = map.EntityParents,
                     RelatedParents     = map.EntityRelatedParents,

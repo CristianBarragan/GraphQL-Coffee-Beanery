@@ -53,7 +53,7 @@ namespace CoffeeBeanery.Service
             var entityName = SqlNodeRegistry.EntityTrees.FirstOrDefault(a => a.Value.ModelToEntityLinks.Any(b=> b.From.Matches(modelName))).Value.Parents[0].To;
 
             var rootTree = SqlNodeRegistry.EntityTrees[modelName];
-
+            
             var edgeStatementNodes = new Dictionary<string, SqlNode>(StringComparer.OrdinalIgnoreCase);
             var visitedModels = new List<string>();
             var visitedEntities = new List<string>();
@@ -103,27 +103,25 @@ namespace CoffeeBeanery.Service
                     : rootEdgeEntity.Key;
             }
 
-            var sqlWhereStatement = new Dictionary<string, string>();
-
             // Compile SQL using your current compiler
-            var sqlStructure = SqlQueryCompiler.Compile(
-                selection,
-                rootTree,
-                edgeStatementNodes,
-                nodeStatementNodes,
-                rootEntity,
-                SqlNodeRegistry.EntityTrees,
-                SqlNodeRegistry.ModelTrees,
-                sqlWhereStatement,
-                _cache,
-                wrapperName,
-                cacheKey,
-                modelName
-            );
+            // var sqlStructure = SqlQueryCompiler.Compile(
+            //     selection,
+            //     rootTree,
+            //     edgeStatementNodes,
+            //     nodeStatementNodes,
+            //     rootEntity,
+            //     SqlNodeRegistry.EntityTrees,
+            //     SqlNodeRegistry.ModelTrees,
+            //     sqlWhereStatement,
+            //     _cache,
+            //     wrapperName,
+            //     cacheKey,
+            //     modelName
+            // );
 
             var parameters = new ProcessQueryParameters
             {
-                SqlStructure = sqlStructure,
+                // SqlStructure = sqlStructure,
                 Pagination = ctx.Pagination,
                 Model = modelName
             };
@@ -150,121 +148,25 @@ namespace CoffeeBeanery.Service
             var transformedToParent = false;
             
             var rootTree = SqlNodeRegistry.ModelTrees.First(a => 
-                a.Value.ModelName.Matches(rootName)).Value;
+                a.Value.ModelName.Matches(modelName)).Value;
             
-            var mutationStatementNodes = new Dictionary<string, SqlNode>(StringComparer.OrdinalIgnoreCase);
-
-            var argument = selection.SyntaxNode.Arguments.FirstOrDefault(a => a.Name.Value.Matches(wrapperName));
-            wrapperName = argument.GetNodes().Last().GetNodes().FirstOrDefault(a => a.ToString().Contains("model")).ToString().Split(":")[1].Replace("_","").Trim(' ');
-            var wrapperNameTree =
-                SqlNodeRegistry.ModelTrees.First(a =>
-                    a.Value.ModelName.Matches(wrapperName)).Value;
-
-            if (wrapperNameTree.ModelToEntityLinks.Count > 0)
-            {
-                wrapperName = wrapperNameTree.Alias; 
-            }
-            
-            // if (
-            //     argument.GetNodes().ToList()[1].ToString().StartsWith("["))
-            // {
-            //     var mutationNodeToProcess = argument.Value.GetNodes()
-            //         .First(a => !a.ToString().Contains("cache") && !a.ToString().Contains("model"));
-            //
-            //     foreach (var mutationNode in mutationNodeToProcess.GetNodes().ToList()[1].GetNodes())
-            //     {
-            //         SqlNodeResolver.GetMutations(SqlNodeRegistry.ModelTrees, SqlNodeRegistry.EntityTrees, mutationNode, SqlNodeRegistry.EntityNodes,
-            //             SqlNodeRegistry.ModelNodes, mutationStatementNodes,
-            //             rootTree, string.Empty, rootTree, SqlNodeRegistry.ModelTrees.Keys.ToList(),
-            //             SqlNodeRegistry.EntityNames, new List<string>());
-            //     }
-            // }
-            // else
-            // {
-            //     SqlNodeResolver.GetMutations(SqlNodeRegistry.ModelTrees, SqlNodeRegistry.EntityTrees, selection.SyntaxNode.Arguments[0], SqlNodeRegistry.EntityNodes,
-            //         SqlNodeRegistry.ModelNodes, mutationStatementNodes,
-            //         rootTree, string.Empty, rootTree, SqlNodeRegistry.ModelTrees.Keys.ToList(),
-            //         SqlNodeRegistry.EntityNames, new List<string>());
-            // }
-
             var sqlWhereStatement = new Dictionary<string, string>();
 
-            var nodeTreeKeyValuePair =
-                SqlNodeRegistry.ModelTrees.FirstOrDefault(a => a.Value.ModelToEntityLinks[0].To.Matches(modelName));
-
-            if (nodeTreeKeyValuePair.Value == null)
-            {
-                nodeTreeKeyValuePair = SqlNodeRegistry.ModelTrees.FirstOrDefault(a => a.Value.ModelToEntityLinks[0].From.Matches(modelName));
-            }
-            
-            var mutationStructure = SqlMutationCompiler.Compile(selection, nodeTreeKeyValuePair.Value, wrapperName, mutationStatementNodes, sqlWhereStatement);
-
-            var edgeStatementNodes = new Dictionary<string, SqlNode>(StringComparer.OrdinalIgnoreCase);
-            var visitedModels = new List<string>();
-            var visitedEntities = new List<string>();
-            var nodeStatementNodes = new Dictionary<string, SqlNode>(StringComparer.OrdinalIgnoreCase);
-
-            SqlNodeResolver.GetFields(SqlNodeRegistry.ModelTrees, SqlNodeRegistry.EntityTrees, selection.SyntaxNode.GetNodes()
-                    .ToList().Last(a => a.Kind == SyntaxKind.SelectionSet).GetNodes().ToList().Last().GetNodes().Last().GetNodes().First(), 
-                SqlNodeRegistry.EntityNodes, SqlNodeRegistry.ModelNodes, edgeStatementNodes, rootTree, new NodeTree(), visitedModels, 
-                visitedEntities, SqlNodeRegistry.ModelNames, SqlNodeRegistry.EntityNames, true);
-
-            var rootNodeEntity = SqlNodeRegistry.EntityTrees.OrderBy(a => a.Value.Id)
-                .FirstOrDefault(a => visitedEntities.Contains(a.Key));
-
-            if (nodeStatementNodes.Count == 0)
-            {
-                rootNodeEntity = default;
-            }
-            
-            SqlNodeResolver.GetFields(SqlNodeRegistry.ModelTrees, SqlNodeRegistry.EntityTrees, selection.SyntaxNode.GetNodes().ToList().Last(a => a.Kind == SyntaxKind.SelectionSet), SqlNodeRegistry.EntityNodes,
-                SqlNodeRegistry.ModelNodes, nodeStatementNodes, rootTree, new NodeTree(), visitedModels, visitedEntities,
-                SqlNodeRegistry.ModelNames, SqlNodeRegistry.EntityNames, false);
-            
-            var rootEdgeEntity = SqlNodeRegistry.EntityTrees.OrderBy(a => a.Value.Id)
-                .FirstOrDefault(a => visitedEntities.Contains(a.Key));
-            visitedEntities.Clear();
-            visitedModels.Clear();
-
-            if (edgeStatementNodes.Count == 0)
-            {
-                rootEdgeEntity = default;
-            }
-
-            var rootEntity = modelName;
-
-            if (rootEdgeEntity.Key != null && rootNodeEntity.Key == null)
-            {
-                rootEntity = rootEdgeEntity.Key;
-            }
-            else if (rootEdgeEntity.Key == null && rootNodeEntity.Key != null)
-            {
-                rootEntity = rootNodeEntity.Key;
-            }
-            else if (rootNodeEntity.Key != null && rootEdgeEntity.Key != null)
-            {
-                rootEntity = rootEdgeEntity.Value.Id > rootNodeEntity.Value.Id
-                    ? rootNodeEntity.Key
-                    : rootEdgeEntity.Key;
-            }
+            var mutationStructure = SqlMutationCompiler.Compile(selection, rootTree, sqlWhereStatement, SqlNodeRegistry.ModelTrees, SqlNodeRegistry.EntityTrees, SqlNodeRegistry.ModelNodes, 
+                SqlNodeRegistry.EntityNodes, SqlNodeRegistry.ModelNames, SqlNodeRegistry.EntityNames);
 
             // Compile SQL using your current compiler
             var sqlStructure = SqlQueryCompiler.Compile(
                 selection,
                 rootTree,
-                edgeStatementNodes,
-                nodeStatementNodes,
-                rootEntity,
+                SqlNodeRegistry.EntityNodes,
                 SqlNodeRegistry.EntityTrees,
                 SqlNodeRegistry.ModelTrees,
-                sqlWhereStatement,
                 _cache,
-                wrapperName,
-                cacheKey,
-                modelName
+                cacheKey
             );
             
-            // sqlStructure.SqlUpsert = mutationStructure.SqlUpsert;
+            sqlStructure.SqlUpsert = mutationStructure.SqlUpsert;
             sqlStructure.ModelTrees = SqlNodeRegistry.ModelTrees;
             sqlStructure.EntityTrees = SqlNodeRegistry.EntityTrees;
             sqlStructure.SqlNodes = SqlNodeRegistry.EntityNodes.Select(a => a.Value).ToArray();

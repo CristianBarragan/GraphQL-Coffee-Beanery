@@ -2,12 +2,7 @@ using Amazon;
 using Amazon.RDS.Util;
 using Api.Banking.Mutation;
 using Api.Banking.Query;
-using CoffeeBeanery.GraphQL.Core.Mapping;
-using CoffeeBeanery.GraphQL.Core.Sql;
-using Domain.Model;
 using Domain.Shared.Extension;
-using Domain.Shared.Mapping;
-// using Domain.Shared.Query;
 using HotChocolate.AspNetCore;
 using HotChocolate.Types.Pagination;
 

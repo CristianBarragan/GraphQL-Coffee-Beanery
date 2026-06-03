@@ -14,7 +14,6 @@ namespace Domain.Shared.Mapping
         protected BaseMappingRegistration(string alias, string model)
         {
             Prefix = alias;
-            // FIXED: compute directly, not via A(nameof(TModel>() which depends on Prefix
             RegistrationKey = string.IsNullOrWhiteSpace(alias)
                 ? typeof(TModel).Name
                 : $"{alias}{typeof(TModel).Name}";
@@ -56,7 +55,6 @@ namespace Domain.Shared.Mapping
         protected BaseModelMappingRegistration(string alias, string model)
         {
             Prefix = alias;
-            // FIXED: same pattern — compute directly
             RegistrationKey = string.IsNullOrWhiteSpace(alias)
                 ? typeof(TModel).Name
                 : $"{alias}{typeof(TModel).Name}";

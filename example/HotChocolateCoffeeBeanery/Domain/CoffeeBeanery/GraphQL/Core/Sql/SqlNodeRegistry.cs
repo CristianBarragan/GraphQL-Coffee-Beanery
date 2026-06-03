@@ -24,9 +24,6 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
 
         public static void RegisterNode(string modelKey, string entityKey, SqlNode node, Type modelType, Type entityType, bool isEntity)
         {
-            var modelKeyAux = modelKey.Split('~').Length > 1 ? ModelTrees.FirstOrDefault(a => a.Key.Matches(modelKey.Split('~')[0])).Value?.Alias ?? modelKey.Split('~')[0] : modelKey.Split('~')[1];
-            var entityKeyAux = entityKey.Split('~').Length > 1 ? EntityTrees.FirstOrDefault(a => a.Key.Matches(entityKey.Split('~')[0])).Value?.Alias ?? entityKey.Split('~')[0] : entityKey.Split('~')[1];
-            
             if (!ModelNames.Contains(modelType.Name))
             {
                 ModelNames.Add(modelType.Name);
@@ -48,7 +45,6 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
             }
             
             if (!EntityNodes.ContainsKey(entityKey))
-                // && isEntity)
             {
                 EntityNodes[entityKey] = node;
             }

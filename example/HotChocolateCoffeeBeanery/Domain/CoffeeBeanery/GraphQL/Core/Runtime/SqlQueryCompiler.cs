@@ -4,6 +4,7 @@ using CoffeeBeanery.GraphQL.Core.Sql;
 using CoffeeBeanery.GraphQL.Core.Mapping;
 using CoffeeBeanery.GraphQL.Helper;
 using FASTER.core;
+using HotChocolate.Language;
 
 namespace CoffeeBeanery.GraphQL.Core.Runtime
 {
@@ -12,56 +13,55 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
         public static SqlStructure Compile(
             ISelection rootSelection,
             NodeTree rootTree,
-            Dictionary<string, SqlNode> edgeDict,
-            Dictionary<string, SqlNode> nodeDict,
-            string wrapperEntityName,
+            Dictionary<string, SqlNode> sqlNodes,
             Dictionary<string, NodeTree> entityTrees,
             Dictionary<string, NodeTree> modelTrees,
-            Dictionary<string, string> sqlWhereStatement,
             IFasterKV<string, string> cache,
-            string wrapperName,
-            string cacheKey,
-            string modelName)
+            string cacheKey)
         {
             var ctx = new SqlCompilationContext();
             var splitOnDapper = new OrderedDictionary<string, Type>();
             var aliases = new OrderedDictionary<string, string>();
+            var sqlWhereStatement = new Dictionary<string, string>();
+            var statementNodes = new Dictionary<string, SqlNode>(StringComparer.OrdinalIgnoreCase);
             
             if (sqlWhereStatement.Count == 0)
             {
-                SqlWhereCompiler.Compile(ctx, rootSelection, rootTree, wrapperEntityName, sqlWhereStatement);    
+                SqlWhereCompiler.Compile(ctx, rootSelection, rootTree, rootTree.Name, sqlWhereStatement);    
             }
+            
+            var visitedModels = new List<string>();
+            var visitedEntities = new List<string>();
+            
+            SqlSelectBuilder.GetFields(SqlNodeRegistry.ModelTrees, SqlNodeRegistry.EntityTrees, rootSelection.SyntaxNode.GetNodes()
+                    .ToList().Last(a => a.Kind == SyntaxKind.SelectionSet).GetNodes().ToList().Last().GetNodes().Last().GetNodes().First(), 
+                SqlNodeRegistry.EntityNodes, SqlNodeRegistry.ModelNodes, statementNodes, rootTree, new NodeTree(), visitedModels, 
+                visitedEntities, SqlNodeRegistry.ModelNames, SqlNodeRegistry.EntityNames, true);
+
+            SqlSelectBuilder.GetFields(SqlNodeRegistry.ModelTrees, SqlNodeRegistry.EntityTrees, rootSelection.SyntaxNode.GetNodes().ToList().Last(a => a.Kind == SyntaxKind.SelectionSet), SqlNodeRegistry.EntityNodes,
+                SqlNodeRegistry.ModelNodes, statementNodes, rootTree, new NodeTree(), visitedModels, visitedEntities,
+                SqlNodeRegistry.ModelNames, SqlNodeRegistry.EntityNames, false);
             
             //Refactor with new alias feature
             // SqlOrderCompiler.Compile(ctx, entityTrees, rootSelection, wrapperEntityName, nodeDict);
-            var selectResult = SqlSelectBuilder.HandleGraphQL(rootSelection, SqlNodeRegistry.EntityNodes, 
-                SqlNodeRegistry.ModelNodes, entityTrees, modelTrees, SqlNodeRegistry.EntityNames, SqlNodeRegistry.ModelNames, 
-                rootTree.Name, wrapperEntityName, cache, cacheKey, modelName, wrapperName);
-            // ctx.SelectSql = selectResult.Item1;
-            // SqlPagingCompiler.Compile(rootTree, ctx, rootSelection);
-            //
-            // var entityMapping = new Dictionary<string, Type>();
-            //
-            // for (var i = 0; i < selectResult.splitOnDapper.Count; i++)
+            var selectResult = SqlSelectBuilder.HandleGraphQL(sqlNodes, statementNodes, sqlWhereStatement, entityTrees, 
+                SqlNodeRegistry.EntityNames, rootTree, cache, cacheKey);
+            
+            var hasTotalCount = false;
+
+            /*
+             * TODO Handle query clause
+             */
+            
+            // if (hasPagination || hasSorting)
             // {
-            //     entityMapping.Add(selectResult.aliasesOrdered[i], selectResult.splitOnDapper.ElementAt(selectResult.splitOnDapper.Count - 1 - i).Value);
+            //     rootNodeTree = entityTrees[rootEntityName];
+            //     // Query Where, Sort, and Pagination
+            //     sqlSelectStatement = SqlHelper.HandleQueryClause(rootNodeTree, sqlSelectStatement,
+            //         sqlOrderStatement, pagination, hasTotalCount);
             // }
 
             return selectResult;
-
-            //     new SqlStructure
-            // {
-            //     SqlQuery = ctx.SelectSql,
-            //     Pagination = ctx.Pagination,
-            //     HasTotalCount = ctx.Pagination.TotalRecordCount.RecordCount > 0,
-            //     HasPagination = ctx.Pagination.TotalPageRecords.PageRecords > 0,
-            //     // SplitOnDapper = selectResult.Item2,
-            //     Aliases = entityTrees.Select(entity => entity.Value.Alias).ToList(),
-            //     SqlNodes = [..edgeDict.Values, ..nodeDict.Values],
-            //     EntityMapping = entityMapping.Reverse().ToDictionary(),
-            //     EntityTrees = entityTrees,
-            //     ModelTrees = modelTrees
-            // };
         }
     }
 
