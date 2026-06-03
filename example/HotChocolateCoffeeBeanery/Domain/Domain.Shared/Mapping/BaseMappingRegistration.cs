@@ -31,8 +31,6 @@ namespace Domain.Shared.Mapping
 
         public void Register()
         {
-            Console.WriteLine($"[REGISTER] Prefix='{Prefix}' RegistrationKey='{RegistrationKey}'");
-            
             var map      = BuildMap();
             map.IsEntity = IsEntity;
             map.IsModel  = IsModel;

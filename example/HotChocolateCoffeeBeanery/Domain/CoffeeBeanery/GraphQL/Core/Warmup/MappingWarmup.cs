@@ -25,17 +25,13 @@ public static class MappingWarmup
         {
             if (map.ModelType == null || map.EntityType == null)
             {
-                Console.WriteLine($"[SKIP] {registeredKey} — null ModelType or EntityType");
                 continue;
             }
 
             if (map.EntityParents.Count > 0 || map.EntityRelatedParents.Count > 0)
             {
-                Console.WriteLine($"[SKIP] {registeredKey} — has EntityParents({map.EntityParents.Count}) or EntityRelatedParents({map.EntityRelatedParents.Count})");
                 continue;
             }
-
-            Console.WriteLine($"[ROOT] {registeredKey} — will generate tree");
 
             var rootAlias = registeredKey;
             
@@ -58,9 +54,6 @@ public static class MappingWarmup
 
             try
             {
-                Console.WriteLine($"[ROOT] {registeredKey} — EntityChildren: [{string.Join(", ", map.EntityChildren.Select(c => c.To))}]");
-                Console.WriteLine($"[ROOT] {registeredKey} — EntityRelatedChildren: [{string.Join(", ", map.EntityRelatedChildren.Select(c => c.To))}]");
-                
                 NodeTreeIterator.GenerateTree(
                     nodeTrees,
                     modelInstance,

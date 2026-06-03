@@ -8,10 +8,7 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
         public static void BuildFromMappings()
         {
             var all = MappingRegistry.GetAll();
-            Console.WriteLine($"Registry count: {all.Count}");
-            foreach (var kvp in all)
-                Console.WriteLine($"  [{kvp.Key}] IsModel={kvp.Value.IsModel} IsEntity={kvp.Value.IsEntity}");
-
+            
             foreach (var (modelName, map) in all)
                 BuildTree(modelName, map);
 
