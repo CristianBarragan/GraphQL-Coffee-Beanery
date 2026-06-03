@@ -36,9 +36,6 @@ namespace Domain.Shared.Query
 
             for (int i = 0; i < map.Length; i++)
             {
-                Console.WriteLine($"[MAP] [{i}] type={map[i]?.GetType().Name ?? "null"} value={map[i]}");
-                Console.WriteLine($"[MAP] [{i}] types[i]={types[i]?.Name ?? "null"}");
-                
                 if (map[i] == null)
                 {
                     continue;
