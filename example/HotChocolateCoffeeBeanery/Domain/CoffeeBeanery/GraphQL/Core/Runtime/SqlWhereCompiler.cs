@@ -1,7 +1,5 @@
-﻿using System.Linq;
-using CoffeeBeanery.GraphQL.Core.Sql;
+﻿using CoffeeBeanery.GraphQL.Core.Sql;
 using CoffeeBeanery.GraphQL.Core.GraphQL;
-using CoffeeBeanery.GraphQL.Core.Helper;
 using CoffeeBeanery.GraphQL.Helper;
 using HotChocolate.Execution.Processing;
 using HotChocolate.Language;

@@ -42,24 +42,10 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                 SqlNodeRegistry.ModelNodes, statementNodes, rootTree, new NodeTree(), visitedModels, visitedEntities,
                 SqlNodeRegistry.ModelNames, SqlNodeRegistry.EntityNames, false);
             
-            //Refactor with new alias feature
-            // SqlOrderCompiler.Compile(ctx, entityTrees, rootSelection, wrapperEntityName, nodeDict);
             var selectResult = SqlSelectBuilder.HandleGraphQL(sqlNodes, statementNodes, sqlWhereStatement, entityTrees, 
                 SqlNodeRegistry.EntityNames, rootTree, cache, cacheKey);
             
             var hasTotalCount = false;
-
-            /*
-             * TODO Handle query clause
-             */
-            
-            // if (hasPagination || hasSorting)
-            // {
-            //     rootNodeTree = entityTrees[rootEntityName];
-            //     // Query Where, Sort, and Pagination
-            //     sqlSelectStatement = SqlHelper.HandleQueryClause(rootNodeTree, sqlSelectStatement,
-            //         sqlOrderStatement, pagination, hasTotalCount);
-            // }
 
             return selectResult;
         }

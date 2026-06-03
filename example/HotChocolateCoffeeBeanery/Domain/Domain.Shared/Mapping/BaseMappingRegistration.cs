@@ -1,5 +1,4 @@
 ﻿using CoffeeBeanery.GraphQL.Core.Mapping;
-using CoffeeBeanery.GraphQL.Core.Sql;
 
 namespace Domain.Shared.Mapping
 {

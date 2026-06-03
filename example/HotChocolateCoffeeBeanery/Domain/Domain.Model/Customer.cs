@@ -1,7 +1,4 @@
-﻿// using CoffeeBeanery.GraphQL.Configuration;
-
-
-namespace Domain.Model;
+﻿namespace Domain.Model;
 
 public class Customer
 {
@@ -15,10 +12,8 @@ public class Customer
 
     public CustomerType? CustomerType { get; set; }
 
-    // [LinkBusinessKey("Product","ProductId")]
     public List<Product>? Product { get; set; }
 
-    // [LinkBusinessKey("ContactPoint","ContactPointId")]
     public List<ContactPoint>? ContactPoint { get; set; }
 }
 

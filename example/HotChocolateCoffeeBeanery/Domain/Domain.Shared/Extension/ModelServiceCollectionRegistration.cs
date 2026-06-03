@@ -5,9 +5,7 @@ using CoffeeBeanery.Service;
 using Domain.Model;
 using Domain.Shared.Mapping;
 using Domain.Shared.Query;
-// using Domain.Shared.Query;
 using FASTER.core;
-using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
 
 namespace Domain.Shared.Extension

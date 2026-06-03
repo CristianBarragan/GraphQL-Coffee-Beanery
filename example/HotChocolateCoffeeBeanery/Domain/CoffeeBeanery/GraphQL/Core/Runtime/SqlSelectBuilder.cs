@@ -2,9 +2,7 @@
 using CoffeeBeanery.GraphQL.Core.GraphQL;
 using CoffeeBeanery.GraphQL.Core.Sql;
 using CoffeeBeanery.GraphQL.Helper;
-using Dapper;
 using FASTER.core;
-using HotChocolate.Execution.Processing;
 using HotChocolate.Language;
 
 namespace CoffeeBeanery.GraphQL.Core.Runtime;
@@ -98,8 +96,7 @@ public class SqlSelectBuilder
         Dictionary<string, SqlNode> linkModelDictionaryTree,
         Dictionary<string, SqlNode> linkEntityDictionaryTree,
         Dictionary<string, SqlNode> sqlStatementNodes, NodeTree currentTree,
-        string previousNode, NodeTree parentTree, List<string> models, List<string> entities,
-        List<string> visitedModels)
+        string previousNode, List<string> models)
     {
         if (linkModelDictionaryTree.TryGetValue(
                 $"{currentTree.Alias}~{currentTree.Name}~{node.ToString()}",
@@ -160,7 +157,7 @@ public class SqlSelectBuilder
 
             GetMutations(trees, childNode, linkEntityDictionaryTree, linkModelDictionaryTree,
                 sqlStatementNodes, currentTree, node.ToString(),
-                parentTree, models, entities, visitedModels);
+                models);
         }
     }
     
@@ -211,14 +208,10 @@ public class SqlSelectBuilder
         if (node != null && node.GetNodes()?.Count() == 0)
         {
             var fieldName = node.ToString().Trim();
-            var lookupKey = $"{currentTree.Alias}~{currentTree.Name}~{fieldName}";
-
-            // ── Primary lookup: model node → entity node ──────────────────────────
             if (linkModelDictionaryTree.TryGetValue(
                     $"{currentTree.Alias}~{currentTree.Name}~{fieldName}",
                     out var sqlNodeFrom))
             {
-                // Find the FieldMap for this field to get the correct DestinationEntity
                 var fieldMap = currentTree.NodeMap?.FieldMaps
                     .FirstOrDefault(f => f.SourceName.Equals(fieldName, 
                         StringComparison.OrdinalIgnoreCase));
@@ -228,20 +221,16 @@ public class SqlSelectBuilder
                 if (!string.IsNullOrEmpty(destinationEntity) &&
                     entityTrees.TryGetValue(fieldMap.DestinationAlias, out var targetEntityTree))
                 {
-                    // Look up the entity node directly by destination entity
                     var entityNodeKey = $"{fieldMap.DestinationAlias}~{destinationEntity}~{fieldName.ToUpperCamelCase()}";
                     if (!linkEntityDictionaryTree.TryGetValue(entityNodeKey, out var sqlNodeTo))
                     {
-                        // Try with DestinationName instead of fieldName
                         entityNodeKey = $"{fieldMap.DestinationAlias}~{destinationEntity}~{fieldMap.DestinationName.ToUpperCamelCase()}";
                         linkEntityDictionaryTree.TryGetValue(entityNodeKey, out sqlNodeTo);
                     }
 
                     if (sqlNodeTo != null)
                     {
-                        AddField(linkEntityDictionaryTree, sqlStatementNodes,
-                            targetEntityTree,
-                            $"{targetEntityTree.Alias}~{targetEntityTree.Name}~{fieldName.ToUpperCamelCase()}",
+                        AddField(sqlStatementNodes,
                             $"{targetEntityTree.Alias}~{targetEntityTree.Name}~{fieldName.ToUpperCamelCase()}",
                             sqlNodeTo, isEdge);
 
@@ -253,7 +242,6 @@ public class SqlSelectBuilder
                 }
                 else
                 {
-                    // Original path for direct entity mappings (non-model-only types)
                     if (linkEntityDictionaryTree.TryGetValue(
                             sqlNodeFrom.RelationshipKey, out var sqlNodeTo))
                     {
@@ -261,9 +249,7 @@ public class SqlSelectBuilder
                         
                         var modelToEntityTree = entityTrees[nodeEntityTree.AliasTo];
 
-                        AddField(linkEntityDictionaryTree, sqlStatementNodes,
-                            modelToEntityTree,
-                            $"{modelToEntityTree.Alias}~{modelToEntityTree.Name}~{fieldName.ToUpperCamelCase()}",
+                        AddField(sqlStatementNodes,
                             $"{modelToEntityTree.Alias}~{modelToEntityTree.Name}~{fieldName.ToUpperCamelCase()}",
                             sqlNodeTo, isEdge);
 
@@ -273,8 +259,6 @@ public class SqlSelectBuilder
 
                     visitedEntities.Add(sqlNodeFrom.Table);
                 }
-                
-                return;
             }
 
             return;
@@ -308,11 +292,8 @@ public class SqlSelectBuilder
     }
 
     private static void AddField(
-        Dictionary<string, SqlNode> linkEntityDictionaryTree,
         Dictionary<string, SqlNode> sqlStatementNodes,
-        NodeTree currentTree,
         string key,
-        string keyTo,
         SqlNode? sqlNode,
         bool isEdge)
     {		
@@ -323,19 +304,9 @@ public class SqlSelectBuilder
         cloned.SqlNodeTypes.Add(isEdge ? SqlNodeType.Edge : SqlNodeType.Node);
         
         sqlStatementNodes[key] = cloned;
-
-        // foreach (var sqlField in linkEntityDictionaryTree.Where(k => k.Value.SourceColumn.Matches(sqlNode.SourceColumn) || 
-        //         k.Value.EntityParents.Any(a => a.FromColumn.Matches(sqlNode.SourceColumn) ||
-        //         k.Value.EntityRelatedParents.Any(a => a.FromColumn.Matches(sqlNode.SourceColumn)))))
-        // {
-        //     var cloned = sqlField.Value.Clone() as SqlNode;
-        //     cloned!.SqlNodeTypes.Clear();
-        //     cloned.SqlNodeTypes.Add(isEdge ? SqlNodeType.Edge : SqlNodeType.Node);
-        //     sqlStatementNodes[key] = cloned;
-        // }
     }
     
-    private static bool
+    private static void
         GenerateQuery(Dictionary<string, NodeTree> entityTrees,
             List<Type> entityTypes,
             Dictionary<string, SqlNode> linkEntityDictionaryTreeNode,
@@ -351,15 +322,15 @@ public class SqlSelectBuilder
         
         if (visitedEntities.Contains(currentTree.Alias))
         {
-            return true;
+            return;
         }
         
         visitedEntities.Add(currentTree.Alias);
         
         var currentEntityStructure = GenerateEntityQuery(entityTrees,
             linkEntityDictionaryTreeNode,
-            sqlStatementNodes, currentTree, entityNames, sqlQueryStatement,
-            sqlQueryStructures, sqlWhereStatement, childrenSqlStatement, visitedEntities, hasChildren);
+            sqlStatementNodes, currentTree, sqlQueryStatement,
+            sqlQueryStructures, sqlWhereStatement, childrenSqlStatement);
         
         if (!sqlQueryStructures.Any(a => a.Key
                 .Matches(currentTree.Alias)))
@@ -452,15 +423,14 @@ public class SqlSelectBuilder
                 entityTypes.FirstOrDefault(e => e.Name.Matches(currentTree.Name)));
         }
 
-        return true;
+        return;
     }
     
     private static SqlQueryStructure GenerateEntityQuery(Dictionary<string, NodeTree> entityTrees,
         Dictionary<string, SqlNode> linkEntityDictionaryTreeNode,
-        Dictionary<string, SqlNode> sqlStatementNodes, NodeTree currentTree, List<string> entityNames,
+        Dictionary<string, SqlNode> sqlStatementNodes, NodeTree currentTree, 
         StringBuilder sqlQueryStatement, Dictionary<string, SqlQueryStructure> sqlQueryStructures,
-        Dictionary<string, string> sqlWhereStatement, Dictionary<string, string> childrenSqlStatement,
-        List<string> visitedEntities, bool hasChildren)
+        Dictionary<string, string> sqlWhereStatement, Dictionary<string, string> childrenSqlStatement)
     {
         var rootEntity = currentTree.Alias;
         var childrenJoinColumns = new Dictionary<string, string>();

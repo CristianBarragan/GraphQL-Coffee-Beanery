@@ -1,5 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations.Schema;
-
+﻿
 namespace CoffeeBeanery.GraphQL.Core.Sql
 {
     public class Pagination

@@ -13,7 +13,6 @@ public class Account : Process
     
     public int? Id { get; set; }
     
-    // [UpsertKey("Account")]
     public Guid AccountKey { get; set; }
 
     public string? AccountNumber { get; set; }

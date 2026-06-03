@@ -1,6 +1,4 @@
-﻿using System.Collections.Generic;
-using System.Linq;
-using CoffeeBeanery.GraphQL.Core.Mapping;
+﻿using CoffeeBeanery.GraphQL.Core.Mapping;
 using CoffeeBeanery.GraphQL.Core.Sql;
 
 namespace CoffeeBeanery.GraphQL.Core.GraphQL

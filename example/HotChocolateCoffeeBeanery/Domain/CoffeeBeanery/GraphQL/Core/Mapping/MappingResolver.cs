@@ -23,7 +23,6 @@ public static class MappingResolver
                 result[type] = list;
             }
 
-            // avoid duplicates (important for your earlier crashes)
             if (!list.Contains(alias))
                 list.Add(alias);
         }

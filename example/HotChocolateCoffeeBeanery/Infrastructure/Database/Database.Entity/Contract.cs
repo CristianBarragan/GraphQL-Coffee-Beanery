@@ -13,24 +13,18 @@ public class Contract : Process
     
     public int? Id { get; set; }
     
-    // [UpsertKey("Lending")]
     public Guid ContractKey { get; set; }
 
     public ContractType? ContractType { get; set; }
 
     public decimal? Amount { get; set; }
     
-    // [LinkKey("Account", "Id")]
-    // [JoinKey("Contract","AccountId")]
     public Guid? AccountKey { get; set; }
     
     public int? AccountId { get; set; }
 
     public Account? Account { get; set; }
     
-    // [LinkKey("CustomerBankingRelationship", "CustomerBankingRelationshipKey")]
-    // [LinkIdKey("CustomerBankingRelationship", "Id")]
-    // [JoinKey("Contract","CustomerBankingRelationshipId")]
     public Guid? CustomerBankingRelationshipKey { get; set; }
 
     public CustomerBankingRelationship? CustomerBankingRelationship { get; set; }

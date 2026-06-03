@@ -1,6 +1,4 @@
-﻿using System;
-using System.Linq;
-using System.Reflection;
+﻿using System.Reflection;
 using CoffeeBeanery.GraphQL.Core.Mapping;
 using CoffeeBeanery.GraphQL.Core.Warmup;
 using CoffeeBeanery.GraphQL.Helper;
@@ -24,7 +22,7 @@ public static class GraphWarmup
                         && !t.IsInterface
                         && !t.IsAbstract)
             .Select(t => (TSet)Activator.CreateInstance(t)!)
-            .ToList(); // materialise once — avoids re-instantiating on each iteration
+            .ToList();
         
         var enum1Values = Enum.GetValues(typeof(TEnum)).Cast<TEnum>().ToList();
         var enum2Values = Enum.GetValues(typeof(T2Enum)).Cast<T2Enum>().ToList();

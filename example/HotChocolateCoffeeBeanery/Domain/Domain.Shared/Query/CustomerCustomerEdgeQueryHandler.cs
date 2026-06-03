@@ -2,12 +2,7 @@ using CoffeeBeanery.CQRS;
 using CoffeeBeanery.GraphQL.Core.Sql;
 using CoffeeBeanery.Service;
 using Domain.Model;
-using DataEntity = Database.Entity;
 using Npgsql;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
 
 namespace Domain.Shared.Query
 {
@@ -30,7 +25,6 @@ namespace Domain.Shared.Query
         public override (List<M> models, int? startCursor, int? endCursor, int? totalCount, int? totalPageRecords)
             MappingConfiguration(List<M> models, SqlStructure sqlStructure, object[] map, List<Type> types)
         {
-            // Unwrap existing Wrapper instances to get their CustomerCustomerEdge lists
             var existingWrappers = models.OfType<Wrapper>().ToList();
             var customerCustomerEdges = existingWrappers
                 .SelectMany(w => w.CustomerCustomerEdge ?? new List<CustomerCustomerEdge>())
@@ -63,7 +57,6 @@ namespace Domain.Shared.Query
                     var incomingType    = map[i].GetType();
                     var targetModelType = types[i];
 
-                    // Step 1 — exact match on both EntityType and ModelType
                     var matchingAliases = MappingRegistry.Registry
                         .Where(kvp =>
                             kvp.Value.EntityType == incomingType &&
@@ -71,8 +64,6 @@ namespace Domain.Shared.Query
                         .Select(kvp => kvp.Key)
                         .ToList();
 
-                    // Step 2 — fallback: match by EntityType name only
-                    // handles cases like CustomerCustomerRelationship where model == entity
                     if (!matchingAliases.Any())
                     {
                         matchingAliases = MappingRegistry.Registry
@@ -83,7 +74,6 @@ namespace Domain.Shared.Query
                             .ToList();
                     }
 
-                    // Step 3 — fallback: match by registry key suffix
                     if (!matchingAliases.Any())
                     {
                         matchingAliases = MappingRegistry.Registry.Keys
@@ -92,10 +82,6 @@ namespace Domain.Shared.Query
                             .ToList();
                     }
 
-                    // FIXED: iterate ALL matching aliases so every mapped property is applied
-                    // e.g. InnerCustomerCustomerCustomerRelationship AND
-                    // OuterCustomerCustomerCustomerRelationship both contribute their
-                    // fields to customerCustomerEdge
                     foreach (var alias in matchingAliases)
                     {
                         var idPropertyName = ResolveIdPropertyName(incomingType, alias);
@@ -111,7 +97,6 @@ namespace Domain.Shared.Query
                 }
             }
 
-            // Find existing CustomerCustomerEdge by InnerCustomerKey and upsert
             var existingIndex = customerCustomerEdges.FindIndex(c =>
                 c.InnerCustomerKey == customerCustomerEdge.InnerCustomerKey);
 
@@ -119,9 +104,7 @@ namespace Domain.Shared.Query
                 customerCustomerEdges[existingIndex] = customerCustomerEdge;
             else
                 customerCustomerEdges.Add(customerCustomerEdge);
-
-            // Wrap CustomerCustomerEdge list back into a single Wrapper instance
-            // M is Wrapper so we need List<Wrapper> not List<CustomerCustomerEdge>
+            
             var wrapper = existingWrappers.FirstOrDefault() ?? new Wrapper();
             wrapper.CustomerCustomerEdge = customerCustomerEdges;
 
@@ -132,17 +115,10 @@ namespace Domain.Shared.Query
                 totalCount, pageRecords);
         }
 
-        /// <summary>
-        /// Resolves the unique ID property name on the incoming entity type by:
-        /// 1. Looking for a FieldMap with DestinationName == "Id" in the aliased NodeMap
-        /// 2. Falling back to the first FieldMap destination in the NodeMap
-        /// 3. Falling back to "Id" by convention if no NodeMap is found
-        /// </summary>
         private static string ResolveIdPropertyName(Type incomingEntityType, string? alias)
         {
             if (alias != null && MappingRegistry.Registry.TryGetValue(alias, out var nodeMap))
             {
-                // Prefer a FieldMap explicitly named "Id" on the incoming entity side
                 var idFieldMap = nodeMap.FieldMaps
                     .FirstOrDefault(f =>
                         f.DestinationEntity.Equals(incomingEntityType.Name,
@@ -151,8 +127,7 @@ namespace Domain.Shared.Query
 
                 if (idFieldMap != null)
                     return idFieldMap.DestinationName;
-
-                // Fall back to first FieldMap for this entity as the key
+                
                 var fallbackFieldMap = nodeMap.FieldMaps
                     .FirstOrDefault(f =>
                         f.DestinationEntity.Equals(incomingEntityType.Name,
@@ -161,8 +136,7 @@ namespace Domain.Shared.Query
                 if (fallbackFieldMap != null)
                     return fallbackFieldMap.DestinationName;
             }
-
-            // Final convention fallback — most entities have an "Id" property
+            
             return "Id";
         }
     }

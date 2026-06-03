@@ -1,9 +1,5 @@
-﻿// Mapper.cs
-using System;
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using CoffeeBeanery.GraphQL.Core.Mapping;
@@ -138,13 +134,11 @@ public class Mapper : IMapper
         var sourceModelType    = ((object)source).GetType();
         var incomingEntityType = current.GetType();
 
-        // Step 1 — resolve NodeMap via alias, then fallbacks
         NodeMap nodeMap;
         if (mappingAlias != null)
         {
             if (!_mappings.TryGetValue(mappingAlias, out nodeMap))
             {
-                // FIXED: alias provided but not found — fall back to entity type scan
                 nodeMap = _mappings.Values.FirstOrDefault(m =>
                               m.EntityType == incomingEntityType &&
                               m.ModelType  == targetType)
@@ -174,7 +168,6 @@ public class Mapper : IMapper
                           $"Consider passing a mappingAlias explicitly.");
         }
 
-        // Step 2 — infer model-side ID property name from FieldMaps
         var idFieldMap = nodeMap.FieldMaps
             .FirstOrDefault(f =>
                 f.DestinationName.Equals(idPropertyName, StringComparison.OrdinalIgnoreCase));
@@ -186,7 +179,6 @@ public class Mapper : IMapper
 
         var modelIdPropertyName = idFieldMap.SourceName;
 
-        // Step 3 — read unique ID value from incoming entity
         var incomingIdProp = incomingEntityType
             .GetProperty(idPropertyName, BindingFlags.Public | BindingFlags.Instance);
 
@@ -195,8 +187,6 @@ public class Mapper : IMapper
                 $"Property '{idPropertyName}' not found on '{incomingEntityType.Name}'.");
 
         var incomingIdValue = incomingIdProp.GetValue(current);
-
-        // Step 4 — map incoming entity to targetType via FieldMaps
         var mappedModel = Activator.CreateInstance(targetType)!;
 
         foreach (var fieldMap in nodeMap.FieldMaps)
@@ -224,9 +214,6 @@ public class Mapper : IMapper
                     value = matched;
             }
 
-            // FIXED: resolve destProp directly from targetType (mappedModel's actual type)
-            // instead of nodeMap.ModelProperties which may belong to a different type
-            // when the fallback alias resolution picked a NodeMap for the wrong model
             var destProp = targetType
                 .GetProperty(fieldMap.SourceName, BindingFlags.Public | BindingFlags.Instance);
 
@@ -237,18 +224,16 @@ public class Mapper : IMapper
 
             if (actualType.IsEnum && value is int intValue)
                 value = Enum.ToObject(actualType, intValue);
-
-            // FIXED: guard type compatibility before setting to avoid TargetException
+            
             if (value != null && !actualType.IsAssignableFrom(value.GetType()))
             {
                 try { value = Convert.ChangeType(value, actualType); }
-                catch { continue; } // skip incompatible values silently
+                catch { continue; }
             }
 
             destProp.SetValue(mappedModel, value);
         }
 
-        // Step 5 — clone source TModel as base
         var mergedModel = Activator.CreateInstance(sourceModelType)!;
         foreach (var prop in sourceModelType
                      .GetProperties(BindingFlags.Public | BindingFlags.Instance)
@@ -256,8 +241,7 @@ public class Mapper : IMapper
         {
             prop.SetValue(mergedModel, prop.GetValue(source));
         }
-
-        // Step 6 — find List<targetType> on source TModel
+        
         var listProperty = sourceModelType
             .GetProperties(BindingFlags.Public | BindingFlags.Instance)
             .FirstOrDefault(p =>
@@ -267,7 +251,6 @@ public class Mapper : IMapper
 
         if (listProperty != null)
         {
-            // Step 7a — get or initialise the List<T>
             var existingList = listProperty.GetValue(mergedModel);
             if (existingList == null)
             {
@@ -277,7 +260,6 @@ public class Mapper : IMapper
 
             var list = (IList)existingList;
 
-            // Step 8 — find existing item by model-side ID
             var modelIdProp = targetType
                 .GetProperty(modelIdPropertyName, BindingFlags.Public | BindingFlags.Instance);
 
@@ -291,7 +273,6 @@ public class Mapper : IMapper
                 }
             }
 
-            // Step 9 — upsert
             if (existingIndex >= 0)
                 list[existingIndex] = mappedModel;
             else
@@ -299,7 +280,6 @@ public class Mapper : IMapper
         }
         else
         {
-            // Step 7b — no List<T>: overlay non-default FieldMap fields onto mergedModel
             foreach (var fieldMap in nodeMap.FieldMaps)
             {
                 var mappedProp = targetType
@@ -313,12 +293,10 @@ public class Mapper : IMapper
 
                 if (Equals(mappedValue, defaultValue)) continue;
 
-                // FIXED: write onto mergedModel using sourceModelType property
                 var mergedProp = sourceModelType
                     .GetProperty(fieldMap.SourceName, BindingFlags.Public | BindingFlags.Instance);
                 if (mergedProp == null || !mergedProp.CanWrite) continue;
 
-                // Guard type compatibility
                 if (mappedValue != null)
                 {
                     var mergedActualType = Nullable.GetUnderlyingType(mergedProp.PropertyType)
@@ -336,8 +314,6 @@ public class Mapper : IMapper
 
         return mergedModel;
     }
-
-    // ── Core mapping logic ────────────────────────────────────────────────────
 
     private void MapProperties(object entity, object model, NodeMap nodeMap)
     {

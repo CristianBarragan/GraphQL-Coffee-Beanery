@@ -1,5 +1,4 @@
-﻿using System.Collections.Generic;
-using CoffeeBeanery.GraphQL.Core.GraphQL;
+﻿using CoffeeBeanery.GraphQL.Core.GraphQL;
 using Dapper;
 
 namespace CoffeeBeanery.GraphQL.Core.Sql

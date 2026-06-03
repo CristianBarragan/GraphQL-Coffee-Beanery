@@ -10,10 +10,6 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
 {
     public class SqlMutationCompiler
     {
-        // Key format:             "{alias}~{field}"          → [0]=alias  [1]=field
-        // RelationshipKey format: "{model}~{entity}~{field}" → [0]=model  [1]=entity  [2]=field
-        // UpsertKey format:       "{alias}~{entity}~{field}" → [0]=alias  [1]=entity  [2]=field
-
         public static SqlStructure Compile(
             ISelection rootSelection, NodeTree rootTree, Dictionary<string, string> sqlWhereStatement,
             Dictionary<string, NodeTree> modelTrees, Dictionary<string, NodeTree> entityTrees, Dictionary<string, SqlNode> modelSqlNodes, Dictionary<string, SqlNode> entitySqlNodes,
@@ -60,7 +56,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                     SqlSelectBuilder.GetMutations(modelTrees, mutationNode,
                         modelSqlNodes, entitySqlNodes,
                         sqlUpsertStatementNodes, rootTree, string.Empty,
-                        new NodeTree(), models, entities, visitedModels);
+                        models);
                     
                     SqlHelper.GenerateUpsertStatements(entityTrees, sqlUpsertStatementNodes, rootTree, entities,
                         sqlWhereStatement, new List<string>(), statements, selectStatements);
@@ -71,7 +67,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                 SqlSelectBuilder.GetMutations(modelTrees, mutationNodeToProcess,
                     modelSqlNodes, entitySqlNodes,
                     sqlUpsertStatementNodes, rootTree, string.Empty,
-                    new NodeTree(), models, entities, visitedModels);
+                    models);
                 
                 SqlHelper.GenerateUpsertStatements(entityTrees, sqlUpsertStatementNodes, rootTree, entities,
                     sqlWhereStatement, new List<string>(), statements, selectStatements);

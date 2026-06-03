@@ -1,5 +1,4 @@
-﻿using System;
-
+﻿
 namespace CoffeeBeanery.GraphQL.Core.Mapping
 {
     public sealed class MappingBuilder<TModel>

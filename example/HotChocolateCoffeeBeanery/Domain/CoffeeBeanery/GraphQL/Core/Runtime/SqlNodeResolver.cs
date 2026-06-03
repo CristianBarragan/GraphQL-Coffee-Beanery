@@ -7,9 +7,6 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
 {
     public static class SqlNodeResolver
     {
-        // ----------------------------------------------------------
-        // Mutation parsing
-        // ----------------------------------------------------------
         public static void GetMutations(
             Dictionary<string, NodeTree> trees,
             Dictionary<string, NodeTree> entityTrees,
@@ -156,8 +153,6 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                 }
             }
 
-            // Add the field onto the current entity
-            // e.g. CustomerCustomerRelationship~InnerCustomerKey
             AddEntity(sqlStatementNodes, sqlNodeTo,
                 key, value);
         }

@@ -32,7 +32,7 @@ public static class NodeTreeIterator
         NodeMap nodeMap,
         string currentAlias,
         string parentAlias,
-        string rootAlias,          // ADDED — carries the root prefix (e.g. "InnerCustomer")
+        string rootAlias,
         List<KeyValuePair<string, int>> nodeIds,
         HashSet<string> visitedAliases,
         HashSet<NodeMap> visitedMaps,
@@ -69,8 +69,6 @@ public static class NodeTreeIterator
 
         foreach (var childLink in allChildren)
         {
-            // FIXED: AliasTo carries the prefixed key set via A(nameof(T>() in mappings
-            // fall back to To only if AliasTo is absent (legacy LinkKeys)
             var childAlias = !string.IsNullOrWhiteSpace(childLink.AliasTo)
                 ? childLink.AliasTo
                 : ResolveAliasWithPrefix(childLink.To, rootAlias);
@@ -111,31 +109,15 @@ public static class NodeTreeIterator
         return node;
     }
 
-    /// <summary>
-    /// Resolves a short child alias to its prefixed registry key using the root prefix.
-    /// Resolution order:
-    /// 1. Exact match                          — "InnerCustomerCustomer" → found directly
-    /// 2. Root prefix + child alias            — "InnerCustomer" + "Customer" → "InnerCustomerCustomer"
-    /// 3. Root prefix + entity type name       — handles "InnerCustomer" → "InnerCustomerCustomer"
-    ///    where childAlias == entity type name
-    /// 4. Any registry key ending with alias   — broadest fallback
-    /// </summary>
     private static string? ResolveAliasWithPrefix(string childAlias, string rootAlias)
     {
-        // 1. Exact match
         if (MappingRegistry.Registry.ContainsKey(childAlias))
             return childAlias;
 
-        // 2. Root prefix + child alias directly
-        // e.g. rootAlias="InnerCustomer", childAlias="ContactPoint"
-        //   → "InnerCustomerContactPoint"
         var prefixed = $"{rootAlias}{childAlias}";
         if (MappingRegistry.Registry.ContainsKey(prefixed))
             return prefixed;
 
-        // 3. Root prefix + just the entity type portion of childAlias
-        // e.g. rootAlias="InnerCustomer", childAlias="InnerCustomer" (self-referential)
-        //   → strip common prefix and try again
         if (childAlias.StartsWith(rootAlias, StringComparison.OrdinalIgnoreCase))
         {
             var stripped = childAlias.Substring(rootAlias.Length);
@@ -144,8 +126,6 @@ public static class NodeTreeIterator
                 return strippedPrefixed;
         }
 
-        // 4. Broadest fallback — any key ending with the child alias,
-        // preferring keys that start with the root prefix
         var candidates = MappingRegistry.Registry.Keys
             .Where(k => k.EndsWith(childAlias, StringComparison.OrdinalIgnoreCase))
             .ToList();
@@ -157,7 +137,6 @@ public static class NodeTreeIterator
 
     private static NodeMap? ResolveNodeMap(string alias, string rootAlias)
     {
-        // Try exact first, then prefix-aware resolution
         if (MappingRegistry.Registry.TryGetValue(alias, out var map))
             return map;
 

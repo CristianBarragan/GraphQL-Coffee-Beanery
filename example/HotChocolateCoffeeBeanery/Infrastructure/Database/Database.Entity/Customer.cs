@@ -1,5 +1,4 @@
-﻿// using CoffeeBeanery.GraphQL.Configuration;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace Database.Entity;
@@ -13,7 +12,6 @@ public class Customer : Process
     
     public int? Id { get; set; }
     
-    // [UpsertKey("Banking")]
     public Guid CustomerKey { get; set; }
 
     public string? FirstName { get; set; }
