@@ -26,35 +26,34 @@ public class TransactionMapping
         {
             Schema = nameof(DataEntity.Schema.Lending)
         };
-
-        map.EntityParents.Add(new LinkKey
+        
+        map.EntityParents.AddRange(new[]
         {
-            AliasFrom    = A(nameof(DataEntity.Transaction)),
-            From       = nameof(DataEntity.Transaction),
-            FromColumn = nameof(DataEntity.Transaction.ContractId),
-            AliasTo    = A(nameof(Contract)),
-            To         = nameof(Contract),
-            ToColumn   = nameof(DataEntity.Contract.Id)
-        });
-
-        map.EntityRelatedParents.Add(new LinkKey
-        {
-            AliasFrom    = A(nameof(DataEntity.Transaction)),
-            From       = nameof(DataEntity.Transaction),
-            FromColumn = nameof(DataEntity.Transaction.AccountId),
-            AliasTo    = A(nameof(Account)),
-            To         = nameof(Account),
-            ToColumn   = nameof(DataEntity.Account.Id)
-        });
-        map.ModelParents.AddRange(new[]
-        {
-            new LinkKey { AliasFrom    = A(nameof(Transaction)), From = nameof(Transaction), FromColumn = nameof(Transaction.ContractKey),
+            new LinkKey { AliasFrom    = A(nameof(DataEntity.Transaction)), From = nameof(DataEntity.Transaction), FromColumn = nameof(DataEntity.Transaction.ContractId),
                 AliasTo    = A(nameof(DataEntity.Contract)),
                 To         = nameof(DataEntity.Contract), 
-                ToColumn = nameof(Contract.ContractKey) },
-            new LinkKey { AliasFrom    = A(nameof(Transaction)), From = nameof(Transaction), FromColumn = nameof(Transaction.AccountKey),  
+                ToColumn = nameof(DataEntity.Contract.Id) },
+            new LinkKey
+            {
+                AliasFrom = A(nameof(DataEntity.Transaction)),
+                From       = nameof(DataEntity.Transaction),
+                FromColumn = nameof(DataEntity.Transaction.ContractKey),
+                AliasTo = A(nameof(DataEntity.Contract)),
+                To         = nameof(DataEntity.Contract),
+                ToColumn   = nameof(DataEntity.Contract.ContractKey)
+            },
+            new LinkKey { AliasFrom    = A(nameof(DataEntity.Transaction)), From = nameof(DataEntity.Transaction), FromColumn = nameof(DataEntity.Transaction.AccountId),  
                 AliasTo    = A(nameof(DataEntity.Account)),
-                To         = nameof(DataEntity.Account), ToColumn = nameof(Account.AccountKey) }
+                To         = nameof(DataEntity.Account), ToColumn = nameof(DataEntity.Account.Id) },
+            new LinkKey
+            {
+                AliasFrom = A(nameof(DataEntity.Transaction)),
+                From       = nameof(DataEntity.Transaction),
+                FromColumn = nameof(DataEntity.Transaction.AccountKey),
+                AliasTo = A(nameof(DataEntity.Account)),
+                To         = nameof(DataEntity.Account),
+                ToColumn   = nameof(DataEntity.Account.AccountKey)
+            }
         });
 
 

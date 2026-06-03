@@ -37,6 +37,15 @@ public class CustomerBankingRelationshipMapping
                     AliasTo    = A(nameof(DataEntity.Customer)),
                     To         = nameof(DataEntity.Customer),
                     ToColumn   = nameof(DataEntity.Customer.Id)
+                },
+                new LinkKey
+                {
+                    AliasFrom = A(nameof(DataEntity.CustomerBankingRelationship)),
+                    From       = nameof(DataEntity.CustomerBankingRelationship),
+                    FromColumn = nameof(DataEntity.CustomerBankingRelationship.CustomerKey),
+                    AliasTo = A(nameof(DataEntity.Customer)),
+                    To         = nameof(DataEntity.Customer),
+                    ToColumn   = nameof(DataEntity.Customer.CustomerKey)
                 }
             }
         );
@@ -78,10 +87,10 @@ public class CustomerBankingRelationshipMapping
         {
             AliasFrom    = A(nameof(CustomerBankingRelationship)),
             From       = nameof(CustomerBankingRelationship),
-            FromColumn = nameof(CustomerBankingRelationship.CustomerKey),
+            FromColumn = nameof(CustomerBankingRelationship.CustomerBankingRelationshipKey),
             AliasTo    = A(nameof(DataEntity.CustomerBankingRelationship)),
             To         = nameof(DataEntity.CustomerBankingRelationship),
-            ToColumn   = nameof(DataEntity.CustomerBankingRelationship.CustomerKey)
+            ToColumn   = nameof(DataEntity.CustomerBankingRelationship.CustomerBankingRelationshipKey)
         });
 
         map.UpsertKeys.Add(new UpsertKey(

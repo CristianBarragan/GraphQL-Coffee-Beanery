@@ -26,14 +26,26 @@ public class ContractMapping : BaseMappingRegistration<Contract, DataEntity.Cont
             Schema = nameof(DataEntity.Schema.Lending)
         };
 
-        map.EntityParents.Add(new LinkKey
+        map.EntityParents.AddRange(new[]
         {
-            AliasFrom    = A(nameof(DataEntity.Contract)),
-            From       = nameof(DataEntity.Contract),
-            FromColumn = nameof(DataEntity.Contract.CustomerBankingRelationshipId),
-            AliasTo    = A(nameof(DataEntity.CustomerBankingRelationship)),
-            To         = nameof(DataEntity.CustomerBankingRelationship),
-            ToColumn   = nameof(DataEntity.CustomerBankingRelationship.Id)
+            new LinkKey
+            {
+                AliasFrom    = A(nameof(DataEntity.Contract)),
+                From       = nameof(DataEntity.Contract),
+                FromColumn = nameof(DataEntity.Contract.CustomerBankingRelationshipId),
+                AliasTo    = A(nameof(DataEntity.CustomerBankingRelationship)),
+                To         = nameof(DataEntity.CustomerBankingRelationship),
+                ToColumn   = nameof(DataEntity.CustomerBankingRelationship.Id)
+            },
+            new LinkKey
+            {
+                AliasFrom = A(nameof(DataEntity.Contract)),
+                From       = nameof(DataEntity.Contract),
+                FromColumn = nameof(DataEntity.Contract.CustomerBankingRelationshipKey),
+                AliasTo = A(nameof(DataEntity.CustomerBankingRelationship)),
+                To         = nameof(DataEntity.CustomerBankingRelationship),
+                ToColumn   = nameof(DataEntity.CustomerBankingRelationship.CustomerBankingRelationshipKey)
+            }
         });
 
         map.EntityRelatedChildren.Add(new LinkKey

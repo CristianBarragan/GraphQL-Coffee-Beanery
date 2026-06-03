@@ -52,6 +52,15 @@ public class ProductMapping : BaseModelMappingRegistration<Product>
                 AliasTo    = A(nameof(CustomerBankingRelationship)),
                 To         = nameof(CustomerBankingRelationship),
                 ToColumn   = nameof(CustomerBankingRelationship.CustomerBankingRelationshipKey)
+            },
+            new LinkKey
+            {
+                AliasFrom  = A(nameof(Product)),
+                From       = nameof(Product),
+                FromColumn = nameof(Product.TransactionKey),
+                AliasTo    = A(nameof(Transaction)),
+                To         = nameof(Transaction),
+                ToColumn   = nameof(Transaction.TransactionKey)
             }
         });
 
@@ -96,6 +105,15 @@ public class ProductMapping : BaseModelMappingRegistration<Product>
                 AliasTo    = A(nameof(DataEntity.Account)),
                 To         = nameof(DataEntity.Account),
                 ToColumn   = nameof(DataEntity.Account.AccountKey)
+            },
+            new LinkKey
+            {
+                AliasFrom  = A(nameof(Product)),
+                From       = nameof(Product),
+                FromColumn = nameof(Product.TransactionKey),
+                AliasTo    = A(nameof(DataEntity.Transaction)),
+                To         = nameof(DataEntity.Transaction),
+                ToColumn   = nameof(DataEntity.Transaction.TransactionKey)
             }
         });
 
@@ -179,6 +197,14 @@ public class ProductMapping : BaseModelMappingRegistration<Product>
             },
 
             // Transaction fields
+            new FieldMap
+            {
+                SourceAlias       = A(nameof(Product)),
+                DestinationAlias  = A(nameof(DataEntity.Transaction)),
+                SourceName        = nameof(Product.TransactionKey),
+                DestinationEntity = nameof(DataEntity.Transaction),
+                DestinationName   = nameof(DataEntity.Transaction.TransactionKey)
+            },
             new FieldMap
             {
                 SourceAlias       = A(nameof(Product)),

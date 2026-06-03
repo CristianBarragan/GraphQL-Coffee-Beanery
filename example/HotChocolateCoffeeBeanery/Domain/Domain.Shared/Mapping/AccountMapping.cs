@@ -26,14 +26,26 @@ public class AccountMapping : BaseMappingRegistration<Account, DataEntity.Accoun
             Schema = nameof(DataEntity.Schema.Account)
         };
 
-        map.EntityRelatedParents.Add(new LinkKey
+        map.EntityRelatedParents.AddRange(new[]
         {
-            AliasFrom    = A(nameof(DataEntity.Account)),
-            From       = nameof(DataEntity.Account),
-            FromColumn = nameof(DataEntity.Account.Id),
-            AliasTo    = A(nameof(Contract)),
-            To         = nameof(Contract),
-            ToColumn   = nameof(DataEntity.Contract.AccountId)
+            new LinkKey
+            {
+                AliasFrom    = A(nameof(DataEntity.Account)),
+                From       = nameof(DataEntity.Account),
+                FromColumn = nameof(DataEntity.Account.Id),
+                AliasTo    = A(nameof(Contract)),
+                To         = nameof(Contract),
+                ToColumn   = nameof(DataEntity.Contract.AccountId)
+            },
+            new LinkKey
+            {
+                AliasFrom    = A(nameof(DataEntity.Account)),
+                From       = nameof(DataEntity.Account),
+                FromColumn = nameof(DataEntity.Account.AccountKey),
+                AliasTo    = A(nameof(Contract)),
+                To         = nameof(Contract),
+                ToColumn   = nameof(DataEntity.Contract.AccountKey)
+            }
         });
 
         map.EntityChildren.Add(new LinkKey

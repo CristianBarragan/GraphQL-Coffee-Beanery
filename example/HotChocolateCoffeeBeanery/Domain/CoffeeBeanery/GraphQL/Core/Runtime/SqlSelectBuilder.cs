@@ -185,8 +185,7 @@ public class SqlSelectBuilder
         var sqlStatementNodes = new Dictionary<string, SqlNode>();
         var visitedFieldModel = new List<string>();
 
-        if (graphQlSelection.SelectionSet?.Selections!
-                .FirstOrDefault(s => s.ToString().StartsWith("edges")) != null)
+        if (!graphQlSelection.SelectionSet.Selections[0].GetNodes().ToList()[0].ToString().Matches("nodes"))
         {
             GetFields(modelTrees, entityTrees, edgeNode.GetNodes()
                     .FirstOrDefault(a => a.Kind == SyntaxKind.SelectionSet).GetNodes().FirstOrDefault(),
@@ -200,8 +199,7 @@ public class SqlSelectBuilder
         
         visitedFieldModel.Clear();
 
-        if (graphQlSelection.SelectionSet?.Selections!
-                .FirstOrDefault(s => s.ToString().StartsWith("nodes")) != null)
+        if (graphQlSelection.SelectionSet.Selections[0].GetNodes().ToList()[0].ToString().Matches("nodes"))
         {
             GetFields(modelTrees, entityTrees, node,
                 entityDictionary, modelDictionary,
@@ -234,31 +232,7 @@ public class SqlSelectBuilder
                 childrenSqlStatement, entityNames, sqlQueryStructures,
                 splitOnDapper, removeOnDapper, entityOrder, new List<string>(), rootEntityName);
             
-            //if transformedToParent then will be used the first matching child, TODO: Support multiple child queries for complex entities
-
             var queryStructure = sqlQueryStructures.FirstOrDefault();
-
-            // if (transformedToParent)
-            // {
-            //     splitOnDapper.Remove(splitOnDapper.First(a => a.Value.Name == transformedToParentName).Key);
-            //     
-            //     foreach (var childName in entityTrees[rootEntityName].Children.Select(a => a.To))
-            //     {
-            //         if (modelDictionary.FirstOrDefault(a => a.Key.Split('~')[0].Matches(tranformedModel)).Value.RelationshipKey.Split('~')[1]
-            //             .Matches(childName))
-            //         {
-            //             queryStructure = sqlQueryStructures.FirstOrDefault(s => s.Key.Matches(childName));
-            //             if (queryStructure.Value != null)
-            //             {
-            //                 break;
-            //             }    
-            //         }
-            //         else
-            //         {
-            //             splitOnDapper.Remove(splitOnDapper.First(a => a.Value.Name == childName).Key);
-            //         }
-            //     }
-            // }
 
             sqlSelectStatement = queryStructure.Value.Query;
 
@@ -399,7 +373,6 @@ public class SqlSelectBuilder
         Dictionary<string, SqlNode> sqlStatementNodes, Dictionary<string, NodeTree> entityTrees, NodeTree currentTree,
         SqlNode? sqlNode, bool isEnum)
     {
-        
         foreach (var auxFieldMap in currentTree.NodeMap?.FieldMaps
                      .Where(f => f.SourceName.Matches(sqlNode.RelationshipKey.Split('~')[2])))
         {
@@ -440,16 +413,10 @@ public class SqlSelectBuilder
         List<string> entities,
         bool isEdge)
     {
-        // Switch tree if this node's name directly matches a registered model alias
-        if (trees.TryGetValue(node.ToString().Split('{')[0].Trim(), out var namedTree))
-            currentTree = namedTree;
-
         if (node != null && node.GetNodes()?.Count() == 0)
         {
             var fieldName = node.ToString().Trim();
             var lookupKey = $"{currentTree.Alias}~{currentTree.Name}~{fieldName}";
-            var exists = linkModelDictionaryTree.ContainsKey(lookupKey);
-            Console.WriteLine($"[GetFields] leaf={fieldName} tree={currentTree.Alias} key={lookupKey} exists={exists}");
 
             // ── Primary lookup: model node → entity node ──────────────────────────
             if (linkModelDictionaryTree.TryGetValue(
@@ -522,20 +489,20 @@ public class SqlSelectBuilder
 
         foreach (var childNode in node.GetNodes())
         {
-            var childName = node.ToString().Split('{')[0].Trim();
-
-            if (models.Any(e => e.Matches(childName)) ||
+            var childName = node.GetNodes().FirstOrDefault(a => a.Kind == SyntaxKind.Name);
+            
+            if (childName != null && models.Any(e => e.Matches(childName.ToString())) ||
                 childNode.ToString().Matches("nodes") ||
                 childNode.ToString().Matches("node"))
             {
                 if (childNode.ToString().Matches("nodes") || childNode.ToString().Matches("node"))
                     currentTree = trees.OrderBy(a => a.Value.Id).First().Value;
                 else
-                    currentTree = trees.First(a => a.Value.Name.Matches(childName)).Value;
+                    currentTree = trees.First(a => a.Value.Name.Matches(childName.ToString())).Value;
             }
-            else if (currentTree.NodeMap?.ModelChildren.Any(l => l.To.Matches(childName)) == true)
+            else if (childName != null  && trees.FirstOrDefault(a => a.Value.ModelName.Matches(childName.ToString().ToUpperCamelCase())).Value != null)
             {
-                currentTree = trees.First(a => a.Value.ModelName.Matches(childName)).Value;
+                currentTree = trees.FirstOrDefault(a => a.Value.ModelName.Matches(childName.ToString().ToUpperCamelCase())).Value;
             }
 
             GetFields(trees, entityTrees, childNode,
@@ -553,27 +520,24 @@ public class SqlSelectBuilder
         string keyTo,
         SqlNode? sqlNode,
         bool isEdge)
-    {
-        if (sqlNode == null) return;
-        Console.WriteLine($"[AddField] key={key} column={sqlNode.Column} relationshipKey={sqlNode.RelationshipKey}");
+    {		
+		if (sqlNode == null) return;
 
         var cloned = sqlNode.Clone() as SqlNode;
         cloned!.SqlNodeTypes.Clear();
         cloned.SqlNodeTypes.Add(isEdge ? SqlNodeType.Edge : SqlNodeType.Node);
+        
+        sqlStatementNodes[key] = cloned;
 
-        // Register under the explicit key so GenerateEntityQuery can find it
-        // by alias prefix (key.Split('~')[0] == currentTree.Alias)
-        if (sqlStatementNodes.ContainsKey(key))
-            sqlStatementNodes[key] = cloned;
-        else
-            sqlStatementNodes.Add(key, cloned);
-
-        // Also update the source node's type in the entity dictionary
-        if (linkEntityDictionaryTree.TryGetValue(key, out var existing))
-        {
-            existing.SqlNodeTypes.Clear();
-            existing.SqlNodeTypes.Add(isEdge ? SqlNodeType.Edge : SqlNodeType.Node);
-        }
+        // foreach (var sqlField in linkEntityDictionaryTree.Where(k => k.Value.SourceColumn.Matches(sqlNode.SourceColumn) || 
+        //         k.Value.EntityParents.Any(a => a.FromColumn.Matches(sqlNode.SourceColumn) ||
+        //         k.Value.EntityRelatedParents.Any(a => a.FromColumn.Matches(sqlNode.SourceColumn)))))
+        // {
+        //     var cloned = sqlField.Value.Clone() as SqlNode;
+        //     cloned!.SqlNodeTypes.Clear();
+        //     cloned.SqlNodeTypes.Add(isEdge ? SqlNodeType.Edge : SqlNodeType.Node);
+        //     sqlStatementNodes[key] = cloned;
+        // }
     }
     
     private static bool
@@ -719,11 +683,14 @@ public class SqlSelectBuilder
         }
 
         currentColumns.AddRange(sqlStatementNodes
-            .Where(k => k.Key.Split('~')[0].Matches(currentTree.Alias) && 
-                        ! k.Value.LinkKeys.Any(b => b.From.Matches(k.Key)) &&
-                        ! k.Value.LinkKeys.Any(b => entityTrees.Keys.Any(a => a.Matches(k.Key.Split('~')[2])))).ToList());
+            .Where(k => k.Key.Split('~')[0].Matches(currentTree.Alias)).ToList());
 
         currentColumns = currentColumns.Distinct().ToList();
+
+        if (currentColumns.Count > 1 && !currentColumns.First().Value.LinkKeys.Where(b => !b.ToColumn.Matches("Id")).Any(a => currentColumns.Any(b => b.Value.Column.Matches(a.FromColumn))))
+        {
+            return new SqlQueryStructure();
+        }
 
         var queryBuilder = string.Empty;
         var queryColumns = new List<string>();
@@ -750,7 +717,7 @@ public class SqlSelectBuilder
                     {
                         continue;
                     }
-
+                
                     if (childrenJoinColumns.ContainsKey(linkKey.AliasTo))
                     {
                         continue;    

@@ -17,6 +17,8 @@ public class Product
     
 
     public Guid? AccountKey { get; set; }
+    
+    public Guid? TransactionKey { get; set; }
 
     public string? AccountName { get; set; }
     

@@ -282,7 +282,7 @@ public static class SqlHelper
             return;
         }
         
-        var linkKeyss = childTree.Parents
+        var linkKeyss = childTree.Parents.Concat(childTree.RelatedParents)
             .Join(
                 trees,
                 child => child.AliasTo,
@@ -310,7 +310,7 @@ public static class SqlHelper
                 continue;
             }
      
-            if (childTree.UpsertKeys.Count == 0 || parentTree.UpsertKeys.Count == 0)
+            if (childTree.UpsertKeys.Count == 0)
                 continue;
             
             var upsertKeysTo = trees[linkKey.AliasTo].UpsertKeys;
@@ -318,7 +318,7 @@ public static class SqlHelper
             var sqlNodeParentColumn = sqlUpsertStatementNodes
                 .Where(a => upsertKeysTo.Any(b => b.Split('~')[1].Matches(a.Value.Column))).ToList();
      
-            if (sqlNodeParentColumn == null)
+            if (!(sqlNodeParentColumn.Count(a => !string.IsNullOrEmpty(a.Value.Value)) > 0 ))
                 continue;
             
             var upsertKeysFrom = trees[linkKey.AliasFrom].UpsertKeys;
@@ -326,7 +326,7 @@ public static class SqlHelper
             var sqlNodeChildColumn = sqlUpsertStatementNodes
                 .Where(a => upsertKeysFrom.Any(b => b.Split('~')[1].Matches(a.Value.Column))).ToList();
                 
-            if (sqlNodeChildColumn == null)
+            if (!(sqlNodeChildColumn.Count(a => !string.IsNullOrEmpty(a.Value.Value)) > 0 ))
                 continue;
 
             if (linkKey.ToColumns.All(b => parentTree.Mapping.Any(a => a.DestinationName.Matches(b)))) 
@@ -349,63 +349,6 @@ public static class SqlHelper
                 statements.Add(sql);
             }
         }
-        
-        var linkKeys = new List<LinkKey>();
-        linkKeys.AddRange(childTree.RelatedParents
-            .Join(
-            trees,
-            child => child.AliasTo,
-            tree => tree.Key,
-            (child, tree) => new
-            {
-                LinkKey = child,
-                ToUpdate = !tree.Value.Mapping.Any(a => a.DestinationName.Matches(child.AliasTo)),
-                TreeId = tree.Value.Id
-            }).Where(a => a.ToUpdate).OrderBy(k => k.TreeId).Select(k => k.LinkKey));
-        
-        foreach (var linkKey in linkKeys)
-        {
-            if (!trees.TryGetValue(linkKey.AliasTo, out var parentTree))
-            {
-                Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.WriteLine(
-                    $"[WARN] GenerateCommand: linkKey.AliasTo '{linkKey.AliasTo}' " +
-                    $"not found in trees. Skipping.");
-                Console.ResetColor();
-                continue;
-            }
-     
-            if (childTree.UpsertKeys.Count == 0 || parentTree.UpsertKeys.Count == 0)
-                continue;
-            
-            var upsertKeys = trees[linkKey.AliasTo].UpsertKeys;
-            
-            var sqlNodeParentColumn = sqlUpsertStatementNodes
-                .Where(a => upsertKeys.Any(b => b.Split('~')[1].Matches(a.Value.Column))).ToList();
-     
-            if (sqlNodeParentColumn == null || sqlNodeParentColumn.First().Value.FromComplexModel)
-                continue;
-            
-            // var upsertKeysFrom = trees[linkKey.AliasFrom].UpsertKeys.Select(a => a.Split('~')[1]).ToList();
-            //
-            // var upsertKeysStatement = sqlNodeParentColumn.Where(a => upsertKeysFrom
-            //     .Any(b => b.Matches(a.Value.Column))).Select(c => c.Value.Alias).ToList();
-            
-            var sqlNodeChildColumn = sqlUpsertStatementNodes
-                .Where(a => upsertKeys.Any(b => b.Split('~')[1].Matches(a.Value.Column))).ToList();
-     
-            if (sqlNodeChildColumn == null)
-                continue;
-            
-            sql = GenerateStatement(parentTree, new List<string>(){linkKey.ToColumn}, sqlNodeChildColumn, 
-                childTree, new List<string>(){ linkKey.FromColumn },
-                sqlNodeParentColumn.Select(a => a.Value.Column).ToList());
-            
-            if (!string.IsNullOrEmpty(sql) && !statements.Contains(sql))
-            {
-                statements.Add(sql);
-            }
-        }
     }
 
     private static string GenerateStatement(NodeTree parentTree,
@@ -420,14 +363,11 @@ public static class SqlHelper
         
         var excludeJoin = new List<string>();
         
+        fromColumns = fromColumns.Distinct().ToList();
+        toColumns = toColumns.Distinct().ToList();
+        
         if (isChild)
         {
-            // insertJoin.AddRange(fromColumns.Select(a => $"\"{a}\""));
-            //
-            // selectJoin.AddRange(toColumns.Select((a) => $"{childTree.Alias}.\"{a}\" AS \"{a}\""));
-            //
-            // excludeJoin.AddRange(fromColumns.Select(a => $"\"{a}\" = EXCLUDED.\"{a}\"").ToList());
-            
             insertJoin.AddRange(fromColumns.Select(a => $"\"{a}\""));
             
             selectJoin.AddRange(fromColumns.Select((a, index) => $"{childTree.Alias}.\"{toColumns[index]}\" AS \"{a}\""));

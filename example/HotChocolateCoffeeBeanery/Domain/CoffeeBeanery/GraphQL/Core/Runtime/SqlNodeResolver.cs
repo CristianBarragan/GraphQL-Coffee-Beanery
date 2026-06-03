@@ -311,9 +311,6 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
             cloned.SqlNodeTypes.Clear();
             cloned.SqlNodeTypes.Add(isEdge ? SqlNodeType.Edge : SqlNodeType.Node);
 
-            if (sqlStatementNodes.ContainsKey(key))
-                sqlStatementNodes[key] = cloned;
-
             if (!sqlStatementNodes.ContainsKey(key))
                 sqlStatementNodes.Add(key, cloned);
         }
