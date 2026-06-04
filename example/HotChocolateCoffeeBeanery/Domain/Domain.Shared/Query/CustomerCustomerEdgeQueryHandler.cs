@@ -101,7 +101,7 @@ namespace Domain.Shared.Query
 
             // ── Phase 4: attach root to Wrapper and add to result ─────────────────
             var wrapperObj = new Wrapper();
-            Attach(wrapperObj, rootObject);
+            Attach(wrapperObj, rootObject.Object);
             wrappers.Add(wrapperObj);
 
             return (wrappers.OfType<M>().ToList(),
@@ -125,7 +125,7 @@ namespace Domain.Shared.Query
         ///     children are declared in NodeTree.Children + RelatedChildren — each
         ///     child.AliasTo points to a child entity tree.
         /// </summary>
-        private object Build(
+        private (object Object, string Alias) Build(
             NodeTree modelTree,
             Dictionary<string, object> objectMap,
             Dictionary<string, NodeTree> modelTrees,
@@ -133,9 +133,9 @@ namespace Domain.Shared.Query
             HashSet<string> visited)
         {
             if (visited.Contains(modelTree.Alias))
-                return objectMap.TryGetValue(modelTree.Alias, out var cached)
+                return (objectMap.TryGetValue(modelTree.Alias, out var cached)
                     ? cached
-                    : Activator.CreateInstance(modelTree.ModelType)!;
+                    : Activator.CreateInstance(modelTree.ModelType)!, string.Empty);
 
             visited.Add(modelTree.Alias);
 
@@ -146,8 +146,8 @@ namespace Domain.Shared.Query
                 objectMap[modelTree.Alias] = model;
             }
 
-            if (!modelTree.IsEntity)
-            {
+            // if (!modelTree.IsEntity)
+            // {
                 // ── Model-only node: children via ModelToEntityLinks ──────────────
                 // Each link.AliasTo = entity tree alias whose model should be
                 // attached as a child of this model-only node.
@@ -163,7 +163,7 @@ namespace Domain.Shared.Query
                     if (!seenLinks.Add(childAlias)) continue;
 
                     // Find the child entity tree
-                    if (!entityTrees.TryGetValue(childAlias, out var childEntityTree))
+                    if (entityTrees.TryGetValue(childAlias, out var childEntityTree))
                     {
                         // Fallback: find by model tree alias
                         childEntityTree = entityTrees.Values
@@ -213,11 +213,14 @@ namespace Domain.Shared.Query
                         entityTrees,
                         visited);
 
-                    Attach(model, childObject);
+                    if (childObject.Alias.Matches(link.AliasTo))
+                    {
+                        Attach(model, childObject.Object);    
+                    };
                 }
-            }
-            else
-            {
+            // }
+            // else
+            // {
                 // ── Entity-backed node: children via NodeTree.Children + RelatedChildren ──
                 // Find the corresponding entity tree (same alias or ModelType match)
                 var entityTree = entityTrees.TryGetValue(modelTree.Alias, out var et)
@@ -232,7 +235,7 @@ namespace Domain.Shared.Query
                         $"[WARN] Build(entity): no entity tree for model '{modelTree.Alias}'. " +
                         $"Returning model as-is.");
                     Console.ResetColor();
-                    return model;
+                    return (model, string.Empty);
                 }
 
                 var seenChildren = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -282,11 +285,14 @@ namespace Domain.Shared.Query
                         entityTrees,
                         visited);
 
-                    Attach(model, childObject);
+                    if (childObject.Alias.Matches(childLink.AliasTo))
+                    {
+                        Attach(model, childObject.Object);    
+                    }
                 }
-            }
+            // }
 
-            return model;
+            return (model, modelTree.Alias);
         }
 
         // ─────────────────────────────────────────────────────────────────────────
@@ -298,8 +304,9 @@ namespace Domain.Shared.Query
             if (parent == null || child == null) return;
 
             var prop = ResolveNavigationProperty(parent.GetType(), child.GetType());
+            
             if (prop == null) return;
-
+            
             if (typeof(IList).IsAssignableFrom(prop.PropertyType))
             {
                 var list = prop.GetValue(parent) as IList;

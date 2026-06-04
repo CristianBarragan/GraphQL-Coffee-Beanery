@@ -45,7 +45,25 @@ public class CustomerCustomerEdgeMapping
         {
             new LinkKey { AliasFrom    = A(nameof(CustomerCustomerEdge)), From = nameof(CustomerCustomerEdge), FromColumn = nameof(CustomerCustomerEdge.InnerCustomer), AliasTo = A(nameof(DataEntity.CustomerCustomerRelationship)), To = nameof(DataEntity.CustomerCustomerRelationship), ToColumn = nameof(DataEntity.CustomerCustomerRelationship.InnerCustomerKey) },
             new LinkKey { AliasFrom    = A(nameof(CustomerCustomerEdge)), From = nameof(CustomerCustomerEdge), FromColumn = nameof(CustomerCustomerEdge.OuterCustomer), AliasTo = A(nameof(DataEntity.CustomerCustomerRelationship)), To = nameof(DataEntity.CustomerCustomerRelationship), ToColumn = nameof(DataEntity.CustomerCustomerRelationship.OuterCustomerKey) },
-            new LinkKey { AliasFrom    = A(nameof(CustomerCustomerEdge)), From = nameof(CustomerCustomerEdge), FromColumn = nameof(CustomerCustomerEdge.CustomerCustomerRelationship), AliasTo = A(nameof(DataEntity.CustomerCustomerRelationship)), To = nameof(DataEntity.CustomerCustomerRelationship), ToColumn = nameof(DataEntity.CustomerCustomerRelationship.CustomerCustomerRelationshipKey) }
+            new LinkKey { AliasFrom    = A(nameof(CustomerCustomerEdge)), From = nameof(CustomerCustomerEdge), FromColumn = nameof(CustomerCustomerEdge.CustomerCustomerRelationship), AliasTo = A(nameof(DataEntity.CustomerCustomerRelationship)), To = nameof(DataEntity.CustomerCustomerRelationship), ToColumn = nameof(DataEntity.CustomerCustomerRelationship.CustomerCustomerRelationshipKey) },
+            new LinkKey
+            {
+                AliasFrom    = A(nameof(CustomerCustomerEdge)),
+                From       = nameof(CustomerCustomerEdge),
+                FromColumn = nameof(CustomerCustomerEdge.InnerCustomerKey),
+                AliasTo    = A(nameof(Customer)),
+                To         = nameof(Customer),
+                ToColumn   = nameof(Customer.CustomerKey)
+            },
+            new LinkKey
+            {
+                AliasFrom    = A(nameof(CustomerCustomerEdge)),
+                From       = nameof(CustomerCustomerEdge),
+                FromColumn = A(nameof(CustomerCustomerEdge.OuterCustomerKey)),
+                AliasTo    = A(nameof(Customer)),
+                To         = nameof(Customer),
+                ToColumn   = nameof(Customer.CustomerKey)
+            }
         });
         
         map.UpsertKeys.AddRange(new[]

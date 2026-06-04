@@ -73,7 +73,7 @@ public class CustomerCustomerRelationshipMapping
                 AliasFrom    = A(nameof(CustomerBankingRelationship)),
                 From       = nameof(CustomerBankingRelationship),
                 FromColumn = A(nameof(DataEntity.CustomerCustomerRelationship.OuterCustomer)),
-                AliasTo    = A(nameof(DataEntity.CustomerCustomerRelationship)),
+                AliasTo    = A(nameof(DataEntity.Customer)),
                 To         = nameof(Customer),
                 ToColumn   = nameof(Customer.CustomerKey),
             }
