@@ -169,6 +169,7 @@ namespace CoffeeBeanery.Service
             sqlStructure.SqlUpsert = mutationStructure.SqlUpsert;
             sqlStructure.ModelTrees = SqlNodeRegistry.ModelTrees;
             sqlStructure.EntityTrees = SqlNodeRegistry.EntityTrees;
+            sqlStructure.RelativeTree = rootTree;
             sqlStructure.SqlNodes = SqlNodeRegistry.EntityNodes.Select(a => a.Value).ToArray();
 
             var parameters = new ProcessQueryParameters

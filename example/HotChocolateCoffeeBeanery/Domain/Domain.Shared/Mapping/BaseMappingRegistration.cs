@@ -21,6 +21,9 @@ namespace Domain.Shared.Mapping
 
         protected string A(string name) =>
             string.IsNullOrWhiteSpace(Prefix) ? name : $"{Prefix}{name}";
+        
+        protected string A(string tempPrefix, string name) =>
+            string.IsNullOrWhiteSpace(tempPrefix) ? name : $"{tempPrefix}{name}";
 
         protected virtual bool     IsEntity => true;
         protected virtual bool     IsModel  => true;

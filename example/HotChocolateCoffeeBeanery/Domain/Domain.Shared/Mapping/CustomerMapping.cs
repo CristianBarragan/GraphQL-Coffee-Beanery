@@ -166,7 +166,9 @@ public abstract class CustomerBaseMapping<TAlias>
             },
             new FieldMap { SourceAlias = A(nameof(Customer)), DestinationAlias = A(nameof(DataEntity.Customer)), SourceName = nameof(Customer.FirstNaming), DestinationEntity = nameof(DataEntity.Customer), DestinationName = nameof(DataEntity.Customer.FirstName) },
             new FieldMap { SourceAlias = A(nameof(Customer)), DestinationAlias = A(nameof(DataEntity.Customer)), SourceName = nameof(Customer.LastNaming),  DestinationEntity = nameof(DataEntity.Customer), DestinationName = nameof(DataEntity.Customer.LastName) },
-            new FieldMap { SourceAlias = A(nameof(Customer)), DestinationAlias = A(nameof(DataEntity.Customer)), SourceName = nameof(Customer.FullNaming),  DestinationEntity = nameof(DataEntity.Customer), DestinationName = nameof(DataEntity.Customer.FullName) }
+            new FieldMap { SourceAlias = A(nameof(Customer)), DestinationAlias = A(nameof(DataEntity.Customer)), SourceName = nameof(Customer.FullNaming),  DestinationEntity = nameof(DataEntity.Customer), DestinationName = nameof(DataEntity.Customer.FullName) },
+            new FieldMap { SourceAlias = A(nameof(Customer)), DestinationAlias = A(nameof(DataEntity.ContactPoint)), SourceName = nameof(Customer.ContactPoint),  DestinationEntity = nameof(DataEntity.Customer), DestinationName = nameof(DataEntity.Customer.ContactPoint) },
+            new FieldMap { SourceAlias = A(nameof(Customer)), DestinationAlias = A(nameof(DataEntity.CustomerBankingRelationship)), SourceName = nameof(Customer.Product),  DestinationEntity = nameof(DataEntity.Customer), DestinationName = nameof(DataEntity.Customer.CustomerBankingRelationship) }
         });
 
         return map;

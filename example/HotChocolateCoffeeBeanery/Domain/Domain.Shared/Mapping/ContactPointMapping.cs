@@ -39,12 +39,12 @@ public class ContactPointMapping : BaseMappingRegistration<ContactPoint, DataEnt
             },
             new LinkKey
             {
-                AliasFrom    = A(nameof(ContactPoint)),
-                From       = nameof(ContactPoint),
-                FromColumn = nameof(ContactPoint.CustomerKey),
-                AliasTo    = A(nameof(Customer)),
-                To         = nameof(Customer),
-                ToColumn   = nameof(Customer.CustomerKey)
+                AliasFrom    = A(nameof(DataEntity.ContactPoint)),
+                From       = nameof(DataEntity.ContactPoint),
+                FromColumn = nameof(DataEntity.ContactPoint.CustomerKey),
+                AliasTo    = A(nameof(DataEntity.Customer)),
+                To         = nameof(DataEntity.Customer),
+                ToColumn   = nameof(DataEntity.Customer.CustomerKey)
             }
         });
 

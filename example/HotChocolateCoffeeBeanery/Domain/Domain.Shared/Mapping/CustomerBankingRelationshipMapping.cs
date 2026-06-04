@@ -73,15 +73,20 @@ public class CustomerBankingRelationshipMapping
             }
         );
 
-        map.ModelChildren.Add(new LinkKey
-        {
-            AliasFrom    = A(nameof(CustomerBankingRelationship)),
-            From       = nameof(CustomerBankingRelationship),
-            FromColumn = nameof(CustomerBankingRelationship.CustomerBankingRelationshipKey),
-            AliasTo    = A(nameof(DataEntity.Contract)),
-            To         = nameof(DataEntity.Contract),
-            ToColumn   = nameof(Contract.CustomerBankingRelationshipKey)
-        });
+        map.ModelChildren.AddRange(new[]
+            {
+                new LinkKey
+                {
+                    AliasFrom    = A(nameof(CustomerBankingRelationship)),
+                    From       = nameof(CustomerBankingRelationship),
+                    FromColumn = nameof(CustomerBankingRelationship.CustomerBankingRelationshipKey),
+                    AliasTo    = A(nameof(DataEntity.Contract)),
+                    To         = nameof(DataEntity.Contract),
+                    ToColumn   = nameof(Contract.CustomerBankingRelationshipKey),
+                }
+            }
+            
+        );
 
         map.ModelToEntityLinks.Add(new LinkKey
         {

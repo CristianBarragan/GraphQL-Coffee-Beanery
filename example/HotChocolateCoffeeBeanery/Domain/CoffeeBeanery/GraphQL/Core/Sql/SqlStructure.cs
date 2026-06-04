@@ -12,7 +12,9 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
         public string SqlUpsert { get; set; } = "";
         public string SqlQuery { get; set; } = "";
 
-        public DynamicParameters Parameters { get; set; }
+        public NodeTree RelativeTree { get; set; }
+
+        public Dictionary<string, SqlNode> SqlNodesApplied { get; set; }
 
         // public OrderedDictionary<string, Type> SplitOnDapper { get; set; } = new();
         public Dictionary<string, Type> SplitOnDapper { get; set; } = new Dictionary<string, Type>(StringComparer.InvariantCultureIgnoreCase);

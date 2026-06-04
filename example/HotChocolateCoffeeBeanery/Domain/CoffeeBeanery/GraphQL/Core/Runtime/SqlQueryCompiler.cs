@@ -47,6 +47,8 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
             
             var hasTotalCount = false;
 
+            selectResult.SqlNodesApplied = statementNodes;
+
             return selectResult;
         }
     }

@@ -1,4 +1,5 @@
 ﻿using CoffeeBeanery.CQRS;
+using CoffeeBeanery.GraphQL.Core.GraphQL;
 using CoffeeBeanery.GraphQL.Core.Sql;
 using Dapper;
 using Npgsql;
@@ -38,6 +39,13 @@ public class ProcessQuery<M> : IQuery<ProcessQueryParameters,
         await _db.OpenAsync(ct);
         var tx = await _db.BeginTransactionAsync(ct);
 
+        Console.WriteLine("===== GENERATED TYPES =====");
+
+        foreach (var type in types)
+        {
+            Console.WriteLine(type.Name);
+        }
+        
         try
         {
             await _db.QueryAsync(
@@ -45,7 +53,8 @@ public class ProcessQuery<M> : IQuery<ProcessQueryParameters,
                 types.ToArray(),
                 (object[] map) =>
                 {
-                    var set = MappingConfiguration(models, parameters.SqlStructure, map, types);
+                    var set = MappingConfiguration(models, parameters.SqlStructure, map, SqlNodeRegistry.EntityTypes, types, parameters.SqlStructure.SqlNodesApplied,
+                        parameters.SqlStructure.RelativeTree, parameters.SqlStructure.ModelTrees, parameters.SqlStructure.EntityTrees);
                     models = set.models;
 
                     return 0;
@@ -76,7 +85,8 @@ public class ProcessQuery<M> : IQuery<ProcessQueryParameters,
     }
     
     public virtual (List<M> models, int? startCursor, int? endCursor, int? totalCount, int? totalPageRecords)
-        MappingConfiguration(List<M> models, SqlStructure sqlStructure, object[] map, List<Type> types)
+        MappingConfiguration(List<M> models, SqlStructure sqlStructure, object[] map, List<Type> allTypes, List<Type> types,
+            Dictionary<string, SqlNode> sqlNodesApplied, NodeTree relativeTree, Dictionary<string, NodeTree> modelTrees, Dictionary<string, NodeTree> entityTrees)
     {
         throw new NotImplementedException();
     }
