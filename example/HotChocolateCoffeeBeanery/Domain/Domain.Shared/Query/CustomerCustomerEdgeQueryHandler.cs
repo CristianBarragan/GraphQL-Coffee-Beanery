@@ -216,7 +216,7 @@ namespace Domain.Shared.Query
                     if (childObject.Alias.Matches(link.AliasTo))
                     {
                         Attach(model, childObject.Object);    
-                    };
+                    }
                 }
             // }
             // else
