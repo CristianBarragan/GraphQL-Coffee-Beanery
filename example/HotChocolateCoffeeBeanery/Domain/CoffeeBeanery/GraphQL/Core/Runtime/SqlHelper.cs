@@ -120,11 +120,7 @@ public static class SqlHelper
         var currentColumns = sqlUpsertStatementNodes
             .Where(k =>
                 k.Key.Split('~')[0].Matches(currentTree.Alias) &&
-                entityNames.Contains(k.Value.RelationshipKey.Split('~')[1]) 
-                // &&
-                // !k.Value.LinkKeys.Any(b => b.From.Matches(k.Key)) &&
-                // !k.Value.LinkKeys.Any(b =>
-                //     trees.Keys.Any(a => a.Matches(k.Key.Split('~')[2])))
+                entityNames.Contains(k.Value.RelationshipKey.Split('~')[1])
                 )
             .ToList();
 
@@ -142,16 +138,6 @@ public static class SqlHelper
             var entityTree = trees[linkKey.AliasTo];
             linkKeys.AddRange(entityTree.RelatedChildren.Concat(entityTree.Children));
         }
-        
-        // var allChildLinks = currentTree.ModelToEntityLinks
-        //     .ToList();
-
-        // if (currentTree.NodeMap?.ModelChildren != null)
-        // {
-        //     allChildLinks.AddRange(currentTree.NodeMap.ModelChildren
-        //         .Where(mc => allChildLinks.All(cl =>
-        //             cl.AliasTo != mc.AliasTo && cl.To != mc.To)));
-        // }
 
         foreach (var childLink in linkKeys)
         {

@@ -430,7 +430,6 @@ public class SqlSelectBuilder
         StringBuilder sqlQueryStatement, Dictionary<string, SqlQueryStructure> sqlQueryStructures,
         Dictionary<string, string> sqlWhereStatement, Dictionary<string, string> childrenSqlStatement)
     {
-        var rootEntity = currentTree.Alias;
         var childrenJoinColumns = new Dictionary<string, string>();
         var currentColumns = new List<KeyValuePair<string, SqlNode>>(); 
         var columnToAdd = linkEntityDictionaryTreeNode
@@ -530,8 +529,7 @@ public class SqlSelectBuilder
             joinOnKey = $"{currentTree.Alias}.\"{oneKey.FromColumn}\" AS \"{oneKey.FromColumn.ToSnakeCase(currentTree.Id)}\"";
             var joinOneKeyParent = $"~.\"{oneKey.FromColumn.ToSnakeCase(currentTree.Id)}\" AS \"{oneKey.FromColumn.ToSnakeCase(currentTree.Id)}\"";
             queryColumns.Add(joinOnKey);
-            parentQueryColumns.Add(joinOneKeyParent);
-            // joinOnKey = $"{oneKey.ToColumn.ToSnakeCase(currentTree.Id)}";  
+            parentQueryColumns.Add(joinOneKeyParent); 
         }
 
         var entitySqlWhereStatement = string.Empty;
@@ -628,40 +626,7 @@ public class SqlSelectBuilder
             ParentColumns = parentQueryColumns,
             ChildrenJoinColumns = childrenJoinColumns,
             WhereClause = entitySqlWhereStatement
-            // ,
-            // JoinOnKey = joinOnKey
         };
-
-        // if (currentTree.Alias.Matches(rootEntity))
-        // {
-        //     var addingMissingUpsertKeys = linkEntityDictionaryTreeNode
-        //         .First(c => c.Key.Split('~')[0].Matches(currentTree.Alias))
-        //         .Value.UpsertKeys.Where(u => !sqlStructure.Columns.Any(a => a
-        //             .Matches($"{currentTree.Alias}.\"Id\" AS \"{u.Split('~')[1].ToSnakeCase(currentTree.Id)}\"")))
-        //             .Select(a => $"{currentTree.Alias}.\"{a.Split('~')[1]}\" AS \"{a.Split('~')[1].ToSnakeCase(currentTree.Id)}\"");
-        //
-        //     var addingMissingUpsertKeysParent = linkEntityDictionaryTreeNode
-        //         .First(c => c.Key.Split('~')[0].Matches(currentTree.Alias))
-        //         .Value.UpsertKeys.Where(u => !sqlStructure.Columns.Any(a => a
-        //             .Matches($"{currentTree.Alias}.\"Id\" AS \"{u.Split('~')[1].ToSnakeCase(entityTrees[currentTree.Alias].Id)}\"")))
-        //         .Select(a => $"{currentTree.Alias}.\"{a.Split('~')[1].ToSnakeCase(entityTrees[currentTree.Alias]
-        //             .Id)}\" AS \"{a.Split('~')[1].ToSnakeCase(entityTrees[currentTree.Alias].Id)}\"");
-        //
-        //     if (addingMissingUpsertKeys != null && addingMissingUpsertKeys.Count() > 0)
-        //     {
-        //         sqlStructure.Columns.AddRange(addingMissingUpsertKeys);
-        //
-        //         foreach (var key in addingMissingUpsertKeysParent)
-        //         {
-        //             if (!sqlStructure.ParentColumns.Contains(key))
-        //             {
-        //                 sqlStructure.ParentColumns.Add(key);
-        //             }
-        //         }
-        //     }
-        //
-        //     sqlStructure.Columns = sqlStructure.Columns.Distinct().ToList();
-        // }
 
         return sqlStructure;
     }
