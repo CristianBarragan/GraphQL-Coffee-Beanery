@@ -48,36 +48,36 @@ public class CustomerCustomerRelationshipMapping
             }
         );
         
-        map.ModelParents.AddRange(new []
-        {
-            new LinkKey
-            {
-                AliasFrom    = A(nameof(CustomerCustomerRelationship)), 
-                From       = nameof(CustomerCustomerRelationship),
-                FromColumn = nameof(CustomerCustomerRelationship.CustomerCustomerRelationshipKey),
-                AliasTo    = A(nameof(CustomerCustomerEdge)),
-                To         = nameof(CustomerCustomerEdge),
-                ToColumn   = nameof(CustomerCustomerEdge.CustomerCustomerRelationshipKey)
-            },
-            new LinkKey
-            {
-                AliasFrom    = A(nameof(CustomerCustomerRelationship)),
-                From       = nameof(CustomerCustomerRelationship),
-                FromColumn = nameof(CustomerCustomerRelationship.InnerCustomerKey),
-                AliasTo    = A(nameof(DataEntity.CustomerCustomerRelationship.InnerCustomer)),
-                To         = nameof(Customer),
-                ToColumn   = nameof(Customer.CustomerKey),
-            },
-            new LinkKey
-            {
-                AliasFrom    = A(nameof(CustomerBankingRelationship)),
-                From       = nameof(CustomerBankingRelationship),
-                FromColumn = A(nameof(DataEntity.CustomerCustomerRelationship.OuterCustomer)),
-                AliasTo    = A(nameof(DataEntity.Customer)),
-                To         = nameof(Customer),
-                ToColumn   = nameof(Customer.CustomerKey),
-            }
-        });
+        // map.ModelParents.AddRange(new []
+        // {
+        //     new LinkKey
+        //     {
+        //         AliasFrom    = A(nameof(CustomerCustomerRelationship)), 
+        //         From       = nameof(CustomerCustomerRelationship),
+        //         FromColumn = nameof(CustomerCustomerRelationship.CustomerCustomerRelationshipKey),
+        //         AliasTo    = A(nameof(CustomerCustomerEdge)),
+        //         To         = nameof(CustomerCustomerEdge),
+        //         ToColumn   = nameof(CustomerCustomerEdge.CustomerCustomerRelationshipKey)
+        //     },
+        //     new LinkKey
+        //     {
+        //         AliasFrom    = A(nameof(CustomerCustomerRelationship)),
+        //         From       = nameof(CustomerCustomerRelationship),
+        //         FromColumn = nameof(CustomerCustomerRelationship.InnerCustomerKey),
+        //         AliasTo    = A(nameof(DataEntity.CustomerCustomerRelationship.InnerCustomer)),
+        //         To         = nameof(Customer),
+        //         ToColumn   = nameof(Customer.CustomerKey),
+        //     },
+        //     new LinkKey
+        //     {
+        //         AliasFrom    = A(nameof(CustomerBankingRelationship)),
+        //         From       = nameof(CustomerBankingRelationship),
+        //         FromColumn = A(nameof(DataEntity.CustomerCustomerRelationship.OuterCustomer)),
+        //         AliasTo    = A(nameof(DataEntity.Customer)),
+        //         To         = nameof(Customer),
+        //         ToColumn   = nameof(Customer.CustomerKey),
+        //     }
+        // });
 
         map.ModelToEntityLinks.AddRange(new[]
         {

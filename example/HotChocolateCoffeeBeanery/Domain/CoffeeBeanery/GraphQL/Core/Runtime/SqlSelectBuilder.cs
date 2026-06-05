@@ -422,8 +422,6 @@ public class SqlSelectBuilder
             splitOnDapper.Add("Id".ToSnakeCase(currentTree.Id),
                 entityTypes.FirstOrDefault(e => e.Name.Matches(currentTree.Name)));
         }
-
-        return;
     }
     
     private static SqlQueryStructure GenerateEntityQuery(Dictionary<string, NodeTree> entityTrees,
@@ -479,7 +477,7 @@ public class SqlSelectBuilder
                     $"~.\"{fieldName.ToSnakeCase(currentTree.Id)}\" AS \"{fieldName
                         .ToSnakeCase(currentTree.Id)}\"");
                 
-                foreach (var linkKey in Enumerable.Concat(currentTree.Parents, currentTree.RelatedParents))
+                foreach (var linkKey in Enumerable.Concat(currentTree.Parents, currentTree.RelatedParents).Where(a => a.ToColumn.Matches("Id")))
                 {
                     if (!sqlQueryStructures.Any(s => s.Key.Matches(linkKey.AliasTo)))
                     {
@@ -529,12 +527,11 @@ public class SqlSelectBuilder
                 childrenJoinColumns.Add(currentJoinOnKeys.RelationshipKey.Split('~')[0], oneKey.ToColumn);    
             }
             
-            joinOnKey = $"{currentTree.Alias}.\"Id\" AS \"{oneKey.To}{oneKey
-                .ToColumn.ToSnakeCase(currentTree.Id)}\"";
-            var joinOneKeyParent = $"~.\"{"Id".ToSnakeCase(currentTree.Id)}\" AS \"{oneKey.ToColumn.ToSnakeCase(currentTree.Id)}\"";
+            joinOnKey = $"{currentTree.Alias}.\"{oneKey.FromColumn}\" AS \"{oneKey.FromColumn.ToSnakeCase(currentTree.Id)}\"";
+            var joinOneKeyParent = $"~.\"{oneKey.FromColumn.ToSnakeCase(currentTree.Id)}\" AS \"{oneKey.FromColumn.ToSnakeCase(currentTree.Id)}\"";
             queryColumns.Add(joinOnKey);
             parentQueryColumns.Add(joinOneKeyParent);
-            joinOnKey = $"{oneKey.ToColumn.ToSnakeCase(currentTree.Id)}";    
+            // joinOnKey = $"{oneKey.ToColumn.ToSnakeCase(currentTree.Id)}";  
         }
 
         var entitySqlWhereStatement = string.Empty;
@@ -630,40 +627,41 @@ public class SqlSelectBuilder
             Columns = queryColumns,
             ParentColumns = parentQueryColumns,
             ChildrenJoinColumns = childrenJoinColumns,
-            WhereClause = entitySqlWhereStatement,
-            JoinOnKey = joinOnKey
+            WhereClause = entitySqlWhereStatement
+            // ,
+            // JoinOnKey = joinOnKey
         };
 
-        if (currentTree.Alias.Matches(rootEntity))
-        {
-            var addingMissingUpsertKeys = linkEntityDictionaryTreeNode
-                .First(c => c.Key.Split('~')[0].Matches(currentTree.Alias))
-                .Value.UpsertKeys.Where(u => !sqlStructure.Columns.Any(a => a
-                    .Matches($"{currentTree.Alias}.\"Id\" AS \"{u.Split('~')[1].ToSnakeCase(currentTree.Id)}\"")))
-                    .Select(a => $"{currentTree.Alias}.\"{a.Split('~')[1]}\" AS \"{a.Split('~')[1].ToSnakeCase(currentTree.Id)}\"");
-
-            var addingMissingUpsertKeysParent = linkEntityDictionaryTreeNode
-                .First(c => c.Key.Split('~')[0].Matches(currentTree.Alias))
-                .Value.UpsertKeys.Where(u => !sqlStructure.Columns.Any(a => a
-                    .Matches($"{currentTree.Alias}.\"Id\" AS \"{u.Split('~')[1].ToSnakeCase(entityTrees[currentTree.Alias].Id)}\"")))
-                .Select(a => $"{currentTree.Alias}.\"{a.Split('~')[1].ToSnakeCase(entityTrees[currentTree.Alias]
-                    .Id)}\" AS \"{a.Split('~')[1].ToSnakeCase(entityTrees[currentTree.Alias].Id)}\"");
-
-            if (addingMissingUpsertKeys != null && addingMissingUpsertKeys.Count() > 0)
-            {
-                sqlStructure.Columns.AddRange(addingMissingUpsertKeys);
-
-                foreach (var key in addingMissingUpsertKeysParent)
-                {
-                    if (!sqlStructure.ParentColumns.Contains(key))
-                    {
-                        sqlStructure.ParentColumns.Add(key);
-                    }
-                }
-            }
-
-            sqlStructure.Columns = sqlStructure.Columns.Distinct().ToList();
-        }
+        // if (currentTree.Alias.Matches(rootEntity))
+        // {
+        //     var addingMissingUpsertKeys = linkEntityDictionaryTreeNode
+        //         .First(c => c.Key.Split('~')[0].Matches(currentTree.Alias))
+        //         .Value.UpsertKeys.Where(u => !sqlStructure.Columns.Any(a => a
+        //             .Matches($"{currentTree.Alias}.\"Id\" AS \"{u.Split('~')[1].ToSnakeCase(currentTree.Id)}\"")))
+        //             .Select(a => $"{currentTree.Alias}.\"{a.Split('~')[1]}\" AS \"{a.Split('~')[1].ToSnakeCase(currentTree.Id)}\"");
+        //
+        //     var addingMissingUpsertKeysParent = linkEntityDictionaryTreeNode
+        //         .First(c => c.Key.Split('~')[0].Matches(currentTree.Alias))
+        //         .Value.UpsertKeys.Where(u => !sqlStructure.Columns.Any(a => a
+        //             .Matches($"{currentTree.Alias}.\"Id\" AS \"{u.Split('~')[1].ToSnakeCase(entityTrees[currentTree.Alias].Id)}\"")))
+        //         .Select(a => $"{currentTree.Alias}.\"{a.Split('~')[1].ToSnakeCase(entityTrees[currentTree.Alias]
+        //             .Id)}\" AS \"{a.Split('~')[1].ToSnakeCase(entityTrees[currentTree.Alias].Id)}\"");
+        //
+        //     if (addingMissingUpsertKeys != null && addingMissingUpsertKeys.Count() > 0)
+        //     {
+        //         sqlStructure.Columns.AddRange(addingMissingUpsertKeys);
+        //
+        //         foreach (var key in addingMissingUpsertKeysParent)
+        //         {
+        //             if (!sqlStructure.ParentColumns.Contains(key))
+        //             {
+        //                 sqlStructure.ParentColumns.Add(key);
+        //             }
+        //         }
+        //     }
+        //
+        //     sqlStructure.Columns = sqlStructure.Columns.Distinct().ToList();
+        // }
 
         return sqlStructure;
     }

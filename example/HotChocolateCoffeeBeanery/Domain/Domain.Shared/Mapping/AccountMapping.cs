@@ -58,15 +58,15 @@ public class AccountMapping : BaseMappingRegistration<Account, DataEntity.Accoun
             ToColumn   = nameof(DataEntity.Transaction.AccountId)
         });
 
-        map.ModelParents.Add(new LinkKey
-        {
-            AliasFrom    = A(nameof(Account)),
-            From       = nameof(Account),
-            FromColumn = nameof(DataEntity.Account.AccountKey),
-            AliasTo    = A(nameof(Product)),
-            To         = nameof(Product),
-            ToColumn   = nameof(Product.AccountKey)
-        });
+        // map.ModelParents.Add(new LinkKey
+        // {
+        //     AliasFrom    = A(nameof(Account)),
+        //     From       = nameof(Account),
+        //     FromColumn = nameof(DataEntity.Account.AccountKey),
+        //     AliasTo    = A(nameof(Product)),
+        //     To         = nameof(Product),
+        //     ToColumn   = nameof(Product.AccountKey)
+        // });
 
         map.ModelToEntityLinks.Add(new LinkKey
         {

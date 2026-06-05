@@ -58,25 +58,25 @@ public class ContractMapping : BaseMappingRegistration<Contract, DataEntity.Cont
             ToColumn   = nameof(DataEntity.Account.Id)
         });
 
-        map.ModelParents.Add(new LinkKey
-        {
-            AliasFrom    = A(nameof(Contract)),
-            From       = nameof(Contract),
-            FromColumn = nameof(Contract.CustomerBankingRelationshipKey),
-            AliasTo    = A(nameof(DataEntity.CustomerBankingRelationship)),
-            To         = nameof(DataEntity.CustomerBankingRelationship),
-            ToColumn   = nameof(CustomerBankingRelationship.CustomerBankingRelationshipKey)
-        });
-
-        map.ModelChildren.Add(new LinkKey
-        {
-            AliasFrom    = A(nameof(Contract)),
-            From       = nameof(Contract),
-            FromColumn = nameof(Contract.ContractKey),
-            AliasTo    = A(nameof(DataEntity.Transaction)),
-            To         = nameof(DataEntity.Transaction),
-            ToColumn   = nameof(Transaction.ContractKey)
-        });
+        // map.ModelParents.Add(new LinkKey
+        // {
+        //     AliasFrom    = A(nameof(Contract)),
+        //     From       = nameof(Contract),
+        //     FromColumn = nameof(Contract.CustomerBankingRelationshipKey),
+        //     AliasTo    = A(nameof(DataEntity.CustomerBankingRelationship)),
+        //     To         = nameof(DataEntity.CustomerBankingRelationship),
+        //     ToColumn   = nameof(CustomerBankingRelationship.CustomerBankingRelationshipKey)
+        // });
+        //
+        // map.ModelChildren.Add(new LinkKey
+        // {
+        //     AliasFrom    = A(nameof(Contract)),
+        //     From       = nameof(Contract),
+        //     FromColumn = nameof(Contract.ContractKey),
+        //     AliasTo    = A(nameof(DataEntity.Transaction)),
+        //     To         = nameof(DataEntity.Transaction),
+        //     ToColumn   = nameof(Transaction.ContractKey)
+        // });
 
         map.ModelToEntityLinks.Add(new LinkKey
         {

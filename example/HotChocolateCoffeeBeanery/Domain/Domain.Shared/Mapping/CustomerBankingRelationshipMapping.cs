@@ -60,33 +60,33 @@ public class CustomerBankingRelationshipMapping
             ToColumn   = nameof(DataEntity.Contract.CustomerBankingRelationshipId)
         });
 
-        map.ModelParents.AddRange(new LinkKey[]
-            {
-                new(){
-                    AliasFrom    = A(nameof(DataEntity.CustomerBankingRelationship)),
-                    From       = nameof(DataEntity.CustomerBankingRelationship),
-                    FromColumn = nameof(DataEntity.CustomerBankingRelationship.CustomerId),
-                    AliasTo    = A(nameof(DataEntity.Customer)),
-                    To         = nameof(DataEntity.Customer),
-                    ToColumn   = nameof(DataEntity.Customer.Id)
-                }
-            }
-        );
-
-        map.ModelChildren.AddRange(new[]
-            {
-                new LinkKey
-                {
-                    AliasFrom    = A(nameof(CustomerBankingRelationship)),
-                    From       = nameof(CustomerBankingRelationship),
-                    FromColumn = nameof(CustomerBankingRelationship.CustomerBankingRelationshipKey),
-                    AliasTo    = A(nameof(DataEntity.Contract)),
-                    To         = nameof(DataEntity.Contract),
-                    ToColumn   = nameof(Contract.CustomerBankingRelationshipKey),
-                }
-            }
-            
-        );
+        // map.ModelParents.AddRange(new LinkKey[]
+        //     {
+        //         new(){
+        //             AliasFrom    = A(nameof(DataEntity.CustomerBankingRelationship)),
+        //             From       = nameof(DataEntity.CustomerBankingRelationship),
+        //             FromColumn = nameof(DataEntity.CustomerBankingRelationship.CustomerId),
+        //             AliasTo    = A(nameof(DataEntity.Customer)),
+        //             To         = nameof(DataEntity.Customer),
+        //             ToColumn   = nameof(DataEntity.Customer.Id)
+        //         }
+        //     }
+        // );
+        //
+        // map.ModelChildren.AddRange(new[]
+        //     {
+        //         new LinkKey
+        //         {
+        //             AliasFrom    = A(nameof(CustomerBankingRelationship)),
+        //             From       = nameof(CustomerBankingRelationship),
+        //             FromColumn = nameof(CustomerBankingRelationship.CustomerBankingRelationshipKey),
+        //             AliasTo    = A(nameof(DataEntity.Contract)),
+        //             To         = nameof(DataEntity.Contract),
+        //             ToColumn   = nameof(Contract.CustomerBankingRelationshipKey),
+        //         }
+        //     }
+        //     
+        // );
 
         map.ModelToEntityLinks.Add(new LinkKey
         {

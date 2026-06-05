@@ -24,56 +24,56 @@ public class ProductMapping : BaseModelMappingRegistration<Product>
         var map = new NodeMap();
 
         // ModelChildren — links from Product model to its child models
-        map.ModelChildren.AddRange(new[]
-        {
-            new LinkKey
-            {
-                AliasFrom  = A(nameof(Product)),
-                From       = nameof(Product),
-                FromColumn = nameof(Product.ContractKey),
-                AliasTo    = A(nameof(Contract)),
-                To         = nameof(Contract),
-                ToColumn   = nameof(Contract.ContractKey)
-            },
-            new LinkKey
-            {
-                AliasFrom  = A(nameof(Product)),
-                From       = nameof(Product),
-                FromColumn = nameof(Product.AccountKey),
-                AliasTo    = A(nameof(Account)),
-                To         = nameof(Account),
-                ToColumn   = nameof(Account.AccountKey)
-            },
-            new LinkKey
-            {
-                AliasFrom  = A(nameof(Product)),
-                From       = nameof(Product),
-                FromColumn = nameof(Product.CustomerBankingRelationshipKey),
-                AliasTo    = A(nameof(CustomerBankingRelationship)),
-                To         = nameof(CustomerBankingRelationship),
-                ToColumn   = nameof(CustomerBankingRelationship.CustomerBankingRelationshipKey)
-            },
-            new LinkKey
-            {
-                AliasFrom  = A(nameof(Product)),
-                From       = nameof(Product),
-                FromColumn = nameof(Product.TransactionKey),
-                AliasTo    = A(nameof(Transaction)),
-                To         = nameof(Transaction),
-                ToColumn   = nameof(Transaction.TransactionKey)
-            }
-        });
-
-        // ModelParents — Product belongs to Customer
-        map.ModelParents.Add(new LinkKey
-        {
-            AliasFrom  = A(nameof(Product)),
-            From       = nameof(Product),
-            FromColumn = nameof(Product.CustomerKey),
-            AliasTo    = A(nameof(Customer)),
-            To         = nameof(Customer),
-            ToColumn   = nameof(Customer.CustomerKey)
-        });
+        // map.ModelChildren.AddRange(new[]
+        // {
+        //     new LinkKey
+        //     {
+        //         AliasFrom  = A(nameof(Product)),
+        //         From       = nameof(Product),
+        //         FromColumn = nameof(Product.ContractKey),
+        //         AliasTo    = A(nameof(Contract)),
+        //         To         = nameof(Contract),
+        //         ToColumn   = nameof(Contract.ContractKey)
+        //     },
+        //     new LinkKey
+        //     {
+        //         AliasFrom  = A(nameof(Product)),
+        //         From       = nameof(Product),
+        //         FromColumn = nameof(Product.AccountKey),
+        //         AliasTo    = A(nameof(Account)),
+        //         To         = nameof(Account),
+        //         ToColumn   = nameof(Account.AccountKey)
+        //     },
+        //     new LinkKey
+        //     {
+        //         AliasFrom  = A(nameof(Product)),
+        //         From       = nameof(Product),
+        //         FromColumn = nameof(Product.CustomerBankingRelationshipKey),
+        //         AliasTo    = A(nameof(CustomerBankingRelationship)),
+        //         To         = nameof(CustomerBankingRelationship),
+        //         ToColumn   = nameof(CustomerBankingRelationship.CustomerBankingRelationshipKey)
+        //     },
+        //     new LinkKey
+        //     {
+        //         AliasFrom  = A(nameof(Product)),
+        //         From       = nameof(Product),
+        //         FromColumn = nameof(Product.TransactionKey),
+        //         AliasTo    = A(nameof(Transaction)),
+        //         To         = nameof(Transaction),
+        //         ToColumn   = nameof(Transaction.TransactionKey)
+        //     }
+        // });
+        //
+        // // ModelParents — Product belongs to Customer
+        // map.ModelParents.Add(new LinkKey
+        // {
+        //     AliasFrom  = A(nameof(Product)),
+        //     From       = nameof(Product),
+        //     FromColumn = nameof(Product.CustomerKey),
+        //     AliasTo    = A(nameof(Customer)),
+        //     To         = nameof(Customer),
+        //     ToColumn   = nameof(Customer.CustomerKey)
+        // });
 
         // ModelToEntityLinks — maps Product model fields to their backing entities
         // FIXED: To = raw entity name, AliasTo = prefixed entity tree key

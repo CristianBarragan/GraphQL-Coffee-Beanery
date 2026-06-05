@@ -48,15 +48,15 @@ public class ContactPointMapping : BaseMappingRegistration<ContactPoint, DataEnt
             }
         });
 
-        map.ModelParents.Add(new LinkKey
-        {
-            AliasFrom    = A(nameof(ContactPoint)),
-            From       = nameof(ContactPoint),
-            FromColumn = nameof(ContactPoint.CustomerKey),
-            AliasTo    = A(nameof(Customer)),
-            To         = nameof(Customer),
-            ToColumn   = nameof(Customer.CustomerKey)
-        });
+        // map.ModelParents.Add(new LinkKey
+        // {
+        //     AliasFrom    = A(nameof(ContactPoint)),
+        //     From       = nameof(ContactPoint),
+        //     FromColumn = nameof(ContactPoint.CustomerKey),
+        //     AliasTo    = A(nameof(Customer)),
+        //     To         = nameof(Customer),
+        //     ToColumn   = nameof(Customer.CustomerKey)
+        // });
 
         map.ModelToEntityLinks.Add(new LinkKey
         {

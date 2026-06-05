@@ -26,8 +26,6 @@ public class Product
     public decimal? Balance { get; set; }
 
     public ProductType? ProductType { get; set; }
-    
-    public CustomerBankingRelationship? CustomerBankingRelationship { get; set; }
 }
 
 public enum ProductType

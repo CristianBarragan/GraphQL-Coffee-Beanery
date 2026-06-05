@@ -120,10 +120,12 @@ public static class SqlHelper
         var currentColumns = sqlUpsertStatementNodes
             .Where(k =>
                 k.Key.Split('~')[0].Matches(currentTree.Alias) &&
-                entityNames.Contains(k.Value.RelationshipKey.Split('~')[1]) &&
-                !k.Value.LinkKeys.Any(b => b.From.Matches(k.Key)) &&
-                !k.Value.LinkKeys.Any(b =>
-                    trees.Keys.Any(a => a.Matches(k.Key.Split('~')[2]))))
+                entityNames.Contains(k.Value.RelationshipKey.Split('~')[1]) 
+                // &&
+                // !k.Value.LinkKeys.Any(b => b.From.Matches(k.Key)) &&
+                // !k.Value.LinkKeys.Any(b =>
+                //     trees.Keys.Any(a => a.Matches(k.Key.Split('~')[2])))
+                )
             .ToList();
 
         if (currentColumns.Count > 0)
@@ -133,18 +135,25 @@ public static class SqlHelper
                 sqlUpsertStatementNodes, sqlWhereStatement, statements, selectStatements);
         }
         
-        var allChildLinks = currentTree.Children
-            .Concat(currentTree.RelatedChildren)
-            .ToList();
+        var linkKeys = new List<LinkKey>();
 
-        if (currentTree.NodeMap?.ModelChildren != null)
+        foreach (var linkKey in currentTree.ModelToEntityLinks)
         {
-            allChildLinks.AddRange(currentTree.NodeMap.ModelChildren
-                .Where(mc => allChildLinks.All(cl =>
-                    cl.AliasTo != mc.AliasTo && cl.To != mc.To)));
+            var entityTree = trees[linkKey.AliasTo];
+            linkKeys.AddRange(entityTree.RelatedChildren.Concat(entityTree.Children));
         }
+        
+        // var allChildLinks = currentTree.ModelToEntityLinks
+        //     .ToList();
 
-        foreach (var childLink in allChildLinks)
+        // if (currentTree.NodeMap?.ModelChildren != null)
+        // {
+        //     allChildLinks.AddRange(currentTree.NodeMap.ModelChildren
+        //         .Where(mc => allChildLinks.All(cl =>
+        //             cl.AliasTo != mc.AliasTo && cl.To != mc.To)));
+        // }
+
+        foreach (var childLink in linkKeys)
         {
             var childAlias = !string.IsNullOrWhiteSpace(childLink.AliasTo)
                 ? childLink.AliasTo
@@ -246,11 +255,7 @@ public static class SqlHelper
         if (currentColumns.Count == 0)
             return;
 
-        var modelToEntityLinks = currentTree.ModelToEntityLinks?.Count > 0
-            ? currentTree.ModelToEntityLinks
-            : currentTree.NodeMap?.ModelToEntityLinks ?? new List<LinkKey>();
-
-        foreach (var modelToEntity in modelToEntityLinks)
+        foreach (var modelToEntity in currentTree.ModelToEntityLinks)
         {
             GenerateUpsert(
                 currentTree, currentColumns, sqlWhereStatement.GetValueOrDefault(currentTree.Alias) ?? string.Empty,
@@ -282,7 +287,7 @@ public static class SqlHelper
             return;
         }
         
-        var linkKeyss = childTree.Parents.Concat(childTree.RelatedParents)
+        var tlinkKeys = childTree.Parents.Concat(childTree.RelatedParents)
             .Join(
                 trees,
                 child => child.AliasTo,
@@ -298,7 +303,7 @@ public static class SqlHelper
                 ToColumns = a.Select(v => v.ToColumn).ToList(), 
                 FromColumns = a.Select(v => v.FromColumn).ToList() }).ToList();
         
-        foreach (var linkKey in linkKeyss)
+        foreach (var linkKey in tlinkKeys)
         {
             if (!trees.TryGetValue(linkKey.AliasTo, out var parentTree))
             {

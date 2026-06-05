@@ -24,21 +24,21 @@ public class CustomerCustomerEdgeMapping
     {
         var map = new NodeMap();
 
-        map.ModelChildren.AddRange(new[]
-        {
-            new LinkKey { AliasFrom    = A(nameof(CustomerCustomerEdge)), From = nameof(CustomerCustomerEdge), FromColumn = nameof(CustomerCustomerEdge.InnerCustomerKey), AliasTo = A(nameof(Customer)), To = nameof(CustomerCustomerRelationship.InnerCustomer), ToColumn = nameof(CustomerCustomerRelationship.InnerCustomerKey) },
-            new LinkKey { AliasFrom    = A(nameof(CustomerCustomerEdge)), From = nameof(CustomerCustomerEdge), FromColumn = nameof(CustomerCustomerEdge.OuterCustomerKey), AliasTo = A(nameof(Customer)), To = nameof(CustomerCustomerRelationship.OuterCustomer), ToColumn = nameof(CustomerCustomerRelationship.OuterCustomerKey) }
-        });
+        // map.ModelChildren.AddRange(new[]
+        // {
+        //     new LinkKey { AliasFrom    = A(nameof(CustomerCustomerEdge)), From = nameof(CustomerCustomerEdge), FromColumn = nameof(CustomerCustomerEdge.InnerCustomerKey), AliasTo = A(nameof(Customer)), To = nameof(CustomerCustomerRelationship.InnerCustomer), ToColumn = nameof(CustomerCustomerRelationship.InnerCustomerKey) },
+        //     new LinkKey { AliasFrom    = A(nameof(CustomerCustomerEdge)), From = nameof(CustomerCustomerEdge), FromColumn = nameof(CustomerCustomerEdge.OuterCustomerKey), AliasTo = A(nameof(Customer)), To = nameof(CustomerCustomerRelationship.OuterCustomer), ToColumn = nameof(CustomerCustomerRelationship.OuterCustomerKey) }
+        // });
         
-        map.ModelParents.Add(new LinkKey
-        {
-            AliasFrom  = A(nameof(CustomerCustomerEdge)),
-            From       = nameof(CustomerCustomerEdge),
-            FromColumn = nameof(CustomerCustomerEdge.CustomerCustomerRelationshipKey),
-            AliasTo    = A(nameof(Wrapper)),
-            To         = nameof(Wrapper),
-            ToColumn   = nameof(Wrapper.CustomerCustomerEdgeKey)
-        });
+        // map.ModelParents.Add(new LinkKey
+        // {
+        //     AliasFrom  = A(nameof(CustomerCustomerEdge)),
+        //     From       = nameof(CustomerCustomerEdge),
+        //     FromColumn = nameof(CustomerCustomerEdge.CustomerCustomerRelationshipKey),
+        //     AliasTo    = A(nameof(Wrapper)),
+        //     To         = nameof(Wrapper),
+        //     ToColumn   = nameof(Wrapper.CustomerCustomerEdgeKey)
+        // });
 
         
         map.ModelToEntityLinks.AddRange(new[]
