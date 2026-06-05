@@ -180,7 +180,7 @@ namespace Domain.Shared.Query
                     // Then attach the child to the current model
                     if (nodeResult.Objects.TryGetValue(childModelTree.Alias,
                             out var childObj))
-                        Attach(currentModel, childObj, nodeResult, childModelTree.Alias);
+                        Attach(currentModel, childObj, nodeResult, childModelTree.Prefix, childModelTree.Alias);
                 }
             }
             else
@@ -235,12 +235,13 @@ namespace Domain.Shared.Query
         ///
         /// NodeResult.Objects is updated so subsequent visits reuse the same instance.
         /// </summary>
-        private static void Attach(object parent, object child, NodeResult nodeResult, string childAlias = "")
+        private static void Attach(object parent, object child, NodeResult nodeResult, string prefix = "", string childAlias = "")
         {
             if (parent == null || child == null) return;
 
             var childType = child.GetType();
-            var prop      = ResolveNavigationProperty(parent.GetType(), childType);
+            var prop = ResolveNavigationProperty(parent.GetType(), childType, prefix, childAlias);
+            
             if (prop == null) return;
 
             if (typeof(IList).IsAssignableFrom(prop.PropertyType))
@@ -304,8 +305,7 @@ namespace Domain.Shared.Query
                 return direct;
 
             var fallback = entityTrees.Values.FirstOrDefault(t =>
-                t.Alias.Equals(childAlias, StringComparison.OrdinalIgnoreCase) ||
-                t.Name.Equals(childAlias, StringComparison.OrdinalIgnoreCase));
+                t.Alias.Equals(childAlias, StringComparison.OrdinalIgnoreCase));
 
             if (fallback == null)
             {
@@ -326,7 +326,6 @@ namespace Domain.Shared.Query
             var result = modelTrees.Values
                 .FirstOrDefault(t => t.ModelType == entityTree.ModelType)
                 ?? modelTrees.Values.FirstOrDefault(t =>
-                    t.Name.Equals(entityTree.Name, StringComparison.OrdinalIgnoreCase) ||
                     t.Alias.Equals(childAlias, StringComparison.OrdinalIgnoreCase));
 
             if (result == null)
@@ -363,16 +362,36 @@ namespace Domain.Shared.Query
         }
 
         private static PropertyInfo? ResolveNavigationProperty(
-            Type parentType, Type childType)
+            Type parentType,
+            Type childType,
+            string prefix,
+            string childAlias)
         {
+            if (!string.IsNullOrWhiteSpace(childAlias))
+            {
+                var aliasProp = parentType.GetProperty(
+                    childAlias,
+                    BindingFlags.Public |
+                    BindingFlags.Instance |
+                    BindingFlags.IgnoreCase);
+
+                if (aliasProp != null)
+                    return aliasProp;
+            }
+
             return parentType
                 .GetProperties(BindingFlags.Public | BindingFlags.Instance)
+                .OrderByDescending(a => a.Name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) && a.Name.Matches(prefix))
                 .FirstOrDefault(p =>
                 {
-                    if (p.PropertyType == childType) return true;
-                    if (!p.PropertyType.IsGenericType) return false;
+                    if (p.PropertyType == childType)
+                        return true;
+
+                    if (!p.PropertyType.IsGenericType)
+                        return false;
+
                     return p.PropertyType.GetGenericTypeDefinition() == typeof(List<>)
-                        && p.PropertyType.GetGenericArguments()[0] == childType;
+                           && p.PropertyType.GetGenericArguments()[0] == childType;
                 });
         }
 

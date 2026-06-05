@@ -40,6 +40,7 @@ namespace Domain.Shared.Mapping
             map.IsGraph  = IsGraph;
             map.Alias    = RegistrationKey;
             map.ModelName = Model;
+            map.Prefix = Prefix;
 
             MappingRegistry.Register(typeof(TModel), typeof(TEntity), map, RegistrationKey);
         }
@@ -75,6 +76,7 @@ namespace Domain.Shared.Mapping
             map.IsEntity = false;
             map.Alias    = RegistrationKey;
             map.ModelName = Model;
+            map.Prefix = Prefix;
 
             MappingRegistry.Register(typeof(TModel), entityType: null, map, RegistrationKey);
         }

@@ -12,7 +12,8 @@
     {
         public string Id { get; set; }
         public string Alias { get; set; }
-        public string Schema { get; set; } = "public";
+        public string Schema { get; set; } = "";
+        public string Prefix { get; set; }
         public string Table { get; set; } = "";
         public string Column { get; set; } = "";
         public string SourceColumn { get; set; } = "";

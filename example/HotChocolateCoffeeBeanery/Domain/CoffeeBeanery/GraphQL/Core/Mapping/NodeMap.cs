@@ -13,6 +13,8 @@ namespace CoffeeBeanery.GraphQL.Core.Mapping
         
         public bool IsEntity { get; set; }
 
+        public string Prefix { get; set; }
+
         public List<FieldMap> FieldMaps { get; } = new List<FieldMap>();
         public List<UpsertKey> UpsertKeys { get; private set; } = new List<UpsertKey>();
         public List<LinkKey> LinkKeys { get; private set; } = new List<LinkKey>();
