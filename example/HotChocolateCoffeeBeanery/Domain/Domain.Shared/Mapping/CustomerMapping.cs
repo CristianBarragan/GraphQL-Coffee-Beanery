@@ -138,6 +138,17 @@ public abstract class CustomerBaseMapping<TAlias>
                 ToColumn   = nameof(DataEntity.CustomerBankingRelationship.CustomerId)
             }
         });
+        
+        map.ModelChildren.AddRange(new[]
+        {
+            new LinkKey
+            {
+                AliasFrom    = A(nameof(DataEntity.Customer)), 
+                From       = nameof(DataEntity.Customer),
+                AliasTo    = A(nameof(Product)),
+                To         = nameof(Product)
+            }
+        });
 
         map.UpsertKeys.Add(new UpsertKey(
             nameof(DataEntity.Customer),

@@ -135,12 +135,6 @@ namespace Domain.Shared.Query
             NodeResult nodeResult,
             HashSet<string> visited)
         {
-            if (visited.Contains(modelTree.Alias)) return;
-            visited.Add(modelTree.Alias);
-
-            // Get or create the model instance for this node
-            // Prefer objectMap (Phase 1 mapped), then nodeResult.Objects (reused),
-            // then create fresh
             if (!nodeResult.Objects.TryGetValue(modelTree.Alias, out var currentModel))
             {
                 currentModel = objectMap.TryGetValue(modelTree.Alias, out var mapped)
@@ -152,73 +146,202 @@ namespace Domain.Shared.Query
 
             nodeResult.CurrentObject = currentModel;
 
+            // ------------------------------------------------------------------
+            // MODEL CHILDREN
+            // ------------------------------------------------------------------
+            foreach (var linkKey in modelTree.ModelChildren ?? Enumerable.Empty<LinkKey>())
+            {
+                var childAlias = !string.IsNullOrWhiteSpace(linkKey.AliasTo)
+                    ? linkKey.AliasTo
+                    : linkKey.To;
+
+                NodeTree? childModelTree = null;
+
+                if (modelTrees.TryGetValue(childAlias, out var directModel))
+                {
+                    childModelTree = directModel;
+                }
+                else
+                {
+                    var childEntityTree = ResolveChildEntityTree(childAlias, entityTrees);
+
+                    if (childEntityTree != null)
+                    {
+                        childModelTree = ResolveModelTreeForEntity(
+                            childEntityTree,
+                            childAlias,
+                            modelTrees);
+                    }
+                }
+
+                if (childModelTree == null)
+                    continue;
+
+                Build(
+                    childModelTree,
+                    objectMap,
+                    modelTrees,
+                    entityTrees,
+                    nodeResult,
+                    visited);
+
+                if (nodeResult.Objects.TryGetValue(childModelTree.Alias, out var childObj))
+                {
+                    Attach(
+                        currentModel,
+                        childObj,
+                        nodeResult,
+                        childModelTree.Prefix,
+                        childModelTree.Alias);
+                }
+            }
+
+            // ------------------------------------------------------------------
+            // ENTITY CHILDREN
+            // ------------------------------------------------------------------
             if (!modelTree.IsEntity)
+                return;
+
+            var entityTree = entityTrees.TryGetValue(modelTree.Alias, out var et)
+                ? et
+                : entityTrees.Values.FirstOrDefault(t =>
+                    t.ModelType == modelTree.ModelType &&
+                    t.IsEntity);
+
+            if (entityTree == null)
+                return;
+
+            foreach (var childLink in entityTree.Children.Concat(entityTree.RelatedChildren))
             {
-                // ── Model-only: traverse via ModelToEntityLinks ───────────────────
-                // link.AliasTo = entity tree alias of each child entity
-                var seenLinks = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                var childAlias = !string.IsNullOrWhiteSpace(childLink.AliasTo)
+                    ? childLink.AliasTo
+                    : childLink.To;
 
-                foreach (var link in modelTree.ModelToEntityLinks ?? new List<LinkKey>())
+                var childEntityTree = ResolveChildEntityTree(
+                    childAlias,
+                    entityTrees);
+
+                if (childEntityTree == null)
+                    continue;
+
+                var childModelTree = ResolveModelTreeForEntity(
+                    childEntityTree,
+                    childAlias,
+                    modelTrees);
+
+                if (childModelTree == null)
+                    continue;
+
+                Build(
+                    childModelTree,
+                    objectMap,
+                    modelTrees,
+                    entityTrees,
+                    nodeResult,
+                    visited);
+
+                if (nodeResult.Objects.TryGetValue(childModelTree.Alias, out var childObj))
                 {
-                    var childAlias = !string.IsNullOrWhiteSpace(link.AliasTo)
-                        ? link.AliasTo : link.To;
-
-                    if (!seenLinks.Add(childAlias)) continue;
-
-                    var childEntityTree = ResolveChildEntityTree(
-                        childAlias, entityTrees);
-                    if (childEntityTree == null) continue;
-
-                    var childModelTree = ResolveModelTreeForEntity(
-                        childEntityTree, childAlias, modelTrees);
-                    if (childModelTree == null) continue;
-
-                    // Recurse into child FIRST so its subtree is fully built
-                    Build(childModelTree, objectMap, modelTrees, entityTrees,
-                        nodeResult, visited);
-
-                    // Then attach the child to the current model
-                    if (nodeResult.Objects.TryGetValue(childModelTree.Alias,
-                            out var childObj))
-                        Attach(currentModel, childObj, nodeResult, childModelTree.Prefix, childModelTree.Alias);
+                    Attach(
+                        currentModel,
+                        childObj,
+                        nodeResult,
+                        childModelTree.Prefix,
+                        childModelTree.Alias);
                 }
             }
-            else
+
+            ProjectAggregates(nodeResult, modelTrees);
+        }
+        
+        private static void ProjectAggregates(
+            NodeResult nodeResult,
+            Dictionary<string, NodeTree> modelTrees)
+        {
+            foreach (var modelTree in modelTrees.Values.Where(t => t.IsModel))
             {
-                // ── Entity-backed: traverse via Children + RelatedChildren ─────────
-                var entityTree = entityTrees.TryGetValue(modelTree.Alias, out var et)
-                    ? et
-                    : entityTrees.Values.FirstOrDefault(t =>
-                        t.ModelType == modelTree.ModelType && t.IsEntity);
+                if (!nodeResult.Objects.TryGetValue(modelTree.Alias, out var targetModel))
+                    continue;
 
-                if (entityTree == null) return;
+                var targetType = targetModel.GetType();
 
-                var seenChildren = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-                foreach (var childLink in entityTree.Children
-                             .Concat(entityTree.RelatedChildren))
+                foreach (var field in modelTree.Mapping)
                 {
-                    var childAlias = !string.IsNullOrWhiteSpace(childLink.AliasTo)
-                        ? childLink.AliasTo : childLink.To;
+                    // DestinationAlias = source node (Account / Contract / Transaction)
+                    var sourceAlias = field.DestinationAlias;
 
-                    if (!seenChildren.Add(childAlias)) continue;
+                    if (string.IsNullOrWhiteSpace(sourceAlias))
+                        continue;
 
-                    var childEntityTree = ResolveChildEntityTree(
-                        childAlias, entityTrees);
-                    if (childEntityTree == null) continue;
+                    if (!nodeResult.Objects.TryGetValue(sourceAlias, out var sourceObj))
+                        continue;
 
-                    var childModelTree = ResolveModelTreeForEntity(
-                        childEntityTree, childAlias, modelTrees);
-                    if (childModelTree == null) continue;
+                    var sourceProp = sourceObj.GetType()
+                        .GetProperty(field.DestinationName.Split('.').Last());
 
-                    Build(childModelTree, objectMap, modelTrees, entityTrees,
-                        nodeResult, visited);
+                    var targetProp = targetType
+                        .GetProperty(field.SourceName);
 
-                    if (nodeResult.Objects.TryGetValue(childModelTree.Alias,
-                            out var childObj))
-                        Attach(currentModel, childObj, nodeResult, childModelTree.Alias);
+                    if (sourceProp == null || targetProp == null)
+                        continue;
+
+                    var value = sourceProp.GetValue(sourceObj);
+                    targetProp.SetValue(targetModel, value);
                 }
             }
+        }
+        
+        private static void HydrateModel(
+            NodeTree modelTree,
+            object currentModel,
+            NodeResult nodeResult)
+        {
+            var modelProperties = currentModel.GetType()
+                .GetProperties(BindingFlags.Public | BindingFlags.Instance)
+                .Where(p => p.CanWrite);
+
+            foreach (var property in modelProperties)
+            {
+                var currentValue = property.GetValue(currentModel);
+
+                // Don't overwrite values already mapped
+                if (currentValue != null &&
+                    !Equals(currentValue, GetDefault(property.PropertyType)))
+                    continue;
+
+                foreach (var obj in nodeResult.Objects.Values)
+                {
+                    if (ReferenceEquals(obj, currentModel))
+                        continue;
+
+                    var sourceProperty = obj.GetType().GetProperty(
+                        property.Name,
+                        BindingFlags.Public |
+                        BindingFlags.Instance |
+                        BindingFlags.IgnoreCase);
+
+                    if (sourceProperty == null)
+                        continue;
+
+                    if (!property.PropertyType.IsAssignableFrom(sourceProperty.PropertyType))
+                        continue;
+
+                    var sourceValue = sourceProperty.GetValue(obj);
+
+                    if (sourceValue == null)
+                        continue;
+
+                    property.SetValue(currentModel, sourceValue);
+                    break;
+                }
+            }
+        }
+
+        private static object? GetDefault(Type type)
+        {
+            return type.IsValueType
+                ? Activator.CreateInstance(type)
+                : null;
         }
 
         // ─────────────────────────────────────────────────────────────────────────

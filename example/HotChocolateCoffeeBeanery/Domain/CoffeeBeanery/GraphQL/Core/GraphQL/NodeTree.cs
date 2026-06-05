@@ -25,6 +25,10 @@ namespace CoffeeBeanery.GraphQL.Core.GraphQL
         public List<LinkKey> Children { get; set; } = new();
 
         public List<LinkKey> ModelToEntityLinks { get; set; } = new();
+        
+        public List<LinkKey> ModelChildren { get; set; } = new();
+        
+        public List<LinkKey> ModelParents { get; set; } = new();
 
         public List<FieldMap> Mapping { get; set; } = new();
         

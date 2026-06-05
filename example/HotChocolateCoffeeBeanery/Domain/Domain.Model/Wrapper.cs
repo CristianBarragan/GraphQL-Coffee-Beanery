@@ -4,8 +4,6 @@ public class Wrapper
 {
     public string CacheKey { get; set; }
     
-    public Guid? CustomerCustomerEdgeKey { get; set; }
-    
     public List<CustomerCustomerEdge>? CustomerCustomerEdge { get; set; }
 
     public Model Model { get; set; }
