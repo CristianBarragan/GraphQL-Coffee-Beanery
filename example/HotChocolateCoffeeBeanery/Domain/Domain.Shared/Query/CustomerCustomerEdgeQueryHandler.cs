@@ -50,13 +50,11 @@ namespace Domain.Shared.Query
             var seenCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 
             // ── Phase 1: map each raw Dapper object → model via IMapper ──────────
-            // objectMap: entityTree.Alias → mapped model instance
             var objectMap = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
 
             for (int i = 0; i < map.Length; i++)
             {
                 if (map[i] == null) continue;
-
                 if (map[i] is TotalPageRecords tp) { pageRecords = tp.PageRecords; continue; }
                 if (map[i] is TotalRecordCount  tr) { totalCount  = tr.RecordCount; continue; }
 
@@ -64,7 +62,6 @@ namespace Domain.Shared.Query
                 var entityName = entityType.Name;
                 var alias      = aliasIndex.TryGetValue(i, out var a) ? a : entityName;
                 var seen       = seenCounts.GetValueOrDefault(entityName, 0);
-
                 seenCounts[entityName] = seen + 1;
 
                 var entityTree = ResolveEntityTree(
@@ -87,21 +84,37 @@ namespace Domain.Shared.Query
             }
 
             // ── Phase 2: find root model tree ─────────────────────────────────────
-            // Root is always found in modelTrees — even if IsEntity=false
             var rootModelTree = GetRootFromWrapper<M>(modelTrees);
 
-            // ── Phase 3: recursively build the object graph ───────────────────────
-            var visited    = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            var rootObject = Build(
-                rootModelTree,
-                objectMap,
-                modelTrees,
-                entityTrees,
-                visited);
+            // ── Phase 3: build the full object graph recursively ──────────────────
+            // NodeResult carries:
+            //   Objects  — alias → already-instantiated model instance (shared state)
+            //   so when the same alias is visited again (e.g. Customer appearing as
+            //   both InnerCustomer and OuterCustomer), we reuse the existing instance
+            var nodeResult = new NodeResult
+            {
+                RootObject   = new Wrapper(),
+                CurrentObject = new Wrapper(),
+                ModelTypes   = allTypes,
+                Objects      = new Dictionary<string, object>(
+                    StringComparer.OrdinalIgnoreCase)
+            };
 
-            // ── Phase 4: attach root to Wrapper and add to result ─────────────────
-            var wrapperObj = new Wrapper();
-            Attach(wrapperObj, rootObject.Object);
+            // Seed Objects with everything already mapped in Phase 1
+            foreach (var kv in objectMap)
+                nodeResult.Objects[kv.Key] = kv.Value;
+
+            var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            Build(rootModelTree, objectMap, modelTrees, entityTrees, nodeResult, visited);
+
+            // ── Phase 4: attach root list to Wrapper ──────────────────────────────
+            var wrapperObj = (Wrapper)nodeResult.RootObject;
+
+            // Find the root model instance (e.g. CustomerCustomerEdge) and attach
+            if (nodeResult.Objects.TryGetValue(rootModelTree.Alias, out var rootObj))
+                Attach(wrapperObj, rootObj, nodeResult);
+
             wrappers.Add(wrapperObj);
 
             return (wrappers.OfType<M>().ToList(),
@@ -114,199 +127,122 @@ namespace Domain.Shared.Query
         // BUILD
         // ─────────────────────────────────────────────────────────────────────────
 
-        /// <summary>
-        /// Recursively assembles the model graph starting from modelTree.
-        ///
-        /// CRITICAL BRANCHING RULE:
-        /// - IsEntity = false (model-only, e.g. CustomerCustomerEdge, Product):
-        ///     children are declared in ModelToEntityLinks — each link.AliasTo points
-        ///     to an entity tree whose mapped model should be attached to this node.
-        /// - IsEntity = true (entity-backed, e.g. Customer, Contract):
-        ///     children are declared in NodeTree.Children + RelatedChildren — each
-        ///     child.AliasTo points to a child entity tree.
-        /// </summary>
-        private (object Object, string Alias) Build(
+        private void Build(
             NodeTree modelTree,
             Dictionary<string, object> objectMap,
             Dictionary<string, NodeTree> modelTrees,
             Dictionary<string, NodeTree> entityTrees,
+            NodeResult nodeResult,
             HashSet<string> visited)
         {
-            if (visited.Contains(modelTree.Alias))
-                return (objectMap.TryGetValue(modelTree.Alias, out var cached)
-                    ? cached
-                    : Activator.CreateInstance(modelTree.ModelType)!, string.Empty);
-
+            if (visited.Contains(modelTree.Alias)) return;
             visited.Add(modelTree.Alias);
 
-            // Get the already-mapped model from Phase 1 or create empty
-            if (!objectMap.TryGetValue(modelTree.Alias, out var model))
+            // Get or create the model instance for this node
+            // Prefer objectMap (Phase 1 mapped), then nodeResult.Objects (reused),
+            // then create fresh
+            if (!nodeResult.Objects.TryGetValue(modelTree.Alias, out var currentModel))
             {
-                model = Activator.CreateInstance(modelTree.ModelType)!;
-                objectMap[modelTree.Alias] = model;
+                currentModel = objectMap.TryGetValue(modelTree.Alias, out var mapped)
+                    ? mapped
+                    : Activator.CreateInstance(modelTree.ModelType)!;
+
+                nodeResult.Objects[modelTree.Alias] = currentModel;
             }
 
-            // if (!modelTree.IsEntity)
-            // {
-                // ── Model-only node: children via ModelToEntityLinks ──────────────
-                // Each link.AliasTo = entity tree alias whose model should be
-                // attached as a child of this model-only node.
-                // Deduplicate by AliasTo to avoid attaching the same child twice.
+            nodeResult.CurrentObject = currentModel;
+
+            if (!modelTree.IsEntity)
+            {
+                // ── Model-only: traverse via ModelToEntityLinks ───────────────────
+                // link.AliasTo = entity tree alias of each child entity
                 var seenLinks = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
                 foreach (var link in modelTree.ModelToEntityLinks ?? new List<LinkKey>())
                 {
                     var childAlias = !string.IsNullOrWhiteSpace(link.AliasTo)
-                        ? link.AliasTo
-                        : link.To;
+                        ? link.AliasTo : link.To;
 
                     if (!seenLinks.Add(childAlias)) continue;
 
-                    // Find the child entity tree
-                    if (entityTrees.TryGetValue(childAlias, out var childEntityTree))
-                    {
-                        // Fallback: find by model tree alias
-                        childEntityTree = entityTrees.Values
-                            .FirstOrDefault(t =>
-                                t.Alias.Equals(childAlias,
-                                    StringComparison.OrdinalIgnoreCase) ||
-                                t.Name.Equals(childAlias,
-                                    StringComparison.OrdinalIgnoreCase));
+                    var childEntityTree = ResolveChildEntityTree(
+                        childAlias, entityTrees);
+                    if (childEntityTree == null) continue;
 
-                        if (childEntityTree == null)
-                        {
-                            Console.ForegroundColor = ConsoleColor.Yellow;
-                            Console.WriteLine(
-                                $"[WARN] Build(model-only): child entity tree '{childAlias}' " +
-                                $"not found. Skipping.");
-                            Console.ResetColor();
-                            continue;
-                        }
-                    }
+                    var childModelTree = ResolveModelTreeForEntity(
+                        childEntityTree, childAlias, modelTrees);
+                    if (childModelTree == null) continue;
 
-                    // Find matching model tree for this entity tree
-                    var childModelTree = modelTrees.Values
-                        .FirstOrDefault(t => t.ModelType == childEntityTree.ModelType)
-                        ?? modelTrees.Values
-                            .FirstOrDefault(t =>
-                                t.Name.Equals(childEntityTree.Name,
-                                    StringComparison.OrdinalIgnoreCase) ||
-                                t.Alias.Equals(childAlias,
-                                    StringComparison.OrdinalIgnoreCase));
+                    // Recurse into child FIRST so its subtree is fully built
+                    Build(childModelTree, objectMap, modelTrees, entityTrees,
+                        nodeResult, visited);
 
-                    if (childModelTree == null)
-                    {
-                        Console.ForegroundColor = ConsoleColor.Yellow;
-                        Console.WriteLine(
-                            $"[WARN] Build(model-only): no model tree for '{childAlias}'. " +
-                            $"Skipping.");
-                        Console.ResetColor();
-                        continue;
-                    }
-
-                    // Recursively build child — it may be IsEntity=true, so it will
-                    // use its own Children links from there
-                    var childObject = Build(
-                        childModelTree,
-                        objectMap,
-                        modelTrees,
-                        entityTrees,
-                        visited);
-
-                    if (childObject.Alias.Matches(link.AliasTo))
-                    {
-                        Attach(model, childObject.Object);    
-                    }
+                    // Then attach the child to the current model
+                    if (nodeResult.Objects.TryGetValue(childModelTree.Alias,
+                            out var childObj))
+                        Attach(currentModel, childObj, nodeResult, childModelTree.Alias);
                 }
-            // }
-            // else
-            // {
-                // ── Entity-backed node: children via NodeTree.Children + RelatedChildren ──
-                // Find the corresponding entity tree (same alias or ModelType match)
+            }
+            else
+            {
+                // ── Entity-backed: traverse via Children + RelatedChildren ─────────
                 var entityTree = entityTrees.TryGetValue(modelTree.Alias, out var et)
                     ? et
                     : entityTrees.Values.FirstOrDefault(t =>
                         t.ModelType == modelTree.ModelType && t.IsEntity);
 
-                if (entityTree == null)
-                {
-                    Console.ForegroundColor = ConsoleColor.Yellow;
-                    Console.WriteLine(
-                        $"[WARN] Build(entity): no entity tree for model '{modelTree.Alias}'. " +
-                        $"Returning model as-is.");
-                    Console.ResetColor();
-                    return (model, string.Empty);
-                }
+                if (entityTree == null) return;
 
                 var seenChildren = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-                var allChildLinks = entityTree.Children
-                    .Concat(entityTree.RelatedChildren)
-                    .ToList();
-
-                foreach (var childLink in allChildLinks)
+                foreach (var childLink in entityTree.Children
+                             .Concat(entityTree.RelatedChildren))
                 {
                     var childAlias = !string.IsNullOrWhiteSpace(childLink.AliasTo)
-                        ? childLink.AliasTo
-                        : childLink.To;
+                        ? childLink.AliasTo : childLink.To;
 
                     if (!seenChildren.Add(childAlias)) continue;
 
-                    if (!entityTrees.TryGetValue(childAlias, out var childEntityTree))
-                    {
-                        Console.ForegroundColor = ConsoleColor.Yellow;
-                        Console.WriteLine(
-                            $"[WARN] Build(entity): child entity tree '{childAlias}' " +
-                            $"not found. Skipping.");
-                        Console.ResetColor();
-                        continue;
-                    }
+                    var childEntityTree = ResolveChildEntityTree(
+                        childAlias, entityTrees);
+                    if (childEntityTree == null) continue;
 
-                    var childModelTree = modelTrees.Values
-                        .FirstOrDefault(t => t.ModelType == childEntityTree.ModelType)
-                        ?? modelTrees.Values
-                            .FirstOrDefault(t =>
-                                t.Name.Equals(childEntityTree.Name,
-                                    StringComparison.OrdinalIgnoreCase));
+                    var childModelTree = ResolveModelTreeForEntity(
+                        childEntityTree, childAlias, modelTrees);
+                    if (childModelTree == null) continue;
 
-                    if (childModelTree == null)
-                    {
-                        Console.ForegroundColor = ConsoleColor.Yellow;
-                        Console.WriteLine(
-                            $"[WARN] Build(entity): no model tree for '{childAlias}'. Skipping.");
-                        Console.ResetColor();
-                        continue;
-                    }
+                    Build(childModelTree, objectMap, modelTrees, entityTrees,
+                        nodeResult, visited);
 
-                    var childObject = Build(
-                        childModelTree,
-                        objectMap,
-                        modelTrees,
-                        entityTrees,
-                        visited);
-
-                    if (childObject.Alias.Matches(childLink.AliasTo))
-                    {
-                        Attach(model, childObject.Object);    
-                    }
+                    if (nodeResult.Objects.TryGetValue(childModelTree.Alias,
+                            out var childObj))
+                        Attach(currentModel, childObj, nodeResult, childModelTree.Alias);
                 }
-            // }
-
-            return (model, modelTree.Alias);
+            }
         }
 
         // ─────────────────────────────────────────────────────────────────────────
         // ATTACH
         // ─────────────────────────────────────────────────────────────────────────
 
-        private static void Attach(object parent, object child)
+        /// <summary>
+        /// Attaches <paramref name="child"/> onto <paramref name="parent"/> by finding
+        /// the matching navigation property (scalar or List&lt;T&gt;) on the parent type.
+        ///
+        /// For List&lt;T&gt;: upserts by Guid key property ending with "Key".
+        /// For scalar: only sets if the slot is currently null — preserves
+        ///             InnerCustomer when OuterCustomer arrives.
+        ///
+        /// NodeResult.Objects is updated so subsequent visits reuse the same instance.
+        /// </summary>
+        private static void Attach(object parent, object child, NodeResult nodeResult, string childAlias = "")
         {
             if (parent == null || child == null) return;
 
-            var prop = ResolveNavigationProperty(parent.GetType(), child.GetType());
-            
+            var childType = child.GetType();
+            var prop      = ResolveNavigationProperty(parent.GetType(), childType);
             if (prop == null) return;
-            
+
             if (typeof(IList).IsAssignableFrom(prop.PropertyType))
             {
                 var list = prop.GetValue(parent) as IList;
@@ -316,21 +252,93 @@ namespace Domain.Shared.Query
                     prop.SetValue(parent, list);
                 }
 
+                // Upsert by Guid key ending with "Key"
+                var keyProp = childType
+                    .GetProperties(BindingFlags.Public | BindingFlags.Instance)
+                    .FirstOrDefault(p =>
+                        (p.PropertyType == typeof(Guid) ||
+                         p.PropertyType == typeof(Guid?)) &&
+                        p.Name.EndsWith("Key", StringComparison.OrdinalIgnoreCase));
+
+                if (keyProp != null)
+                {
+                    var newKey = keyProp.GetValue(child);
+                    if (newKey != null)
+                    {
+                        for (int j = 0; j < list.Count; j++)
+                        {
+                            if (Equals(keyProp.GetValue(list[j]!), newKey))
+                            {
+                                list[j] = child;
+                                return;
+                            }
+                        }
+                    }
+                }
+
                 if (!list.Contains(child))
                     list.Add(child);
             }
             else
             {
-                // Only set scalar if unfilled — preserves InnerCustomer slot
-                // when OuterCustomer arrives
+                // Scalar: prefer empty slot so InnerCustomer isn't overwritten
+                // by OuterCustomer when both are of type Customer
                 if (prop.GetValue(parent) == null)
                     prop.SetValue(parent, child);
             }
+
+            // Keep nodeResult.Objects in sync with the parent's actual state
+            // so future traversals find the same instance
+            nodeResult.Objects[childAlias] = child;
         }
 
         // ─────────────────────────────────────────────────────────────────────────
         // HELPERS
         // ─────────────────────────────────────────────────────────────────────────
+
+        private static NodeTree? ResolveChildEntityTree(
+            string childAlias,
+            Dictionary<string, NodeTree> entityTrees)
+        {
+            if (entityTrees.TryGetValue(childAlias, out var direct))
+                return direct;
+
+            var fallback = entityTrees.Values.FirstOrDefault(t =>
+                t.Alias.Equals(childAlias, StringComparison.OrdinalIgnoreCase) ||
+                t.Name.Equals(childAlias, StringComparison.OrdinalIgnoreCase));
+
+            if (fallback == null)
+            {
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine(
+                    $"[WARN] Child entity tree '{childAlias}' not found. Skipping.");
+                Console.ResetColor();
+            }
+
+            return fallback;
+        }
+
+        private static NodeTree? ResolveModelTreeForEntity(
+            NodeTree entityTree,
+            string childAlias,
+            Dictionary<string, NodeTree> modelTrees)
+        {
+            var result = modelTrees.Values
+                .FirstOrDefault(t => t.ModelType == entityTree.ModelType)
+                ?? modelTrees.Values.FirstOrDefault(t =>
+                    t.Name.Equals(entityTree.Name, StringComparison.OrdinalIgnoreCase) ||
+                    t.Alias.Equals(childAlias, StringComparison.OrdinalIgnoreCase));
+
+            if (result == null)
+            {
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine(
+                    $"[WARN] No model tree for entity '{entityTree.Alias}'. Skipping.");
+                Console.ResetColor();
+            }
+
+            return result;
+        }
 
         private static NodeTree GetRootFromWrapper<TWrapper>(
             Dictionary<string, NodeTree> modelTrees)
@@ -354,7 +362,8 @@ namespace Domain.Shared.Query
                     $"No NodeTree found for root model type '{rootModelType.Name}'");
         }
 
-        private static PropertyInfo? ResolveNavigationProperty(Type parentType, Type childType)
+        private static PropertyInfo? ResolveNavigationProperty(
+            Type parentType, Type childType)
         {
             return parentType
                 .GetProperties(BindingFlags.Public | BindingFlags.Instance)
@@ -368,10 +377,7 @@ namespace Domain.Shared.Query
         }
 
         private static NodeTree? ResolveEntityTree(
-            string? alias,
-            Type entityType,
-            Type? modelType,
-            int seen,
+            string? alias, Type entityType, Type? modelType, int seen,
             Dictionary<string, NodeTree> entityTrees)
         {
             if (alias != null && entityTrees.TryGetValue(alias, out var byAlias))
@@ -380,15 +386,13 @@ namespace Domain.Shared.Query
             var candidates = entityTrees.Values
                 .Where(t => t.EntityType == entityType &&
                             (modelType == null || t.ModelType == modelType))
-                .OrderBy(t => t.Id)
-                .ToList();
+                .OrderBy(t => t.Id).ToList();
 
             if (!candidates.Any())
                 candidates = entityTrees.Values
                     .Where(t => t.EntityType?.Name.Equals(entityType.Name,
                         StringComparison.OrdinalIgnoreCase) == true)
-                    .OrderBy(t => t.Id)
-                    .ToList();
+                    .OrderBy(t => t.Id).ToList();
 
             return seen < candidates.Count
                 ? candidates[seen]
@@ -404,5 +408,23 @@ namespace Domain.Shared.Query
                 dict[i++] = kv.Key;
             return dict;
         }
+    }
+
+    public class NodeResult
+    {
+        public object RootObject    { get; set; }
+        public object CurrentObject { get; set; }
+
+        /// <summary>
+        /// Shared object cache: alias → model instance.
+        /// Seeded from Phase 1 objectMap and updated as Build/Attach run,
+        /// so revisiting a node always returns the same instance rather than
+        /// creating a duplicate.
+        /// </summary>
+        public Dictionary<string, object> Objects { get; set; }
+            = new(StringComparer.OrdinalIgnoreCase);
+
+        public List<Type>     ModelTypes     { get; set; }
+        public List<NodeTree> ModelNodeTrees { get; set; }
     }
 }
