@@ -1,80 +1,134 @@
 ﻿using CoffeeBeanery.CQRS;
+using CoffeeBeanery.GraphQL.Core.Runtime;
+using CoffeeBeanery.GraphQL.Core.Sql;
 using CoffeeBeanery.GraphQL.Helper;
-using CoffeeBeanery.GraphQL.Model;
-using Microsoft.Extensions.Logging;
-using Npgsql;
 using FASTER.core;
 using HotChocolate.Execution.Processing;
 
-namespace CoffeeBeanery.Service;
-
-public interface IProcessService<M, N, S>
-    where M : class where N : class where S : class
+namespace CoffeeBeanery.Service
 {
-    Task<(List<M> list, int? startCursor, int? endCursor, int? totalCount, int? totalPageRecords)> QueryProcessAsync<M>(
-        string cacheKey, ISelection graphQlSelection, string rootName, string wrapperName, CancellationToken cancellationToken)
-        where M : class;
-
-    Task<(List<M> list, int? startCursor, int? endCursor, int? totalCount, int? totalPageRecords)>
-        UpsertProcessAsync<M>(
-            string cacheKey, ISelection graphQlSelection, string rootName, string wrapperName, CancellationToken cancellationToken)
-        where M : class;
-}
-
-public class ProcessService<M, D, S>
-    : IProcessService<M, D, S>
-    where M : class where D : class where S : class
-{
-    private readonly ILogger<ProcessService<M, D, S>> _logger;
-    private readonly IQueryDispatcher _queryDispatcher;
-    private readonly NpgsqlConnection _connection;
-    private readonly IEntityTreeMap<D, S> _entityTreeMap;
-    private readonly IModelTreeMap<D, S> _modelTreeMap;
-    private IFasterKV<string, string> _cache;
-
-    public ProcessService(ILogger<ProcessService<M, D, S>> logger, IQueryDispatcher queryDispatcher,
-        NpgsqlConnection connection, IEntityTreeMap<D, S> entityTreeMap, IModelTreeMap<D, S> modelTreeMap, IFasterKV<string, string> cache)
+    public interface IProcessService<M> where M : class
     {
-        _logger = logger;
-        _queryDispatcher = queryDispatcher;
-        _connection = connection;
-        _entityTreeMap = entityTreeMap;
-        _modelTreeMap = modelTreeMap;
-        _cache = cache;
+        Task<QueryResult<M>> QueryProcessAsync(
+            string cacheKey, ISelection selection,
+            string modelName,
+            CancellationToken cancellationToken);
+
+        Task<QueryResult<M>> MutationProcessAsync(
+            string cacheKey, ISelection selection,
+            string modelName,
+            CancellationToken cancellationToken);
     }
 
-    public virtual async Task<(List<M> list, int? startCursor, int? endCursor, int? totalCount, int? totalPageRecords)>
-        QueryProcessAsync<M>(
-            string cacheKey, ISelection graphQlSelection, string rootName, string wrapperName, CancellationToken cancellationToken)
+    public class ProcessService<M> : IProcessService<M>
         where M : class
     {
-        return await ExecuteStatementAsync<M>(cacheKey, graphQlSelection, rootName, wrapperName, cancellationToken);
-    }
+        private readonly IQueryDispatcher _queryDispatcher;
+        private IFasterKV<string, string> _cache;
 
-    private async Task<(List<M> list, int? startCursor, int? endCursor, int? totalCount, int? totalPageRecords)>
-        ExecuteStatementAsync<M>(string cacheKey, ISelection graphQlSelection, string rootName, string wrapperName,
-            CancellationToken cancellationToken)
-    {
-        if (string.IsNullOrEmpty(graphQlSelection.ToString()))
+        public ProcessService(
+            IQueryDispatcher queryDispatcher,
+            IFasterKV<string, string> cache)
         {
-            return default;
+            _queryDispatcher = queryDispatcher;
+            _cache = cache;
         }
 
-        var sqlStructure = new SqlStructure();
-        sqlStructure = SqlNodeResolverHelper.HandleGraphQL(graphQlSelection, _entityTreeMap, _modelTreeMap,
-            rootName, wrapperName, _cache, cacheKey);
-        //Permissions )
+        public async Task<QueryResult<M>> QueryProcessAsync(
+            string cacheKey, ISelection selection, string modelName, CancellationToken cancellationToken)
+        {
+            var ctx = new SqlCompilationContext();
+            
+            var rootTree = SqlNodeRegistry.ModelTrees.First(a => 
+                a.Value.ModelName.Matches(modelName)).Value;
+            
+            var sqlStructure = SqlQueryCompiler.Compile(
+                selection,
+                rootTree,
+                SqlNodeRegistry.EntityNodes,
+                SqlNodeRegistry.EntityTrees,
+                SqlNodeRegistry.ModelTrees,
+                _cache,
+                cacheKey
+            );
+            
+            sqlStructure.ModelTrees = SqlNodeRegistry.ModelTrees;
+            sqlStructure.EntityTrees = SqlNodeRegistry.EntityTrees;
+            sqlStructure.RelativeTree = rootTree;
+            sqlStructure.SqlNodes = SqlNodeRegistry.EntityNodes.Select(a => a.Value).ToArray();
 
-        return await _queryDispatcher
-            .DispatchAsync<SqlStructure, (List<M> Process, int? startCursor, int? endCursor, int?
-                totalCount, int? totalPageRecords)>(sqlStructure, cancellationToken);
-    }
+            var parameters = new ProcessQueryParameters
+            {
+                SqlStructure = sqlStructure,
+                Pagination = ctx.Pagination,
+                Model = modelName
+            };
 
-    public virtual async Task<(List<M> list, int? startCursor, int? endCursor, int? totalCount, int? totalPageRecords)>
-        UpsertProcessAsync<M>(string cacheKey, ISelection graphQlSelection, string rootName, string wrapperName,
-            CancellationToken cancellationToken)
-        where M : class
-    {
-        return await ExecuteStatementAsync<M>(cacheKey, graphQlSelection, rootName, wrapperName, cancellationToken);
+            var (models, startCursor, endCursor, totalCount, totalPageRecords) =
+                await _queryDispatcher
+                    .DispatchAsync<ProcessQueryParameters, (List<M>, int?, int?, int?, int?)>(
+                        parameters, cancellationToken);
+
+            return new QueryResult<M> 
+            {
+                Models = models,
+                StartCursor = startCursor,
+                EndCursor = endCursor,
+                TotalCount = totalCount ?? 0,
+                TotalPageRecords = totalPageRecords ?? 0
+            };
+        }
+
+        public async Task<QueryResult<M>> MutationProcessAsync(
+            string cacheKey, ISelection selection, string modelName, CancellationToken cancellationToken)
+        {
+            var ctx = new SqlCompilationContext();
+            
+            var rootTree = SqlNodeRegistry.ModelTrees.First(a => 
+                a.Value.ModelName.Matches(modelName)).Value;
+            
+            var sqlWhereStatement = new Dictionary<string, string>();
+
+            var mutationStructure = SqlMutationCompiler.Compile(selection, rootTree, sqlWhereStatement, SqlNodeRegistry.ModelTrees, SqlNodeRegistry.EntityTrees, SqlNodeRegistry.ModelNodes, 
+                SqlNodeRegistry.EntityNodes, SqlNodeRegistry.ModelNames, SqlNodeRegistry.EntityNames);
+
+            var sqlStructure = SqlQueryCompiler.Compile(
+                selection,
+                rootTree,
+                SqlNodeRegistry.EntityNodes,
+                SqlNodeRegistry.EntityTrees,
+                SqlNodeRegistry.ModelTrees,
+                _cache,
+                cacheKey
+            );
+            
+            sqlStructure.SqlUpsert = mutationStructure.SqlUpsert;
+            sqlStructure.ModelTrees = SqlNodeRegistry.ModelTrees;
+            sqlStructure.EntityTrees = SqlNodeRegistry.EntityTrees;
+            sqlStructure.RelativeTree = rootTree;
+            sqlStructure.SqlNodes = SqlNodeRegistry.EntityNodes.Select(a => a.Value).ToArray();
+
+            var parameters = new ProcessQueryParameters
+            {
+                SqlStructure = sqlStructure,
+                Pagination = ctx.Pagination,
+                Model = modelName
+            };
+
+            var (models, startCursor, endCursor, totalCount, totalPageRecords) =
+                await _queryDispatcher
+                    .DispatchAsync<ProcessQueryParameters, (List<M>, int?, int?, int?, int?)>(
+                        parameters, cancellationToken);
+
+            return new QueryResult<M> 
+            {
+                Models = models,
+                StartCursor = startCursor,
+                EndCursor = endCursor,
+                TotalCount = totalCount ?? 0,
+                TotalPageRecords = totalPageRecords ?? 0
+            };
+        }
+
     }
 }
