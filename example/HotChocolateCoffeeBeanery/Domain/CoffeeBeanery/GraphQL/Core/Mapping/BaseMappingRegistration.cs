@@ -1,6 +1,4 @@
-﻿using CoffeeBeanery.GraphQL.Core.Mapping;
-
-namespace Domain.Shared.Mapping
+﻿namespace CoffeeBeanery.GraphQL.Core.Mapping
 {
     public abstract class BaseMappingRegistration<TModel, TEntity> : IMappingRegistration
         where TModel : class
