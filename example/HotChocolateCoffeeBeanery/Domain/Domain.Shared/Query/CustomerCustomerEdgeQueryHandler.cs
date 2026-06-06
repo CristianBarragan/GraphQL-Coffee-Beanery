@@ -267,7 +267,6 @@ namespace Domain.Shared.Query
 
                 foreach (var field in modelTree.Mapping)
                 {
-                    // DestinationAlias = source node (Account / Contract / Transaction)
                     var sourceAlias = field.DestinationAlias;
 
                     if (string.IsNullOrWhiteSpace(sourceAlias))
@@ -286,8 +285,69 @@ namespace Domain.Shared.Query
                         continue;
 
                     var value = sourceProp.GetValue(sourceObj);
-                    targetProp.SetValue(targetModel, value);
+
+                    SafeSet(targetProp, targetModel, value);
                 }
+            }
+        }
+        
+        private static void SafeSet(PropertyInfo prop, object instance, object value)
+        {
+            if (prop == null || value == null)
+                return;
+
+            var targetType = prop.PropertyType;
+
+            if (targetType.IsGenericType &&
+                typeof(System.Collections.IEnumerable).IsAssignableFrom(targetType))
+            {
+                var elementType = targetType.GetGenericArguments()[0];
+
+                var existing = prop.GetValue(instance);
+
+                if (existing == null)
+                {
+                    existing = Activator.CreateInstance(targetType);
+                    prop.SetValue(instance, existing);
+                }
+
+                var list = (System.Collections.IList)existing;
+
+                if (value is System.Collections.IEnumerable enumerable &&
+                    value is not string)
+                {
+                    foreach (var v in enumerable)
+                    {
+                        if (v != null && elementType.IsAssignableFrom(v.GetType()))
+                        {
+                            if (!list.Contains(v))
+                            {
+                                list.Add(v);    
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    if (elementType.IsAssignableFrom(value.GetType()))
+                        list.Add(value);
+                }
+
+                return;
+            }
+
+            if (targetType.IsAssignableFrom(value.GetType()))
+            {
+                prop.SetValue(instance, value);
+                return;
+            }
+            
+            if (targetType == typeof(Guid) || targetType == typeof(Guid?))
+            {
+                var keyProp = value.GetType().GetProperty("CustomerKey");
+                var key = keyProp?.GetValue(value);
+                prop.SetValue(instance, key);
+                return;
             }
         }
         

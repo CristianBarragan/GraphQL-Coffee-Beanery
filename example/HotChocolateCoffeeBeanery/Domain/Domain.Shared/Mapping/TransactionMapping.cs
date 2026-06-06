@@ -27,29 +27,63 @@ public class TransactionMapping
             Schema = nameof(DataEntity.Schema.Lending)
         };
         
+        map.ModelParents.AddRange(new[]
+        {
+            new LinkKey
+            {
+                AliasFrom    = A(nameof(Transaction)),
+                From       = nameof(Transaction),
+                AliasTo    = A(nameof(Product)),
+                To         = nameof(Product),
+            },
+            new LinkKey
+            {
+                AliasFrom    = A(nameof(Transaction)),
+                From       = nameof(Transaction),
+                AliasTo    = A(nameof(Contract)),
+                To         = nameof(Contract),
+            },
+            new LinkKey
+            {
+                AliasFrom    = A(nameof(Transaction)),
+                From       = nameof(Transaction),
+                AliasTo    = A(nameof(Account)),
+                To         = nameof(Account),
+            }
+        });
+        
         map.EntityParents.AddRange(new[]
         {
-            new LinkKey { AliasFrom    = A(nameof(DataEntity.Transaction)), From = nameof(DataEntity.Transaction), FromColumn = nameof(DataEntity.Transaction.ContractId),
+            new LinkKey { AliasFrom    = A(nameof(Transaction)), From = nameof(Transaction), FromColumn = nameof(DataEntity.Transaction.ContractId),
                 AliasTo    = A(nameof(DataEntity.Contract)),
                 To         = nameof(DataEntity.Contract), 
                 ToColumn = nameof(DataEntity.Contract.Id) },
             new LinkKey
             {
-                AliasFrom = A(nameof(DataEntity.Transaction)),
-                From       = nameof(DataEntity.Transaction),
-                FromColumn = nameof(DataEntity.Transaction.ContractKey),
+                AliasFrom = A(nameof(Transaction)),
+                From       = nameof(Transaction),
+                FromColumn = nameof(Transaction.ContractKey),
                 AliasTo = A(nameof(DataEntity.Contract)),
                 To         = nameof(DataEntity.Contract),
                 ToColumn   = nameof(DataEntity.Contract.ContractKey)
             },
-            new LinkKey { AliasFrom    = A(nameof(DataEntity.Transaction)), From = nameof(DataEntity.Transaction), FromColumn = nameof(DataEntity.Transaction.AccountId),  
+            new LinkKey { AliasFrom    = A(nameof(Transaction)), From = nameof(Transaction), FromColumn = nameof(DataEntity.Transaction.AccountId),  
                 AliasTo    = A(nameof(DataEntity.Account)),
                 To         = nameof(DataEntity.Account), ToColumn = nameof(DataEntity.Account.Id) },
             new LinkKey
             {
-                AliasFrom = A(nameof(DataEntity.Transaction)),
-                From       = nameof(DataEntity.Transaction),
-                FromColumn = nameof(DataEntity.Transaction.AccountKey),
+                AliasFrom = A(nameof(Transaction)),
+                From       = nameof(Transaction),
+                FromColumn = nameof(Transaction.AccountKey),
+                AliasTo = A(nameof(DataEntity.Account)),
+                To         = nameof(DataEntity.Account),
+                ToColumn   = nameof(DataEntity.Account.AccountKey)
+            },
+            new LinkKey
+            {
+                AliasFrom = A(nameof(Transaction)),
+                From       = nameof(Transaction),
+                FromColumn = nameof(Transaction.AccountKey),
                 AliasTo = A(nameof(DataEntity.Account)),
                 To         = nameof(DataEntity.Account),
                 ToColumn   = nameof(DataEntity.Account.AccountKey)
@@ -77,7 +111,9 @@ public class TransactionMapping
             new FieldMap { SourceAlias = A(nameof(Transaction)), DestinationAlias = A(nameof(DataEntity.Transaction)), SourceName = nameof(DataEntity.Transaction.Id),  DestinationEntity = nameof(DataEntity.Transaction), DestinationName = nameof(DataEntity.Transaction.Id) },
             new FieldMap { SourceAlias = A(nameof(Transaction)), DestinationAlias = A(nameof(DataEntity.Transaction)), SourceName = nameof(Transaction.TransactionKey), DestinationEntity = nameof(DataEntity.Transaction), DestinationName = nameof(DataEntity.Transaction.TransactionKey) },
             new FieldMap { SourceAlias = A(nameof(Transaction)), DestinationAlias = A(nameof(DataEntity.Transaction)), SourceName = nameof(Transaction.Amount),         DestinationEntity = nameof(DataEntity.Transaction), DestinationName = nameof(DataEntity.Transaction.Amount) },
-            new FieldMap { SourceAlias = A(nameof(Transaction)), DestinationAlias = A(nameof(DataEntity.Transaction)), SourceName = nameof(Transaction.Balance),        DestinationEntity = nameof(DataEntity.Transaction), DestinationName = nameof(DataEntity.Transaction.Balance) }
+            new FieldMap { SourceAlias = A(nameof(Transaction)), DestinationAlias = A(nameof(DataEntity.Transaction)), SourceName = nameof(Transaction.Balance),        DestinationEntity = nameof(DataEntity.Transaction), DestinationName = nameof(DataEntity.Transaction.Balance) },
+            new FieldMap { SourceAlias = A(nameof(Transaction)), DestinationAlias = A(nameof(DataEntity.Transaction)), SourceName = nameof(Transaction.Account),        DestinationEntity = nameof(DataEntity.Transaction), DestinationName = nameof(DataEntity.Transaction.Account) },
+            new FieldMap { SourceAlias = A(nameof(Transaction)), DestinationAlias = A(nameof(DataEntity.Transaction)), SourceName = nameof(Transaction.Contract),        DestinationEntity = nameof(DataEntity.Transaction), DestinationName = nameof(DataEntity.Transaction.Contract) }
         });
 
         return map;

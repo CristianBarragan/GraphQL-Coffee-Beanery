@@ -338,9 +338,9 @@ public class Mapper : IMapper
             var actualType = Nullable.GetUnderlyingType(targetProp.PropertyType)
                              ?? targetProp.PropertyType;
 
-            if (actualType.IsPrimitive || actualType == typeof(string) || actualType == typeof(Guid))
+            if (actualType.IsPrimitive || actualType == typeof(string) || actualType == typeof(Guid) || actualType == typeof(decimal))
             {
-                targetProp.SetValue(model, value);
+                SafeSet(targetProp, model, value);
             }
             else if (actualType.IsEnum)
             {
@@ -368,7 +368,7 @@ public class Mapper : IMapper
                 var enumValue = value is string s
                     ? Enum.Parse(actualType, s, ignoreCase: true)
                     : Enum.ToObject(actualType, value);
-                targetProp.SetValue(model, enumValue);
+                SafeSet(targetProp, model, enumValue);
             }
             else if (typeof(IEnumerable).IsAssignableFrom(actualType) && actualType.IsGenericType)
             {
@@ -376,7 +376,7 @@ public class Mapper : IMapper
                 var itemType = targetProp.PropertyType.GetGenericArguments()[0];
                 foreach (var item in (IEnumerable)value)
                     list!.Add(MapByAlias(itemType, item, nodeMap.Alias));
-                targetProp.SetValue(model, list);
+                SafeSet(targetProp, model, list);
             }
             else
             {
@@ -384,8 +384,76 @@ public class Mapper : IMapper
                 var nested   = existing != null
                     ? MergeIntoExisting(existing, value, nodeMap)
                     : MapByAlias(actualType, value, nodeMap.Alias);
-                targetProp.SetValue(model, nested);
+                
+                SafeSet(targetProp, model, nested);
             }
+        }
+    }
+    
+    private void SafeSet(PropertyInfo prop, object instance, object value)
+    {
+        if (prop == null || value == null)
+            return;
+
+        var targetType = prop.PropertyType;
+
+        // =====================================================
+        // CASE 1: List<T>
+        // =====================================================
+        if (targetType.IsGenericType &&
+            typeof(System.Collections.IEnumerable).IsAssignableFrom(targetType))
+        {
+            var elementType = targetType.GetGenericArguments()[0];
+
+            var existing = prop.GetValue(instance);
+
+            if (existing == null)
+            {
+                existing = Activator.CreateInstance(targetType);
+                prop.SetValue(instance, existing);
+            }
+
+            var list = (System.Collections.IList)existing;
+
+            // 🔥 CRITICAL FIX:
+            // ALWAYS normalize into collection form
+
+            if (value is System.Collections.IEnumerable enumerable &&
+                value is not string)
+            {
+                foreach (var v in enumerable)
+                {
+                    if (v != null && elementType.IsAssignableFrom(v.GetType()))
+                        list.Add(v);
+                }
+            }
+            else
+            {
+                if (elementType.IsAssignableFrom(value.GetType()))
+                    list.Add(value);
+            }
+
+            return;
+        }
+
+        // =====================================================
+        // CASE 2: DIRECT OBJECT MATCH
+        // =====================================================
+        if (targetType.IsAssignableFrom(value.GetType()))
+        {
+            prop.SetValue(instance, value);
+            return;
+        }
+
+        // =====================================================
+        // CASE 3: GUID CONVERSION (FK)
+        // =====================================================
+        if (targetType == typeof(Guid) || targetType == typeof(Guid?))
+        {
+            var keyProp = value.GetType().GetProperty("CustomerKey");
+            var key = keyProp?.GetValue(value);
+            prop.SetValue(instance, key);
+            return;
         }
     }
 

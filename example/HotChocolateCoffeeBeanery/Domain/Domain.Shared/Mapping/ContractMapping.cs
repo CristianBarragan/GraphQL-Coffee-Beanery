@@ -58,25 +58,23 @@ public class ContractMapping : BaseMappingRegistration<Contract, DataEntity.Cont
             ToColumn   = nameof(DataEntity.Account.Id)
         });
 
-        // map.ModelParents.Add(new LinkKey
-        // {
-        //     AliasFrom    = A(nameof(Contract)),
-        //     From       = nameof(Contract),
-        //     FromColumn = nameof(Contract.CustomerBankingRelationshipKey),
-        //     AliasTo    = A(nameof(DataEntity.CustomerBankingRelationship)),
-        //     To         = nameof(DataEntity.CustomerBankingRelationship),
-        //     ToColumn   = nameof(CustomerBankingRelationship.CustomerBankingRelationshipKey)
-        // });
-        //
-        // map.ModelChildren.Add(new LinkKey
-        // {
-        //     AliasFrom    = A(nameof(Contract)),
-        //     From       = nameof(Contract),
-        //     FromColumn = nameof(Contract.ContractKey),
-        //     AliasTo    = A(nameof(DataEntity.Transaction)),
-        //     To         = nameof(DataEntity.Transaction),
-        //     ToColumn   = nameof(Transaction.ContractKey)
-        // });
+        map.ModelParents.Add(new LinkKey
+        {
+            AliasFrom    = A(nameof(Contract)),
+            From       = nameof(Contract),
+            AliasTo    = A(nameof(Product)),
+            To         = nameof(Product),
+        });
+        
+        map.ModelChildren.Add(new LinkKey
+        {
+            AliasFrom    = A(nameof(Contract)),
+            From       = nameof(Contract),
+            FromColumn = nameof(Contract.ContractKey),
+            AliasTo    = A(nameof(DataEntity.Transaction)),
+            To         = nameof(DataEntity.Transaction),
+            ToColumn   = nameof(Transaction.ContractKey)
+        });
 
         map.ModelToEntityLinks.Add(new LinkKey
         {
@@ -113,7 +111,8 @@ public class ContractMapping : BaseMappingRegistration<Contract, DataEntity.Cont
                     { ProductType.PersonalLoan.ToString(), (int)ProductType.PersonalLoan }
                 }
             },
-            new FieldMap { SourceAlias = A(nameof(Contract)), DestinationAlias = A(nameof(DataEntity.Contract)), SourceName = nameof(Contract.Amount),        DestinationEntity = nameof(DataEntity.Contract), DestinationName = nameof(DataEntity.Contract.Amount) }
+            new FieldMap { SourceAlias = A(nameof(Contract)), DestinationAlias = A(nameof(DataEntity.Contract)), SourceName = nameof(Contract.Amount),        DestinationEntity = nameof(DataEntity.Contract), DestinationName = nameof(DataEntity.Contract.Amount) },
+            new FieldMap { SourceAlias = A(nameof(Contract)), DestinationAlias = A(nameof(DataEntity.Contract)), SourceName = nameof(Contract.Transaction), DestinationEntity = nameof(DataEntity.Contract), DestinationName = nameof(DataEntity.Contract.Transaction) }
         });
 
         return map;

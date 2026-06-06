@@ -75,8 +75,6 @@ public class ProductMapping : BaseModelMappingRegistration<Product>
             ToColumn   = nameof(Customer.CustomerKey)
         });
 
-        // ModelToEntityLinks — maps Product model fields to their backing entities
-        // FIXED: To = raw entity name, AliasTo = prefixed entity tree key
         map.ModelToEntityLinks.AddRange(new[]
         {
             new LinkKey
@@ -117,12 +115,8 @@ public class ProductMapping : BaseModelMappingRegistration<Product>
             }
         });
 
-        // FieldMaps — each field maps from the Product model property to its
-        // destination entity column. DestinationAlias uses the prefixed entity alias
-        // so SqlNodeBuilder correctly keys the SqlNode under the right tree.
         map.FieldMaps.AddRange(new[]
         {
-            // Contract fields
             new FieldMap
             {
                 SourceAlias       = A(nameof(Product)),
@@ -159,8 +153,6 @@ public class ProductMapping : BaseModelMappingRegistration<Product>
                 DestinationEntity = nameof(DataEntity.Contract),
                 DestinationName   = nameof(DataEntity.Contract.Amount)
             },
-
-            // Customer fields
             new FieldMap
             {
                 SourceAlias       = A(nameof(Product)),
@@ -169,8 +161,6 @@ public class ProductMapping : BaseModelMappingRegistration<Product>
                 DestinationEntity = nameof(DataEntity.Customer),
                 DestinationName   = nameof(DataEntity.Customer.CustomerKey)
             },
-
-            // Account fields
             new FieldMap
             {
                 SourceAlias       = A(nameof(Product)),
@@ -195,8 +185,6 @@ public class ProductMapping : BaseModelMappingRegistration<Product>
                 DestinationEntity = nameof(DataEntity.Account),
                 DestinationName   = nameof(DataEntity.Account.AccountNumber)
             },
-
-            // Transaction fields
             new FieldMap
             {
                 SourceAlias       = A(nameof(Product)),

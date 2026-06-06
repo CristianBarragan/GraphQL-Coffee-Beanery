@@ -8,7 +8,7 @@ public class Account
 
     public string? AccountName { get; set; }
     
-    public Transaction? Transaction { get; set; }
+    public List<Transaction>? Transaction { get; set; }
     
     public Contract? Contract { get; set; }
 }

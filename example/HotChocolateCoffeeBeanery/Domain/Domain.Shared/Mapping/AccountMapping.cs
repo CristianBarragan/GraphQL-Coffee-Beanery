@@ -58,15 +58,25 @@ public class AccountMapping : BaseMappingRegistration<Account, DataEntity.Accoun
             ToColumn   = nameof(DataEntity.Transaction.AccountId)
         });
 
-        // map.ModelParents.Add(new LinkKey
-        // {
-        //     AliasFrom    = A(nameof(Account)),
-        //     From       = nameof(Account),
-        //     FromColumn = nameof(DataEntity.Account.AccountKey),
-        //     AliasTo    = A(nameof(Product)),
-        //     To         = nameof(Product),
-        //     ToColumn   = nameof(Product.AccountKey)
-        // });
+        map.ModelParents.Add(new LinkKey
+        {
+            AliasFrom    = A(nameof(Account)),
+            From       = nameof(Account),
+            FromColumn = nameof(DataEntity.Account.AccountKey),
+            AliasTo    = A(nameof(Product)),
+            To         = nameof(Product),
+            ToColumn   = nameof(Product.AccountKey)
+        });
+        
+        map.ModelChildren.Add(new LinkKey
+        {
+            AliasFrom    = A(nameof(Account)),
+            From       = nameof(Account),
+            FromColumn = nameof(DataEntity.Account.AccountKey),
+            AliasTo    = A(nameof(Transaction)),
+            To         = nameof(Transaction),
+            ToColumn   = nameof(Transaction.AccountKey)
+        });
 
         map.ModelToEntityLinks.Add(new LinkKey
         {
@@ -85,10 +95,12 @@ public class AccountMapping : BaseMappingRegistration<Account, DataEntity.Accoun
 
         map.FieldMaps.AddRange(new[]
         {
-            new FieldMap { SourceAlias = A(nameof(DataEntity.Account)), DestinationAlias = A(nameof(DataEntity.Account)), SourceName = nameof(DataEntity.Account.Id), DestinationEntity = nameof(DataEntity.Account), DestinationName = nameof(DataEntity.Account.Id) },
-            new FieldMap { SourceAlias = A(nameof(DataEntity.Account)), DestinationAlias = A(nameof(DataEntity.Account)), SourceName = nameof(Account.AccountKey), DestinationEntity = nameof(DataEntity.Account), DestinationName = nameof(DataEntity.Account.AccountKey) },
-            new FieldMap { SourceAlias = A(nameof(DataEntity.Account)), DestinationAlias = A(nameof(DataEntity.Account)), SourceName = nameof(Account.AccountNumber), DestinationEntity = nameof(DataEntity.Account), DestinationName = nameof(DataEntity.Account.AccountNumber) },
-            new FieldMap { SourceAlias = A(nameof(DataEntity.Account)), DestinationAlias = A(nameof(DataEntity.Account)), SourceName = nameof(Account.AccountName), DestinationEntity = nameof(DataEntity.Account), DestinationName = nameof(DataEntity.Account.AccountName) }
+            new FieldMap { SourceAlias = A(nameof(Account)), DestinationAlias = A(nameof(DataEntity.Account)), SourceName = nameof(DataEntity.Account.Id), DestinationEntity = nameof(DataEntity.Account), DestinationName = nameof(DataEntity.Account.Id) },
+            new FieldMap { SourceAlias = A(nameof(Account)), DestinationAlias = A(nameof(DataEntity.Account)), SourceName = nameof(Account.AccountKey), DestinationEntity = nameof(DataEntity.Account), DestinationName = nameof(DataEntity.Account.AccountKey) },
+            new FieldMap { SourceAlias = A(nameof(Account)), DestinationAlias = A(nameof(DataEntity.Account)), SourceName = nameof(Account.AccountNumber), DestinationEntity = nameof(DataEntity.Account), DestinationName = nameof(DataEntity.Account.AccountNumber) },
+            new FieldMap { SourceAlias = A(nameof(Account)), DestinationAlias = A(nameof(DataEntity.Account)), SourceName = nameof(Account.AccountName), DestinationEntity = nameof(DataEntity.Account), DestinationName = nameof(DataEntity.Account.AccountName) },
+            new FieldMap { SourceAlias = A(nameof(Account)), DestinationAlias = A(nameof(DataEntity.Account)), SourceName = nameof(Account.Contract), DestinationEntity = nameof(DataEntity.Account), DestinationName = nameof(DataEntity.Account.Contract) },
+            new FieldMap { SourceAlias = A(nameof(Account)), DestinationAlias = A(nameof(DataEntity.Account)), SourceName = nameof(Account.Transaction), DestinationEntity = nameof(DataEntity.Account), DestinationName = nameof(DataEntity.Account.Transaction) }
         });
 
         return map;
