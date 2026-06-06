@@ -4,7 +4,6 @@ using CoffeeBeanery.GraphQL.Core.Sql;
 using CoffeeBeanery.Service;
 using Domain.Model;
 using Domain.Shared.Mapping;
-using Domain.Shared.Query;
 using FASTER.core;
 using Npgsql;
 
@@ -24,7 +23,7 @@ namespace Domain.Shared.Extension
             services.AddScoped<
                 IQuery<ProcessQueryParameters,
                     (List<Wrapper>, int?, int?, int?, int?)>,
-                CustomerCustomerEdgeQueryHandler<Wrapper>>();
+                QueryHandler<Wrapper>>();
             
             services.Init<IMappingSet<CustomerMappingType, Domain.Model.Model>, CustomerMappingType, Domain.Model.Model>(
                 typeof(ModelMappingRegistration).Assembly);

@@ -31,7 +31,7 @@ public class WrapperMutationResolver : IInputType, IOutputType
         {
             var set = await service.MutationProcessAsync(
                 wrapper.CacheKey, resolverContext.Selection,
-                wrapper.Model.ToString(), nameof(Wrapper.CustomerCustomerEdge), nameof(Wrapper), CancellationToken.None);
+                wrapper.Model.ToString(), CancellationToken.None);
 
             var entityNodes = set.Models
                 .Where(a => a is not null)

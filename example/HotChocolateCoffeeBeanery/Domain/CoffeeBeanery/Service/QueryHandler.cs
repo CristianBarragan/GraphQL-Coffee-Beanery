@@ -1,23 +1,21 @@
 using CoffeeBeanery.CQRS;
 using CoffeeBeanery.GraphQL.Core.GraphQL;
 using CoffeeBeanery.GraphQL.Core.Sql;
-using CoffeeBeanery.Service;
-using Domain.Model;
 using Npgsql;
 using System.Collections;
 using System.Reflection;
 using CoffeeBeanery.GraphQL.Helper;
 
-namespace Domain.Shared.Query
+namespace CoffeeBeanery.Service
 {
-    public class CustomerCustomerEdgeQueryHandler<M> : ProcessQuery<M>,
+    public class QueryHandler<M> : ProcessQuery<M>,
         IQuery<ProcessQueryParameters,
             (List<M> list, int? startCursor, int? endCursor, int? totalCount, int? totalPageRecords)>
         where M : class
     {
         private readonly IMapper _mapper;
 
-        public CustomerCustomerEdgeQueryHandler(
+        public QueryHandler(
             ILoggerFactory loggerFactory,
             NpgsqlConnection dbConnection,
             IMapper mapper)
@@ -47,7 +45,7 @@ namespace Domain.Shared.Query
             var aliasIndex = BuildAliasIndex(sqlStructure.EntityMapping);
 
             var rootModelTree  = GetRootFromWrapper<M>(modelTrees);
-            var rootAliasIndex = 0; // column index of the root entity in each row
+            var rootAliasIndex = 0;
             string rootAlias   = rootModelTree.Alias;
 
             foreach (var kv in aliasIndex)
@@ -60,7 +58,7 @@ namespace Domain.Shared.Query
             }
 
             var rowsByRootKey = new Dictionary<Guid, List<object[]>>();
-            var rootKeyOrder  = new List<Guid>(); // preserve result ordering
+            var rootKeyOrder  = new List<Guid>();
             var seenCounts    = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 
             foreach (var row in rowMatrix)
@@ -83,7 +81,7 @@ namespace Domain.Shared.Query
                         rootKey = g;
                 }
 
-                if (rootKey == Guid.Empty) continue; // skip rows with no identifiable root
+                if (rootKey == Guid.Empty) continue;
 
                 if (!rowsByRootKey.ContainsKey(rootKey))
                 {
@@ -94,7 +92,7 @@ namespace Domain.Shared.Query
                 rowsByRootKey[rootKey].Add(row);
             }
 
-            var wrappers = new List<Wrapper>();
+            var wrappers = new List<M>();
 
             foreach (var rootKey in rootKeyOrder)
             {
@@ -136,11 +134,12 @@ namespace Domain.Shared.Query
                 var dedupedRaw = new Dictionary<string, List<object>>(StringComparer.OrdinalIgnoreCase);
                 foreach (var (alias, bucket) in rawByAlias)
                     dedupedRaw[alias] = DeduplicateByKey(bucket);
+                var rootObject = Activator.CreateInstance<M>();
 
                 var nodeResult = new NodeResult
                 {
-                    RootObject    = new Wrapper(),
-                    CurrentObject = new Wrapper(),
+                    RootObject    = rootObject,
+                    CurrentObject = rootObject,
                     ModelTypes    = allTypes,
                     RawObjects    = dedupedRaw,
                     Objects       = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase),
@@ -149,7 +148,7 @@ namespace Domain.Shared.Query
 
                 Build(rootModelTree, modelTrees, entityTrees, nodeResult);
 
-                var wrapperObj = (Wrapper)nodeResult.RootObject;
+                var wrapperObj = (M)nodeResult.RootObject;
 
                 if (nodeResult.Objects.TryGetValue(rootModelTree.Alias, out var rootObj))
                     Attach(wrapperObj, rootObj, nodeResult);
