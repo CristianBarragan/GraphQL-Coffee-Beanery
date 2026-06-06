@@ -25,56 +25,70 @@ public class ProcessQuery<M> : IQuery<ProcessQueryParameters,
         ProcessQueryParameters parameters,
         CancellationToken ct)
     {
-        var types = parameters.SqlStructure.SplitOnDapper.Values.ToList();
+        var types   = parameters.SqlStructure.SplitOnDapper.Values.ToList();
         var splitOn = parameters.SqlStructure.SplitOnDapper.Keys.ToList();
 
         var query = parameters.SqlStructure.SqlUpsert + ";" +
                     parameters.SqlStructure.SqlQuery;
 
-        var models = new List<M>();
+        if (_db.State != System.Data.ConnectionState.Open)
+            await _db.OpenAsync(ct);
 
-        int? totalCount = null;
-        int? totalPageRecords = null;
+        NpgsqlTransaction? tx = null;
 
-        await _db.OpenAsync(ct);
-        var tx = await _db.BeginTransactionAsync(ct);
-
-        Console.WriteLine("===== GENERATED TYPES =====");
-
-        foreach (var type in types)
-        {
-            Console.WriteLine(type.Name);
-        }
-        
         try
         {
+            tx = await _db.BeginTransactionAsync(ct);
+
+            var rowMatrix = new List<object[]>();
+
             await _db.QueryAsync(
                 query,
                 types.ToArray(),
-                (object[] map) =>
+                (object[] row) =>
                 {
-                    var set = MappingConfiguration(models, parameters.SqlStructure, map, SqlNodeRegistry.EntityTypes, types, parameters.SqlStructure.SqlNodesApplied,
-                        parameters.SqlStructure.RelativeTree, parameters.SqlStructure.ModelTrees, parameters.SqlStructure.EntityTrees);
-                    models = set.models;
-
+                    rowMatrix.Add((object[])row.Clone());
                     return 0;
                 },
-                splitOn: string.Join(",", splitOn),
+                splitOn:     string.Join(",", splitOn),
                 transaction: tx);
 
             await tx.CommitAsync(ct);
 
+            var result = MappingConfiguration(
+                rowMatrix,
+                parameters.SqlStructure,
+                SqlNodeRegistry.EntityTypes,
+                types,
+                parameters.SqlStructure.SqlNodesApplied,
+                parameters.SqlStructure.RelativeTree,
+                parameters.SqlStructure.ModelTrees,
+                parameters.SqlStructure.EntityTrees);
+
             return (
-                models,
-                parameters.SqlStructure.Pagination?.StartCursor,
-                parameters.SqlStructure.Pagination?.EndCursor,
-                totalCount,
-                totalPageRecords
-            );
+                result.models,
+                result.startCursor  ?? parameters.SqlStructure.Pagination?.StartCursor,
+                result.endCursor    ?? parameters.SqlStructure.Pagination?.EndCursor,
+                result.totalCount,
+                result.totalPageRecords);
         }
         catch (Exception ex)
         {
-            await tx.RollbackAsync(ct);
+            if (tx is not null)
+            {
+                try
+                {
+                    await tx.RollbackAsync(CancellationToken.None);
+                }
+                catch (InvalidOperationException)
+                {
+                }
+                catch (Exception rollbackEx)
+                {
+                    _logger.LogWarning(rollbackEx, "Rollback attempt failed");
+                }
+            }
+
             _logger.LogError(ex, "ProcessQuery failed");
             return ([], 0, 0, 0, 0);
         }
@@ -83,25 +97,22 @@ public class ProcessQuery<M> : IQuery<ProcessQueryParameters,
             await _db.CloseAsync();
         }
     }
-    
-    public virtual (List<M> models, int? startCursor, int? endCursor, int? totalCount, int? totalPageRecords)
-        MappingConfiguration(List<M> models, SqlStructure sqlStructure, object[] map, List<Type> allTypes, List<Type> types,
-            Dictionary<string, SqlNode> sqlNodesApplied, NodeTree relativeTree, Dictionary<string, NodeTree> modelTrees, Dictionary<string, NodeTree> entityTrees)
+
+    public virtual (List<M> models,
+                    int? startCursor,
+                    int? endCursor,
+                    int? totalCount,
+                    int? totalPageRecords)
+        MappingConfiguration(
+            List<object[]>                  rowMatrix,
+            SqlStructure                    sqlStructure,
+            List<Type>                      allTypes,
+            List<Type>                      types,
+            Dictionary<string, SqlNode>     sqlNodesApplied,
+            NodeTree                        relativeTree,
+            Dictionary<string, NodeTree>    modelTrees,
+            Dictionary<string, NodeTree>    entityTrees)
     {
         throw new NotImplementedException();
-    }
-
-    private static Dictionary<int, string> BuildAliasIndex(
-        Dictionary<string, Type> entityMapping)
-    {
-        var dict = new Dictionary<int, string>();
-        int i = 0;
-
-        foreach (var kv in entityMapping)
-        {
-            dict[i++] = kv.Key;
-        }
-
-        return dict;
     }
 }

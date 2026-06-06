@@ -7,5 +7,5 @@ public class CustomerBankingRelationship
     
     public Guid? CustomerKey { get; set; }
     
-    public Contract? Contract { get; set; }
+    public List<Contract>? Contract { get; set; }
 }
