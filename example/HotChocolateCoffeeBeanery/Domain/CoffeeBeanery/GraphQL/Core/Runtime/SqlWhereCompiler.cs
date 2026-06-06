@@ -1,0 +1,245 @@
+﻿using CoffeeBeanery.GraphQL.Core.Sql;
+using CoffeeBeanery.GraphQL.Core.GraphQL;
+using CoffeeBeanery.GraphQL.Helper;
+using HotChocolate.Execution.Processing;
+using HotChocolate.Language;
+
+namespace CoffeeBeanery.GraphQL.Core.Runtime
+{
+    internal static class SqlWhereCompiler
+    {
+        public static void Compile(
+            SqlCompilationContext ctx,
+            ISelection selection,
+            NodeTree rootTree,
+            string wrapperEntityName,
+            Dictionary<string, string> sqlWhereStatement)
+        {
+            var whereFields = new List<string>();
+            GetFieldsWhere(SqlNodeRegistry.ModelTrees, rootTree, SqlNodeRegistry.EntityNodes,
+                SqlNodeRegistry.ModelNodes,
+                whereFields, sqlWhereStatement, selection.SyntaxNode.Arguments.FirstOrDefault(a => a.Name.Value == "where"),
+                SqlNodeRegistry.ModelTrees.Last().Value.Name, wrapperEntityName,
+                string.Empty, Entity.ClauseTypes, default);
+        }
+
+        public static void GetFieldsWhere(Dictionary<string, NodeTree> trees, NodeTree rootTree,
+            Dictionary<string, SqlNode> linkEntityDictionaryTreeNode,
+            Dictionary<string, SqlNode> linkModelDictionaryTreeNode, List<string> whereFields,
+            Dictionary<string, string> sqlWhereStatement,
+            ISyntaxNode whereNode, string rootEntityName, string wrapperEntityName,
+            string clauseCondition,
+            List<string> clauseType,
+            Dictionary<string, List<string>> permission = null)
+        {
+            var entityName = rootTree.Name;
+            
+            if (whereNode == null || string.IsNullOrWhiteSpace(entityName))
+            {
+                return;
+            }
+
+            foreach (var wNode in whereNode.GetNodes())
+            {
+                if (wrapperEntityName.Matches(entityName))
+                {
+                    entityName = rootEntityName;
+                }
+
+                var currentEntity = entityName;
+
+                currentEntity = trees.Keys.FirstOrDefault(e => e.ToString()
+                    .Matches(wNode.ToString().Split(":")[0]));
+
+                if (string.IsNullOrEmpty(currentEntity) || currentEntity.Matches(rootEntityName))
+                {
+                    currentEntity = entityName;
+                }
+
+                if (whereNode.ToString().TrimStart(' ').StartsWith("and:") ||
+                    whereNode.ToString().TrimStart(' ').StartsWith("or:"))
+                {
+                    clauseCondition = whereNode.ToString().Split("{")[0].Replace(":", "").ToUpper();
+                }
+
+                if (wNode.ToString().Contains("{") && wNode.ToString().Contains(":") &&
+                    wNode.ToString().Split(":").Length == 3)
+                {
+                    var column = wNode.ToString().Split(":")[0];
+
+                    if (!column.Contains("{"))
+                    {
+                        if (linkModelDictionaryTreeNode.TryGetValue($"{currentEntity}~{column}",
+                                out var currentKeyValueNode))
+                        {
+                            var fieldValue = currentKeyValueNode.RelationshipKey.Replace('~', '.');
+                            currentEntity = $"{currentKeyValueNode.RelationshipKey.Split('~')[0]}";
+                            whereFields.Add(fieldValue);
+                        }
+                    }
+                }
+
+                foreach (var node in wNode.GetNodes().ToList())
+                {
+                    if (!node.ToString().Contains("{") && node.ToString().Contains(":") &&
+                        node.ToString().Split(":").Length == 2)
+                    {
+                        var column = node.ToString().Split(":");
+                        if (!column[1].Contains("DESC") && !column[1].Contains("ASC") &&
+                            clauseType.Contains(column[0]))
+                        {
+                            if (whereFields.Count == 0)
+                            {
+                                continue;
+                            }
+
+                            var clauseValue = column[1].Trim().Trim('"');
+                            var fieldParts = whereFields.Last().Split('.');
+                            var currentNodeTree = trees[currentEntity];
+                            var field = fieldParts[1];
+
+                            switch (column[0])
+                            {
+                                case "eq":
+                                {
+                                    var clause = ProcessFilter(currentNodeTree, linkEntityDictionaryTreeNode,
+                                            field, "=",
+                                            clauseValue, clauseCondition);
+                                    AddToDictionary(sqlWhereStatement, clause, field, trees);
+                                    break;
+                                }
+                                case "neq":
+                                {
+                                    var clause = ProcessFilter(currentNodeTree, linkEntityDictionaryTreeNode, field, "<>",
+                                            clauseValue, clauseCondition);
+                                    AddToDictionary(sqlWhereStatement, clause, field, trees);
+                                    break;
+                                }
+                                case "in":
+                                {
+                                    clauseValue = "(" + string.Join(',',
+                                        column[1].Replace("[", "").Replace("]", "").Split(',')
+                                            .Select(v => $"'{v.Trim()}'")) + ")";
+                                    var clause = ProcessFilter(currentNodeTree, linkEntityDictionaryTreeNode,
+                                            field, "in", clauseValue, clauseCondition);
+                                    AddToDictionary(sqlWhereStatement, clause, field, trees);
+                                    break;
+                                }
+                            }
+
+                            clauseCondition = string.Empty;
+                        }
+                    }
+                }
+
+                GetFieldsWhere(trees, rootTree, linkEntityDictionaryTreeNode, linkModelDictionaryTreeNode,
+                    whereFields,
+                    sqlWhereStatement,
+                    wNode,
+                    currentEntity, wrapperEntityName, clauseCondition, clauseType, permission);
+            }
+        }
+        
+        private static void AddToDictionary(Dictionary<string, string> dictionary,
+            List<string> values, string field, Dictionary<string, NodeTree> trees)
+        {
+            var entitiesWithColumn = trees.Values.Where(a => a.Mapping.Any(b => b.DestinationName.Matches(field))).ToList();
+
+            foreach (var entity in entitiesWithColumn)
+            {
+                foreach (var value in values)
+                {
+                    if (!dictionary.TryGetValue(entity.Name, out var _))
+                    {
+                        dictionary.Add(entity.Name, value);
+                    }
+                    else
+                    {
+                        dictionary[entity.Name] += " " + value;
+                    }
+                }
+            }
+        }
+        
+        private static List<string> ProcessFilter(NodeTree nodeTree,
+        Dictionary<string, SqlNode> linkModelDictionaryTreeNode, string field, string filterType, string value,
+        string filterCondition)
+        {
+            var enumeration = string.Empty;
+            var conditions = new List<string>();
+
+            if (string.IsNullOrEmpty(field) ||
+                string.IsNullOrEmpty(filterType))
+            {
+                return conditions;
+            }
+
+            if (linkModelDictionaryTreeNode.TryGetValue($"{nodeTree.Name}~{field}", out var sqlNodeTo))
+            {
+                var enumValue = sqlNodeTo.FromEnumeration.FirstOrDefault(a => a.Key.Matches(value));
+                if (!string.IsNullOrEmpty(enumValue.Key))
+                {
+                    var toEnum = sqlNodeTo.ToEnumeration.FirstOrDefault(e =>
+                        e.Key.Matches(enumValue.Key)).Value;
+                    enumeration = toEnum.ToString();
+                }
+                else
+                {
+                    enumeration = string.Empty;
+                }
+
+                switch (filterType)
+                {
+                    case "<>":
+
+                        if (value.Matches("null"))
+                        {
+                            conditions.Add($" {filterCondition} ~.\"{sqlNodeTo.Column}\" IS NOT NULL ");
+                            return conditions;
+                        }
+
+                        conditions.Add(
+                            $" {filterCondition} ~.\"{sqlNodeTo.Column}\" <> '{(string.IsNullOrEmpty(enumeration) ? value : enumeration)}' ");
+                        return conditions;
+
+                    case "=":
+
+                        if (value.Matches("null"))
+                        {
+                            conditions.Add($" {filterCondition} ~.\"{sqlNodeTo.Column}\" IS NULL ");
+                            return conditions;
+                        }
+
+                        conditions.Add(
+                            $" {filterCondition} ~.\"{sqlNodeTo.Column}\" = '{(string.IsNullOrEmpty(enumeration) ? value : enumeration)}' ");
+                        return conditions;
+
+                    case "in":
+                        var inValues = string.Empty;
+                        foreach (var val in value.Split(','))
+                        {
+                            var valAux = val.Sanitize().Replace("(", "").Replace(")", "").ToUpperCamelCase();
+                            inValues += $"'{(string.IsNullOrEmpty(enumeration) ? valAux : enumeration)}'" + ",";
+                        }
+
+                        conditions.Add(
+                            $" {filterCondition} ~.\"{sqlNodeTo.Column}\" in ({inValues.Substring(0, inValues.Length - 1)})");
+                        return conditions;
+                }
+            }
+
+            return conditions;
+        }
+    }
+    
+    public class Entity
+    {
+        public static List<string> ClauseTypes = new List<string>()
+        {
+            "eq",
+            "neq",
+            "in",
+            "any"
+        };
+    }
+}

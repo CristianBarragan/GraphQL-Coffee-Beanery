@@ -1,20 +1,12 @@
-﻿using CoffeeBeanery.GraphQL.Model;
+﻿using CoffeeBeanery.GraphQL.Core.Sql;
 
-namespace CoffeeBeanery.Service;
-
-public class ProcessQueryParameters
+namespace CoffeeBeanery.Service
 {
-    public SqlStructure SqlStructure { get; set; }
+    public sealed class ProcessQueryParameters
+    {
+        public SqlStructure SqlStructure { get; set; } = new();
+        public Pagination Pagination { get; set; } = new();
 
-    public string Sql { get; set; }
-
-    public List<string> SplitOnDapper { get; set; }
-
-    public int StartCursor { get; set; }
-
-    public int EndCursor { get; set; }
-
-    public bool HasTotalCount { get; set; }
-
-    public bool HasPagination { get; set; }
+        public string Model { get; set; }
+    }
 }

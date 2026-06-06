@@ -1,4 +1,4 @@
-﻿using CoffeeBeanery.GraphQL.Configuration;
+﻿// using CoffeeBeanery.GraphQL.Configuration;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -11,19 +11,16 @@ public class Account : Process
         Schema = Entity.Schema.Account;
     }
     
-    [UpsertKey("Account","Account")]
+    public int? Id { get; set; }
+    
     public Guid AccountKey { get; set; }
 
     public string? AccountNumber { get; set; }
 
     public string? AccountName { get; set; }
     
-    [LinkKey("Contract","Id")]
-    [JoinOneKey("Account","Id")]
     public Contract? Contract { get; set; }
     
-    [LinkKey("Transaction","TransactionKey")]
-    [JoinKey("Account","Id")]
     public List<Transaction>? Transaction { get; set; }
 }
 

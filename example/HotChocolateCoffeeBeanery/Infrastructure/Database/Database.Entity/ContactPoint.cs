@@ -1,5 +1,4 @@
-﻿using CoffeeBeanery.GraphQL.Configuration;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace Database.Entity;
@@ -11,7 +10,8 @@ public class ContactPoint : Process
         Schema = Entity.Schema.Banking;
     }
     
-    [UpsertKey("ContactPoint","Banking")]
+    public int? Id { get; set; }
+    
     public Guid ContactPointKey { get; set; }
 
     public ContactPointType? ContactPointType { get; set; }

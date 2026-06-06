@@ -1,8 +1,8 @@
 using Amazon;
 using Amazon.RDS.Util;
-using Api.Banking.Extension;
 using Api.Banking.Mutation;
 using Api.Banking.Query;
+using Domain.Shared.Extension;
 using HotChocolate.AspNetCore;
 using HotChocolate.Types.Pagination;
 
@@ -18,7 +18,7 @@ public class Program
         app.UseHttpsRedirection();
         app.UseEndpoints(endpoints => { endpoints.MapControllers(); });
         app.MapGraphQL();
-        app.MapBananaCakePop("/graphql-ui/").WithOptions(new GraphQLToolOptions()
+        app.MapNitroApp("/graphql-ui/").WithOptions(new GraphQLToolOptions()
             { ServeMode = GraphQLToolServeMode.Embedded });
         app.MapControllers();
 
@@ -36,6 +36,8 @@ public class Program
 
         var connectionString = configuration.GetConnectionString("BankingConnectionString");
 
+        services.AddDomainModelServiceCollection(connectionString);
+       
         var isRds = false;
 
         if (isRds)
@@ -57,15 +59,13 @@ public class Program
             builder.Services.AddNpgsqlDataSource(connectionString!);
         }
 
-        builder.Services.AddBankingServiceCollection();
-
         builder.Services.AddControllers().AddNewtonsoftJson();
 
         builder.Services.AddGraphQLServer()
             .AddQueryType(d =>
             {
-                d.Field("customer")
-                    .ResolveWith<CustomerQueryResolver>(r => r.GetCustomer(default, default,
+                d.Field("wrapper")
+                    .ResolveWith<WrapperQueryResolver>(r => r.GetWrapper(default, default,
                         default));
             })
             .AddMutationType(d =>
@@ -74,7 +74,7 @@ public class Program
 
                 d.Field("wrapper")
                     .Argument("wrapper", d => d.Type<CustomerInputType>())
-                    .ResolveWith<CustomerMutationResolver>(r => r.UpsertCustomer(default, default, default));
+                    .ResolveWith<WrapperMutationResolver>(r => r.UpsertWrapper(default, default, default));
             })
             .SetPagingOptions(new PagingOptions() { DefaultPageSize = 10, IncludeTotalCount = true })
             .AddFiltering()

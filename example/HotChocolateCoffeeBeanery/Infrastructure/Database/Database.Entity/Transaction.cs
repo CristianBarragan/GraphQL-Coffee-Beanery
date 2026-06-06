@@ -1,5 +1,4 @@
-﻿using CoffeeBeanery.GraphQL.Configuration;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace Database.Entity;
@@ -11,7 +10,8 @@ public class Transaction : Process
         Schema = Entity.Schema.Lending;
     }
 
-    [UpsertKey("Transaction","Lending")]
+    public int? Id { get; set; }
+    
     public Guid TransactionKey { get; set; }
 
     public decimal? Amount { get; set; }

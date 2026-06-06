@@ -1,7 +1,4 @@
-﻿
-using CoffeeBeanery.GraphQL.Configuration;
-
-namespace Domain.Model;
+﻿namespace Domain.Model;
 
 public class Contract
 {
@@ -10,12 +7,9 @@ public class Contract
     public ContractType? ContractType { get; set; }
 
     public decimal? Amount { get; set; }
-
-    public Guid? AccountKey { get; set; }
     
     public Guid? CustomerBankingRelationshipKey { get; set; }
 
-    [LinkBusinessKey("Transaction","TransactionKey")]
     public List<Transaction>? Transaction { get; set; }
 }
 

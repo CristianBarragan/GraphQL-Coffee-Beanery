@@ -1,4 +1,4 @@
-using CoffeeBeanery.GraphQL.Model;
+using CoffeeBeanery.GraphQL.Core.Sql;
 using Newtonsoft.Json;
 
 namespace CoffeeBeanery.Cache;
@@ -10,13 +10,13 @@ public static class CacheHelper
         return string.Join("~", dictionary.Keys);
     }
 
-    public static string GetKey(GraphQLStructure graphQLStructure)
+    public static string GetKey(SqlStructure sqlStructure)
     {
-        return JsonConvert.SerializeObject(graphQLStructure);
+        return JsonConvert.SerializeObject(sqlStructure);
     }
 
-    public static M GetJson<M>(string graphQLStructure) where M : class
+    public static M GetJson<M>(string sqlStructure) where M : class
     {
-        return JsonConvert.DeserializeObject<M>(graphQLStructure);
+        return JsonConvert.DeserializeObject<M>(sqlStructure);
     }
 }

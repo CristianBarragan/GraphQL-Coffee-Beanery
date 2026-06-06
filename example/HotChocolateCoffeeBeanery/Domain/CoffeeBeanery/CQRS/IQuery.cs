@@ -2,5 +2,5 @@
 
 public interface IQuery<in TQueryParameters, TQueryResult>
 {
-    Task<TQueryResult> ExecuteAsync(TQueryParameters parameters, CancellationToken cancellationToken);
+    public Task<TQueryResult> ExecuteAsync(TQueryParameters parameters, CancellationToken cancellationToken);
 }

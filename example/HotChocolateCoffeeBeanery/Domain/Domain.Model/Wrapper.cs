@@ -1,18 +1,20 @@
-
 namespace Domain.Model;
 
 public class Wrapper
 {
     public string CacheKey { get; set; }
     
-    public List<Customer>? Customer { get; set; }
+    public List<CustomerCustomerEdge>? CustomerCustomerEdge { get; set; }
 
     public Model Model { get; set; }
 }
 
 public enum Model
 {
-    Customer,
+    CustomerCustomerEdge,
+    CustomerCustomerRelationship,
+    OuterCustomer,
+    InnerCustomer,
     ContactPoint,
     CustomerBankingRelationship,
     Product,
