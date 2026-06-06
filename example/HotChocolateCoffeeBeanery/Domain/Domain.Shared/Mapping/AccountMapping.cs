@@ -48,7 +48,7 @@ public class AccountMapping : BaseMappingRegistration<Account, DataEntity.Accoun
             }
         });
 
-        map.EntityChildren.Add(new LinkKey
+        map.EntityRelatedChildren.Add(new LinkKey
         {
             AliasFrom    = A(nameof(DataEntity.Account)),
             From       = nameof(DataEntity.Account),

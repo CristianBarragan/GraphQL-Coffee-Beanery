@@ -374,6 +374,12 @@ public class SqlSelectBuilder
             children.Add(childTree.Alias);
             
             var childStructure = sqlQueryStructures[childTree.Alias];
+
+            if (childStructure.Columns.Count == 0)
+            {
+                continue;
+            }
+            
             childStructure.HasChildren = true;
             queryBuilder += childStructure.SqlNodeType == SqlNodeType.Edge ? " JOIN " : " LEFT JOIN ";
             var linkToChild = childTree.Parents
@@ -396,31 +402,34 @@ public class SqlSelectBuilder
             currentEntityStructure.SelectColumns = currentEntityStructure.SelectColumns.Distinct().ToList();
             currentEntityStructure.ParentColumns = currentEntityStructure.ParentColumns.Distinct().ToList();
         }
-
+        
         var select = string.Join(",", currentEntityStructure.SelectColumns.DistinctBy(a => a.Split(" AS ")[1]));
 
-        queryBuilder = queryBuilder.Replace("%", select);
-        queryBuilder += " " + currentEntityStructure.WhereClause;
-
-        currentEntityStructure.Query = queryBuilder;
-        var currentNode = linkEntityDictionaryTreeNode.FirstOrDefault(a =>
-            a.Key.Contains(currentTree.Alias));
-        currentEntityStructure.Id = currentTree.Id;
-        currentEntityStructure.SqlNode = currentNode.Value;
-
-        if (sqlQueryStructures.TryGetValue(currentTree.Alias, out var sqlQueryStructure))
+        if (!string.IsNullOrEmpty(select))
         {
-            sqlQueryStructures[currentTree.Alias] = currentEntityStructure;
-        }
-        else
-        {
-            sqlQueryStructures.Add(currentTree.Alias, currentEntityStructure);
-        }
+            queryBuilder = queryBuilder.Replace("%", select);
+            queryBuilder += " " + currentEntityStructure.WhereClause;
 
-        if (!splitOnDapper.ContainsKey("Id".ToSnakeCase(currentTree.Id)))
-        {
-            splitOnDapper.Add("Id".ToSnakeCase(currentTree.Id),
-                entityTypes.FirstOrDefault(e => e.Name.Matches(currentTree.Name)));
+            currentEntityStructure.Query = queryBuilder;
+            var currentNode = linkEntityDictionaryTreeNode.FirstOrDefault(a =>
+                a.Key.Contains(currentTree.Alias));
+            currentEntityStructure.Id = currentTree.Id;
+            currentEntityStructure.SqlNode = currentNode.Value;
+
+            if (sqlQueryStructures.TryGetValue(currentTree.Alias, out var sqlQueryStructure))
+            {
+                sqlQueryStructures[currentTree.Alias] = currentEntityStructure;
+            }
+            else
+            {
+                sqlQueryStructures.Add(currentTree.Alias, currentEntityStructure);
+            }
+
+            if (!splitOnDapper.ContainsKey("Id".ToSnakeCase(currentTree.Id)))
+            {
+                splitOnDapper.Add("Id".ToSnakeCase(currentTree.Id),
+                    entityTypes.FirstOrDefault(e => e.Name.Matches(currentTree.Name)));
+            }
         }
     }
     
@@ -451,8 +460,7 @@ public class SqlSelectBuilder
         currentColumns = currentColumns.Distinct().ToList();
 
         if (currentColumns.Count > 1 && !currentColumns.First().Value.LinkKeys.Where(a => a.ToColumn.Matches("Id"))
-                .Any(a => !currentColumns.Any(b => b.Value.Column.Matches(a.FromColumn))) &&
-            !currentColumns.Any(a => a.Value.UpsertKeys.Any(b => b.Split('~')[1].Matches(a.Value.Column))))
+                .Any(a => !sqlStatementNodes.Any(b => b.Value.Column.Matches(a.FromColumn))))
         {
             return new SqlQueryStructure();
         }
@@ -608,6 +616,11 @@ public class SqlSelectBuilder
             {
                 entitySqlWhereStatement = string.Empty;
             }
+        }
+
+        if (queryColumns.Count == 0)
+        {
+            return new SqlQueryStructure();
         }
 
         queryColumns = queryColumns.Distinct().ToList();
