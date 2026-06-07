@@ -1,7 +1,6 @@
 ﻿using HotChocolate.Execution.Processing;
 using CoffeeBeanery.GraphQL.Core.GraphQL;
 using CoffeeBeanery.GraphQL.Core.Sql;
-using CoffeeBeanery.GraphQL.Core.Mapping;
 using CoffeeBeanery.GraphQL.Helper;
 using FASTER.core;
 using HotChocolate.Language;
@@ -10,7 +9,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
 {
     internal static class SqlQueryCompiler
     {
-        public static SqlStructure Compile(
+        public static void Compile(
             SqlCompilationContext context,
             ISelection rootSelection,
             NodeTree rootTree,
@@ -18,19 +17,23 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
             string cacheKey)
         {
             var sqlWhereStatement = new Dictionary<string, string>();
-            var sqlOrderStatement = string.Empty;
             var statementNodes = new Dictionary<string, SqlNode>(StringComparer.OrdinalIgnoreCase);
-            
             var visitedModels = new List<string>();
             var visitedEntities = new List<string>();
             var hasSorting = false;
             var hasPagination = false;
-            var hasTotalCount = false;
-            var pagination = new Pagination();
+            context.Pagination = new Pagination();
             var modelSqlNodes = new Dictionary<string, SqlNode>(StringComparer.OrdinalIgnoreCase);
+            context.HasTotalCount = rootSelection.SyntaxNode.GetNodes()
+                .ToList().Last(a => a.Kind == SyntaxKind.SelectionSet).GetNodes().ToList()
+                .Any(a => a.ToString().Contains("totalCount"));
+            
+            context.HasPagination = rootSelection.SyntaxNode.GetNodes()
+                .ToList().Last(a => a.Kind == SyntaxKind.SelectionSet).GetNodes().ToList()
+                .Any(a => a.ToString().Contains("pageInfo"));
             
             SqlSelectBuilder.GetFields(SqlNodeRegistry.ModelTrees, SqlNodeRegistry.EntityTrees, rootSelection.SyntaxNode.GetNodes()
-                    .ToList().Last(a => a.Kind == SyntaxKind.SelectionSet).GetNodes().ToList().Last().GetNodes().Last().GetNodes().First(), 
+                    .ToList().Last(a => a.Kind == SyntaxKind.SelectionSet).GetNodes().ToList().FirstOrDefault(a => a.ToString().Contains("edges")), 
                 SqlNodeRegistry.EntityNodes, SqlNodeRegistry.ModelNodes, statementNodes, rootTree, visitedModels, 
                 visitedEntities, SqlNodeRegistry.ModelNames, modelSqlNodes, false);
 
@@ -39,12 +42,10 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                 SqlNodeRegistry.ModelNodes, statementNodes, rootTree, visitedModels, visitedEntities,
                 SqlNodeRegistry.ModelNames, modelSqlNodes, true);
             
-            SqlWhereCompiler.Compile(context, SqlNodeRegistry.ModelTrees, SqlNodeRegistry.EntityTrees, 
-                modelSqlNodes, statementNodes,
-                rootSelection, rootTree, 
+            SqlWhereCompiler.Compile(context, SqlNodeRegistry.ModelTrees, modelSqlNodes, statementNodes, rootSelection, rootTree, 
                 rootTree.Name, sqlWhereStatement);
             
-            var selectResult = SqlSelectBuilder.HandleGraphQL(rootSelection, context, SqlNodeRegistry.EntityNodes, statementNodes, 
+            SqlSelectBuilder.HandleGraphQL(context, SqlNodeRegistry.EntityNodes, statementNodes, 
                 sqlWhereStatement, SqlNodeRegistry.EntityTrees, SqlNodeRegistry.EntityNames, rootTree, cache, cacheKey);
 
             foreach (var argument in rootSelection.SyntaxNode.Arguments
@@ -53,25 +54,25 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                 switch (argument.Name.ToString())
                 {
                     case "first":
-                        pagination.First = string.IsNullOrEmpty(argument.Value?.Value?.ToString())
+                        context.Pagination.First = string.IsNullOrEmpty(argument.Value?.Value?.ToString())
                             ? 0
                             : int.Parse(argument.Value?.Value.ToString());
                         hasPagination = true;
                         break;
                     case "last":
-                        pagination.Last = string.IsNullOrEmpty(argument.Value?.Value?.ToString())
+                        context.Pagination.Last = string.IsNullOrEmpty(argument.Value?.Value?.ToString())
                             ? 0
                             : int.Parse(argument.Value?.Value.ToString());
                         hasPagination = true;
                         break;
                     case "before":
-                        pagination.Before = string.IsNullOrEmpty(argument.Value?.Value?.ToString())
+                        context.Pagination.Before = string.IsNullOrEmpty(argument.Value?.Value?.ToString())
                             ? ""
                             : argument.Value?.Value.ToString();
                         hasPagination = true;
                         break;
                     case "after":
-                        pagination.After = string.IsNullOrEmpty(argument.Value?.Value?.ToString())
+                        context.Pagination.After = string.IsNullOrEmpty(argument.Value?.Value?.ToString())
                             ? ""
                             : argument.Value?.Value.ToString();
                         hasPagination = true;
@@ -83,22 +84,19 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                     foreach (var orderNode in argument.GetNodes())
                     {
                         hasSorting = true;
-                        sqlOrderStatement += SqlSelectBuilder.GetFieldsOrdering(SqlNodeRegistry.ModelTrees, orderNode,
-                            rootTree, SqlNodeRegistry.EntityNodes);
+                        SqlOrderCompiler.GetFieldsOrdering(SqlNodeRegistry.ModelTrees, orderNode,
+                            rootTree, SqlNodeRegistry.ModelNodes);
                     }
                 }
             }
             
             if (hasPagination || hasSorting)
             {
-                selectResult.HasPagination = true;
-                // selectResult.SqlQuery = SqlHelper.HandleQueryClause(rootTree, selectResult.SqlQuery, sqlOrderStatement, pagination, hasTotalCount);
-                selectResult.Pagination = pagination;
+                context.HasPagination = true;
+                SqlPagingCompiler.GetPagination(rootTree, context, rootSelection);
             }
             
-            selectResult.SqlNodesApplied = statementNodes;
-            
-            return selectResult;
+            context.SqlNodesApplied = statementNodes;
         }
     }
 

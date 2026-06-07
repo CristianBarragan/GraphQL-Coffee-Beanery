@@ -10,8 +10,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime;
 
 public class SqlSelectBuilder
 {
-    public static SqlStructure HandleGraphQL(
-        ISelection rootSelection, 
+    public static void HandleGraphQL(
         SqlCompilationContext context,
         Dictionary<string, SqlNode> sqlNodes,
         Dictionary<string, SqlNode> sqlNodeStatements,
@@ -78,21 +77,9 @@ public class SqlSelectBuilder
             entityMapping.Add(sqlQueryStructures.First().Key, entity);
         }
 
-        if (string.IsNullOrEmpty(sqlSelectStatement))
-        {
-            return default;
-        }
-
-        return new SqlStructure()
-        {
-            SqlQuery = sqlSelectStatement,
-            // Parameters = parameters,
-            // SqlUpsert = sqlUpsertStatement,
-            SplitOnDapper = splitOnDapperOrdered,
-            // Pagination = pagination,
-            HasTotalCount = false,
-            EntityMapping = entityMapping
-        };
+        context.SelectSql = sqlSelectStatement;
+        context.SplitOnDapper = splitOnDapperOrdered;
+        context.EntityMapping = entityMapping;
     }
     
     public static void GetMutations(Dictionary<string, NodeTree> trees, ISyntaxNode node,
@@ -214,7 +201,7 @@ public class SqlSelectBuilder
                     $"{currentTree.Alias}~{currentTree.Name}~{fieldName}",
                     out var sqlNodeFrom))
             {
-                modelSqlNodes.Add($"{currentTree.Alias}~{currentTree.Name}~{fieldName}", sqlNodeFrom);
+                modelSqlNodes[$"{currentTree.Alias}~{currentTree.Name}~{fieldName}"] = sqlNodeFrom;
                 
                 var fieldMap = currentTree.NodeMap?.FieldMaps
                     .FirstOrDefault(f => f.SourceName.Equals(fieldName, 
@@ -570,39 +557,6 @@ public class SqlSelectBuilder
         return sqlStructure;
     }
     
-    public static string GetFieldsOrdering(Dictionary<string, NodeTree> modelTrees,
-        ISyntaxNode orderNode, NodeTree currentEntityTree, Dictionary<string, SqlNode> linkModelDictionaryTree)
-    {
-        var orderString = string.Empty;
-        foreach (var oNode in orderNode.GetNodes())
-        {
-            var currentEntity = currentEntityTree.Name;
-            if (oNode.ToString().Contains("{") && oNode.ToString()[0] != '{' &&
-                oNode.ToString().Contains(":"))
-            {
-                currentEntity = oNode.ToString().Split(":")[0];
-            }
-
-            if (!oNode.ToString().Contains("{") && oNode.ToString().Contains(":"))
-            {
-                var column = oNode.ToString().Split(":");
-                if ((column[1].Contains("DESC") || column[1].Contains("ASC")) &&
-                    modelTrees.ContainsKey(currentEntity))
-                {
-                    var currentNodeTree = modelTrees[currentEntity];
-                    orderString +=
-                        SqlGraphQlHelper.HandleSort(currentNodeTree, column[0],
-                            column[1], linkModelDictionaryTree);
-                }
-            }
-
-            orderString +=
-                $", {GetFieldsOrdering(modelTrees, oNode, currentEntityTree, linkModelDictionaryTree)}";
-        }
-
-        return orderString;
-    }
-
     private static void AddToDictionary(Dictionary<string, string> dictionary,
         List<string> values, string field, Dictionary<string, NodeTree> trees)
     {

@@ -9,13 +9,13 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
     internal static class SqlWhereCompiler
     {
         public static void Compile(SqlCompilationContext context, Dictionary<string, NodeTree> modelTrees,
-            Dictionary<string, NodeTree> entityTrees, Dictionary<string, SqlNode> modelsSqlNodes, Dictionary<string, SqlNode> entitiesSqlNodes,
+            Dictionary<string, SqlNode> modelsSqlNodes, Dictionary<string, SqlNode> entitiesSqlNodes,
             ISelection selection,
             NodeTree rootTree,
             string wrapperEntityName,
             Dictionary<string, string> sqlWhereStatement)
         {
-            GetFieldsWhere(modelTrees, entityTrees, rootTree, modelsSqlNodes, entitiesSqlNodes,
+            GetFieldsWhere(modelTrees, rootTree, modelsSqlNodes, entitiesSqlNodes,
                 sqlWhereStatement, selection.SyntaxNode.Arguments.FirstOrDefault(a => a.Name.Value.Matches("where")),
                 SqlNodeRegistry.ModelTrees.Last().Value.Name, wrapperEntityName,
                 string.Empty, Entity.ClauseTypes, default);
@@ -23,7 +23,6 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
         }
 
         public static void GetFieldsWhere(Dictionary<string, NodeTree> modelTrees,
-            Dictionary<string, NodeTree> entityTrees,
             NodeTree rootTree,
             Dictionary<string, SqlNode> modelsSqlNodes,
             Dictionary<string, SqlNode> entitiesSqlNodes,
@@ -163,7 +162,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                     }
                 }
 
-                GetFieldsWhere(modelTrees, entityTrees, rootTree, modelsSqlNodes, entitiesSqlNodes, sqlWhereStatement, wNode,
+                GetFieldsWhere(modelTrees, rootTree, modelsSqlNodes, entitiesSqlNodes, sqlWhereStatement, wNode,
                     currentEntity, wrapperEntityName, clauseCondition, clauseType, permission);
             }
         }

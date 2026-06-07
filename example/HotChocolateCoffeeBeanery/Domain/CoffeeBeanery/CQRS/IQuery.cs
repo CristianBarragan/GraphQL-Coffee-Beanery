@@ -1,4 +1,6 @@
-﻿namespace CoffeeBeanery.CQRS;
+﻿using CoffeeBeanery.GraphQL.Core.Runtime;
+
+namespace CoffeeBeanery.CQRS;
 
 public interface IQuery<in TQueryParameters, TQueryResult>
 {
