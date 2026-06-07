@@ -3,6 +3,7 @@ using CoffeeBeanery.GraphQL.Core.GraphQL;
 using CoffeeBeanery.GraphQL.Core.Sql;
 using CoffeeBeanery.GraphQL.Helper;
 using FASTER.core;
+using HotChocolate.Execution.Processing;
 using HotChocolate.Language;
 
 namespace CoffeeBeanery.GraphQL.Core.Runtime;
@@ -10,11 +11,13 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime;
 public class SqlSelectBuilder
 {
     public static SqlStructure HandleGraphQL(
+        ISelection rootSelection, 
+        SqlCompilationContext context,
         Dictionary<string, SqlNode> sqlNodes,
         Dictionary<string, SqlNode> sqlNodeStatements,
         Dictionary<string, string> sqlWhereStatement,
         Dictionary<string, NodeTree> entityTrees,
-        List<string> entityNames, NodeTree currentTree,
+        List<string> entityNames, NodeTree rootTree,
         IFasterKV<string, string> cache, string cacheKey,
         Dictionary<string, List<string>> permissions = null)
     {
@@ -29,12 +32,12 @@ public class SqlSelectBuilder
             StringComparer.OrdinalIgnoreCase);
 
         var entityTypes = entityTrees.Select(a => a.Value.EntityType).ToList();
-
+        
         GenerateQuery(entityTrees,
             entityTypes,
             sqlNodes,
             sqlQueryStatement, sqlNodeStatements, sqlWhereStatement,
-            entityTrees.First(a => a.Key.Matches(currentTree.ModelToEntityLinks[0].AliasTo)).Value,
+            entityTrees.First(a => a.Key.Matches(rootTree.ModelToEntityLinks[0].AliasTo)).Value,
             childrenSqlStatement, entityNames, sqlQueryStructures,
             splitOnDapper, removeOnDapper, entityOrder, new List<string>());
         
@@ -70,7 +73,7 @@ public class SqlSelectBuilder
 
         if (splitOnDapperOrdered.Count == 0)
         {
-            var entity = currentTree.EntityType;
+            var entity = rootTree.EntityType;
             splitOnDapperOrdered.Add(entity.Name, entity);
             entityMapping.Add(sqlQueryStructures.First().Key, entity);
         }
@@ -198,11 +201,10 @@ public class SqlSelectBuilder
         Dictionary<string, SqlNode> linkModelDictionaryTree,
         Dictionary<string, SqlNode> sqlStatementNodes,
         NodeTree currentTree,
-        NodeTree parentTree,
         List<string> visitedModels,
         List<string> visitedEntities,
         List<string> models,
-        List<string> entities,
+        Dictionary<string, SqlNode> modelSqlNodes,
         bool isEdge)
     {
         if (node != null && node.GetNodes()?.Count() == 0)
@@ -212,6 +214,8 @@ public class SqlSelectBuilder
                     $"{currentTree.Alias}~{currentTree.Name}~{fieldName}",
                     out var sqlNodeFrom))
             {
+                modelSqlNodes.Add($"{currentTree.Alias}~{currentTree.Name}~{fieldName}", sqlNodeFrom);
+                
                 var fieldMap = currentTree.NodeMap?.FieldMaps
                     .FirstOrDefault(f => f.SourceName.Equals(fieldName, 
                         StringComparison.OrdinalIgnoreCase));
@@ -286,8 +290,7 @@ public class SqlSelectBuilder
 
             GetFields(trees, entityTrees, childNode,
                 linkEntityDictionaryTree, linkModelDictionaryTree,
-                sqlStatementNodes, currentTree, parentTree,
-                visitedModels, visitedEntities, models, entities, isEdge);
+                sqlStatementNodes, currentTree, visitedModels, visitedEntities, models, modelSqlNodes, isEdge);
         }
     }
 
@@ -326,11 +329,11 @@ public class SqlSelectBuilder
         }
         
         visitedEntities.Add(currentTree.Alias);
-        
+
         var currentEntityStructure = GenerateEntityQuery(entityTrees,
             linkEntityDictionaryTreeNode,
             sqlStatementNodes, currentTree, sqlQueryStatement,
-            sqlQueryStructures, sqlWhereStatement, childrenSqlStatement);
+            sqlQueryStructures, sqlWhereStatement);
         
         if (!sqlQueryStructures.Any(a => a.Key
                 .Matches(currentTree.Alias)))
@@ -398,18 +401,20 @@ public class SqlSelectBuilder
             currentEntityStructure.SelectColumns.AddRange(
                 childStructure.ParentColumns.Select(s => s.Replace("~", childTree.Alias)));
             currentEntityStructure.ParentColumns.AddRange(childStructure.ParentColumns);
-
             currentEntityStructure.SelectColumns = currentEntityStructure.SelectColumns.Distinct().ToList();
             currentEntityStructure.ParentColumns = currentEntityStructure.ParentColumns.Distinct().ToList();
         }
-        
+
         var select = string.Join(",", currentEntityStructure.SelectColumns.DistinctBy(a => a.Split(" AS ")[1]));
 
         if (!string.IsNullOrEmpty(select))
         {
+            if (sqlWhereStatement.TryGetValue(currentTree.Alias, out var currentSqlWhereStatementNode))
+            {
+                queryBuilder += " WHERE " + currentSqlWhereStatementNode.Replace("@","AND").Replace("$","OR").Replace("~",currentTree.Alias) + ")";
+            }
+            
             queryBuilder = queryBuilder.Replace("%", select);
-            queryBuilder += " " + currentEntityStructure.WhereClause;
-
             currentEntityStructure.Query = queryBuilder;
             var currentNode = linkEntityDictionaryTreeNode.FirstOrDefault(a =>
                 a.Key.Contains(currentTree.Alias));
@@ -437,7 +442,7 @@ public class SqlSelectBuilder
         Dictionary<string, SqlNode> linkEntityDictionaryTreeNode,
         Dictionary<string, SqlNode> sqlStatementNodes, NodeTree currentTree, 
         StringBuilder sqlQueryStatement, Dictionary<string, SqlQueryStructure> sqlQueryStructures,
-        Dictionary<string, string> sqlWhereStatement, Dictionary<string, string> childrenSqlStatement)
+        Dictionary<string, string> sqlWhereStatement)
     {
         var childrenJoinColumns = new Dictionary<string, string>();
         var currentColumns = new List<KeyValuePair<string, SqlNode>>(); 
@@ -539,85 +544,7 @@ public class SqlSelectBuilder
             queryColumns.Add(joinOnKey);
             parentQueryColumns.Add(joinOneKeyParent); 
         }
-
-        var entitySqlWhereStatement = string.Empty;
-
-        if (currentColumns.Count <= 2 && childrenSqlStatement.Count > 0)
-        {
-            var newRootNodeTree = entityTrees[childrenSqlStatement.First().Key];
-            sqlWhereStatement.TryGetValue(newRootNodeTree.Name, out var
-                currentSqlWhereStatementNewRoot);
-            var oldWhereStatement = currentSqlWhereStatementNewRoot;
-
-            if (!string.IsNullOrEmpty(oldWhereStatement))
-            {
-                oldWhereStatement = oldWhereStatement.Replace("~", newRootNodeTree.Name);
-
-                foreach (var field in oldWhereStatement.Split("\""))
-                {
-                    oldWhereStatement =
-                        oldWhereStatement.Replace(field, $"{field}");
-                }
-
-                oldWhereStatement = $" WHERE {oldWhereStatement} ";
-            }
-            else
-            {
-                oldWhereStatement = string.Empty;
-            }
-
-            currentSqlWhereStatementNewRoot = string.IsNullOrEmpty(currentSqlWhereStatementNewRoot)
-                ? string.Empty
-                : currentSqlWhereStatementNewRoot;
-
-            if (childrenSqlStatement.Count > 0 && childrenSqlStatement.Count > 0 &&
-                !string.IsNullOrEmpty(currentSqlWhereStatementNewRoot))
-            {
-                var cutoff = childrenSqlStatement.First().Value.IndexOf('(') + 1;
-                var sqlStatement =
-                    $"{childrenSqlStatement.First().Value.Substring(cutoff,
-                        childrenSqlStatement.First()
-                        .Value.Length - cutoff)}";
-                sqlStatement = sqlStatement.Replace(oldWhereStatement,
-                    $" WHERE {currentSqlWhereStatementNewRoot.Replace("~", newRootNodeTree.Name)}");
-
-                sqlQueryStatement.Append(sqlStatement);
-            }
-        }
-        else
-        {
-            sqlQueryStatement.Append(queryBuilder);
-            queryBuilder = "";
-            queryBuilder += " SELECT % ";
-            queryBuilder += $" FROM \"{currentTree.Schema}\".\"{currentTree.Name}\" {currentTree.Alias}";
-
-            var model = linkEntityDictionaryTreeNode
-                .FirstOrDefault(e =>
-                e.Key.Split('~')[0].Matches(currentTree.Name));
-
-            var modelValue = string.Empty;
-            if (model.Value != null)
-            {
-                modelValue = currentTree?.Mapping?.FirstOrDefault(m =>
-                    m.DestinationEntity.Matches(currentTree.Name))?.SourceModel ?? string.Empty;
-            }
-
-            if (string.IsNullOrEmpty(modelValue))
-            {
-                modelValue = currentTree.Name;
-            }
-
-            if (sqlWhereStatement.TryGetValue(modelValue, out var currentSqlWhereStatement))
-            {
-                currentSqlWhereStatement = currentSqlWhereStatement.Replace("~", currentTree.Alias);
-                entitySqlWhereStatement = $" WHERE {currentSqlWhereStatement} ";
-            }
-            else
-            {
-                entitySqlWhereStatement = string.Empty;
-            }
-        }
-
+        
         if (queryColumns.Count == 0)
         {
             return new SqlQueryStructure();
@@ -637,21 +564,19 @@ public class SqlSelectBuilder
             Query = queryBuilder,
             Columns = queryColumns,
             ParentColumns = parentQueryColumns,
-            ChildrenJoinColumns = childrenJoinColumns,
-            WhereClause = entitySqlWhereStatement
+            ChildrenJoinColumns = childrenJoinColumns
         };
 
         return sqlStructure;
     }
     
-    public static string GetFieldsOrdering(Dictionary<string, NodeTree> trees,
-        ISyntaxNode orderNode, string entity,
-        string wrapperEntity, string rootEntity, Dictionary<string, SqlNode> linkModelDictionaryTree)
+    public static string GetFieldsOrdering(Dictionary<string, NodeTree> modelTrees,
+        ISyntaxNode orderNode, NodeTree currentEntityTree, Dictionary<string, SqlNode> linkModelDictionaryTree)
     {
         var orderString = string.Empty;
         foreach (var oNode in orderNode.GetNodes())
         {
-            var currentEntity = entity;
+            var currentEntity = currentEntityTree.Name;
             if (oNode.ToString().Contains("{") && oNode.ToString()[0] != '{' &&
                 oNode.ToString().Contains(":"))
             {
@@ -662,11 +587,9 @@ public class SqlSelectBuilder
             {
                 var column = oNode.ToString().Split(":");
                 if ((column[1].Contains("DESC") || column[1].Contains("ASC")) &&
-                    trees.ContainsKey(currentEntity))
+                    modelTrees.ContainsKey(currentEntity))
                 {
-                    currentEntity = currentEntity.Matches(wrapperEntity) ? rootEntity :
-                        currentEntity;
-                    var currentNodeTree = trees[currentEntity];
+                    var currentNodeTree = modelTrees[currentEntity];
                     orderString +=
                         SqlGraphQlHelper.HandleSort(currentNodeTree, column[0],
                             column[1], linkModelDictionaryTree);
@@ -674,130 +597,12 @@ public class SqlSelectBuilder
             }
 
             orderString +=
-                $", {GetFieldsOrdering(trees, oNode, wrapperEntity, rootEntity, currentEntity,
-                    linkModelDictionaryTree)}";
+                $", {GetFieldsOrdering(modelTrees, oNode, currentEntityTree, linkModelDictionaryTree)}";
         }
 
         return orderString;
     }
 
-    public static void GetFieldsWhere(Dictionary<string, NodeTree> trees,
-        Dictionary<string, SqlNode> linkEntityDictionaryTreeNode,
-        Dictionary<string, SqlNode> linkModelDictionaryTreeNode, List<string> whereFields,
-        Dictionary<string, string> sqlWhereStatement,
-        ISyntaxNode whereNode, string entityName, string rootEntityName, string wrapperEntityName,
-        string clauseCondition,
-        List<string> clauseType,
-        Dictionary<string, List<string>> permission = null)
-    {
-        if (whereNode == null || string.IsNullOrWhiteSpace(entityName))
-        {
-            return;
-        }
-
-        foreach (var wNode in whereNode.GetNodes())
-        {
-            if (wrapperEntityName.Matches(entityName))
-            {
-                entityName = rootEntityName;
-            }
-
-            var currentEntity = entityName;
-
-            currentEntity = trees.Keys.FirstOrDefault(e => e.ToString()
-                .Matches(wNode.ToString().Split(":")[0]));
-
-            if (string.IsNullOrEmpty(currentEntity) || currentEntity.Matches(rootEntityName))
-            {
-                currentEntity = entityName;
-            }
-
-            if (whereNode.ToString().TrimStart(' ').StartsWith("and:") ||
-                whereNode.ToString().TrimStart(' ').StartsWith("or:"))
-            {
-                clauseCondition = whereNode.ToString().Split("{")[0].Replace(":", "").ToUpper();
-            }
-
-            if (wNode.ToString().Contains("{") && wNode.ToString().Contains(":") &&
-                wNode.ToString().Split(":").Length == 3)
-            {
-                var column = wNode.ToString().Split(":")[0];
-
-                if (!column.Contains("{"))
-                {
-                    if (linkModelDictionaryTreeNode.TryGetValue($"{currentEntity}~{column}",
-                            out var currentKeyValueNode))
-                    {
-                        var fieldValue = currentKeyValueNode.RelationshipKey.Replace('~', '.');
-                        currentEntity = $"{currentKeyValueNode.RelationshipKey.Split('~')[0]}";
-                        whereFields.Add(fieldValue);
-                    }
-                }
-            }
-
-            foreach (var node in wNode.GetNodes().ToList())
-            {
-                if (!node.ToString().Contains("{") && node.ToString().Contains(":") &&
-                    node.ToString().Split(":").Length == 2)
-                {
-                    var column = node.ToString().Split(":");
-                    if (!column[1].Contains("DESC") && !column[1].Contains("ASC") &&
-                        clauseType.Contains(column[0]))
-                    {
-                        if (whereFields.Count == 0)
-                        {
-                            continue;
-                        }
-
-                        var clauseValue = column[1].Trim().Trim('"');
-                        var fieldParts = whereFields.Last().Split('.');
-                        var currentNodeTree = trees[currentEntity];
-                        var field = fieldParts[1];
-
-                        switch (column[0])
-                        {
-                            case "eq":
-                                {
-                                    var clause = SqlGraphQlHelper
-                                        .ProcessFilter(currentNodeTree, linkEntityDictionaryTreeNode,
-                                        field, "=",
-                                        clauseValue, clauseCondition);
-                                    AddToDictionary(sqlWhereStatement, clause, field, trees);
-                                    break;
-                                }
-                            case "neq":
-                                {
-                                    var clause = SqlGraphQlHelper
-                                        .ProcessFilter(currentNodeTree, linkEntityDictionaryTreeNode, field, "<>", clauseValue, clauseCondition);
-                                    AddToDictionary(sqlWhereStatement, clause, field, trees);
-                                    break;
-                                }
-                            case "in":
-                                {
-                                    clauseValue = "(" + string.Join(',',
-                                        column[1].Replace("[", "").Replace("]", "").Split(',')
-                                            .Select(v => $"'{v.Trim()}'")) + ")";
-                                    var clause = SqlGraphQlHelper
-                                        .ProcessFilter(currentNodeTree, linkEntityDictionaryTreeNode,
-                                        field, "in", clauseValue, clauseCondition);
-                                    AddToDictionary(sqlWhereStatement, clause, field, trees);
-                                    break;
-                                }
-                        }
-
-                        clauseCondition = string.Empty;
-                    }
-                }
-            }
-
-            GetFieldsWhere(trees, linkEntityDictionaryTreeNode, linkModelDictionaryTreeNode,
-                whereFields,
-                sqlWhereStatement,
-                wNode,
-                currentEntity, rootEntityName, wrapperEntityName, clauseCondition, clauseType, permission);
-        }
-    }
-    
     private static void AddToDictionary(Dictionary<string, string> dictionary,
         List<string> values, string field, Dictionary<string, NodeTree> trees)
     {

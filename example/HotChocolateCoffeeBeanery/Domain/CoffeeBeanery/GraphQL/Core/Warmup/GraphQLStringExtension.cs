@@ -12,6 +12,16 @@ namespace CoffeeBeanery.GraphQL.Helper
             return string.Compare(input, comparison, StringComparison.OrdinalIgnoreCase) == 0 &&
                    input.Length == comparison.Length;
         }
+        
+        public static string CleanJsonString(this string? input)
+        {
+            if (string.IsNullOrEmpty(input))
+            {
+                return string.Empty;
+            }
+
+            return input.Replace(" ", "").Replace("{", "").Replace("}", "").Replace("\"", "");
+        }
 
         public static string ToSnakeCase(this string input, int numberOfSnakeChar = 1)
         {

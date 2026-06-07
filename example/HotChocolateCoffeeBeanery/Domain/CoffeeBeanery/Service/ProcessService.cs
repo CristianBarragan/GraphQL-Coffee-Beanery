@@ -37,17 +37,14 @@ namespace CoffeeBeanery.Service
         public async Task<QueryResult<M>> QueryProcessAsync(
             string cacheKey, ISelection selection, string modelName, CancellationToken cancellationToken)
         {
-            var ctx = new SqlCompilationContext();
-            
             var rootTree = SqlNodeRegistry.ModelTrees.First(a => 
                 a.Value.ModelName.Matches(modelName)).Value;
+            var context = new SqlCompilationContext();
             
             var sqlStructure = SqlQueryCompiler.Compile(
+                context,
                 selection,
                 rootTree,
-                SqlNodeRegistry.EntityNodes,
-                SqlNodeRegistry.EntityTrees,
-                SqlNodeRegistry.ModelTrees,
                 _cache,
                 cacheKey
             );
@@ -60,7 +57,7 @@ namespace CoffeeBeanery.Service
             var parameters = new ProcessQueryParameters
             {
                 SqlStructure = sqlStructure,
-                Pagination = ctx.Pagination,
+                //Pagination = ctx.Pagination,
                 Model = modelName
             };
 
@@ -82,27 +79,24 @@ namespace CoffeeBeanery.Service
         public async Task<QueryResult<M>> MutationProcessAsync(
             string cacheKey, ISelection selection, string modelName, CancellationToken cancellationToken)
         {
-            var ctx = new SqlCompilationContext();
-            
             var rootTree = SqlNodeRegistry.ModelTrees.First(a => 
                 a.Value.ModelName.Matches(modelName)).Value;
             
             var sqlWhereStatement = new Dictionary<string, string>();
+            var context = new SqlCompilationContext();
 
-            var mutationStructure = SqlMutationCompiler.Compile(selection, rootTree, sqlWhereStatement, SqlNodeRegistry.ModelTrees, SqlNodeRegistry.EntityTrees, SqlNodeRegistry.ModelNodes, 
+            var mutationCommand = SqlMutationCompiler.Compile(selection, rootTree, sqlWhereStatement, SqlNodeRegistry.ModelTrees, SqlNodeRegistry.EntityTrees, SqlNodeRegistry.ModelNodes, 
                 SqlNodeRegistry.EntityNodes, SqlNodeRegistry.ModelNames, SqlNodeRegistry.EntityNames);
 
             var sqlStructure = SqlQueryCompiler.Compile(
+                context,
                 selection,
                 rootTree,
-                SqlNodeRegistry.EntityNodes,
-                SqlNodeRegistry.EntityTrees,
-                SqlNodeRegistry.ModelTrees,
                 _cache,
                 cacheKey
             );
             
-            sqlStructure.SqlUpsert = mutationStructure.SqlUpsert;
+            sqlStructure.SqlUpsert = mutationCommand;
             sqlStructure.ModelTrees = SqlNodeRegistry.ModelTrees;
             sqlStructure.EntityTrees = SqlNodeRegistry.EntityTrees;
             sqlStructure.RelativeTree = rootTree;
@@ -111,7 +105,7 @@ namespace CoffeeBeanery.Service
             var parameters = new ProcessQueryParameters
             {
                 SqlStructure = sqlStructure,
-                Pagination = ctx.Pagination,
+                // Pagination = Pagination,
                 Model = modelName
             };
 

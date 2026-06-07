@@ -8,7 +8,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
         public string SelectSql { get; set; } = "";
         public string UpsertSql { get; set; } = "";
 
-        public string SqlWhereStatement { get; set; } = "";
+        public Dictionary<string, string> SqlWhereStatement { get; set; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         
         public string SqlOrderStatement { get; set; } = "";
 
