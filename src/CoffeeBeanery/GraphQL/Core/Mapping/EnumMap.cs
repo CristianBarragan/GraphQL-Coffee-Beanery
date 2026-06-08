@@ -1,6 +1,4 @@
-﻿using System.Collections.Generic;
-
-namespace CoffeeBeanery.GraphQL.Core.Mapping
+﻿namespace CoffeeBeanery.GraphQL.Core.Mapping
 {
     public sealed class EnumMap
     {

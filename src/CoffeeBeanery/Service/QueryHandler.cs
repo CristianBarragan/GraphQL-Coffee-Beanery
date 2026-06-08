@@ -4,6 +4,7 @@ using CoffeeBeanery.GraphQL.Core.Sql;
 using Npgsql;
 using System.Collections;
 using System.Reflection;
+using CoffeeBeanery.GraphQL.Core.Runtime;
 using CoffeeBeanery.GraphQL.Helper;
 
 namespace CoffeeBeanery.Service
@@ -30,21 +31,16 @@ namespace CoffeeBeanery.Service
                          int? totalCount,
                          int? totalPageRecords)
         MappingConfiguration(
+            SqlCompilationContext context,
             List<object[]>               rowMatrix,
-            SqlStructure                 sqlStructure,
-            List<Type>                   allTypes,
-            List<Type>                   types,
-            Dictionary<string, SqlNode>  sqlNodesApplied,
-            NodeTree                     relativeNodeTree,
-            Dictionary<string, NodeTree> modelTrees,
-            Dictionary<string, NodeTree> entityTrees)
+            List<Type>                   types)
         {
             int totalCount  = 0;
             int pageRecords = 0;
 
-            var aliasIndex = BuildAliasIndex(sqlStructure.EntityMapping);
+            var aliasIndex = BuildAliasIndex(context.EntityMapping);
 
-            var rootModelTree  = GetRootFromWrapper<M>(modelTrees);
+            var rootModelTree  = GetRootFromWrapper<M>(context.ModelTrees);
             var rootAliasIndex = 0;
             string rootAlias   = rootModelTree.Alias;
 
@@ -117,7 +113,7 @@ namespace CoffeeBeanery.Service
                         seenCounts[entityName] = seen + 1;
 
                         var entityTree = ResolveEntityTree(
-                            alias, entityType, types.ElementAtOrDefault(i), seen, entityTrees);
+                            alias, entityType, types.ElementAtOrDefault(i), seen, context.EntityTrees);
 
                         if (entityTree == null) continue;
 
@@ -140,13 +136,13 @@ namespace CoffeeBeanery.Service
                 {
                     RootObject    = rootObject,
                     CurrentObject = rootObject,
-                    ModelTypes    = allTypes,
+                    ModelTypes    = context.EntityMapping.Select(a => a.Value).ToList(),
                     RawObjects    = dedupedRaw,
                     Objects       = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase),
                     AllObjects    = new Dictionary<string, List<object>>(StringComparer.OrdinalIgnoreCase),
                 };
 
-                Build(rootModelTree, modelTrees, entityTrees, nodeResult);
+                Build(rootModelTree, context.ModelTrees, context.EntityTrees, nodeResult);
 
                 var wrapperObj = (M)nodeResult.RootObject;
 
@@ -158,8 +154,8 @@ namespace CoffeeBeanery.Service
 
             return (
                 wrappers.OfType<M>().ToList(),
-                sqlStructure.Pagination?.StartCursor,
-                sqlStructure.Pagination?.EndCursor,
+                context.Pagination?.StartCursor,
+                context.Pagination?.EndCursor,
                 totalCount,
                 pageRecords);
         }

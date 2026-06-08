@@ -1,5 +1,6 @@
 ﻿using CoffeeBeanery.CQRS;
 using CoffeeBeanery.GraphQL.Core.GraphQL;
+using CoffeeBeanery.GraphQL.Core.Runtime;
 using CoffeeBeanery.GraphQL.Core.Sql;
 using Dapper;
 using Npgsql;
@@ -25,11 +26,12 @@ public class ProcessQuery<M> : IQuery<ProcessQueryParameters,
         ProcessQueryParameters parameters,
         CancellationToken ct)
     {
-        var types   = parameters.SqlStructure.SplitOnDapper.Values.ToList();
-        var splitOn = parameters.SqlStructure.SplitOnDapper.Keys.ToList();
+        var context = parameters.Context;
+        var types   = context.SplitOnDapper.Values.ToList();
+        var splitOn = context.SplitOnDapper.Keys.ToList();
 
-        var query = parameters.SqlStructure.SqlUpsert + ";" +
-                    parameters.SqlStructure.SqlQuery;
+        var query = context.UpsertSql + ";" +
+                    context.SelectSql;
 
         if (_db.State != System.Data.ConnectionState.Open)
             await _db.OpenAsync(ct);
@@ -56,19 +58,15 @@ public class ProcessQuery<M> : IQuery<ProcessQueryParameters,
             await tx.CommitAsync(ct);
 
             var result = MappingConfiguration(
+                context,
                 rowMatrix,
-                parameters.SqlStructure,
-                SqlNodeRegistry.EntityTypes,
-                types,
-                parameters.SqlStructure.SqlNodesApplied,
-                parameters.SqlStructure.RelativeTree,
-                parameters.SqlStructure.ModelTrees,
-                parameters.SqlStructure.EntityTrees);
+                types
+                );
 
             return (
                 result.models,
-                result.startCursor  ?? parameters.SqlStructure.Pagination?.StartCursor,
-                result.endCursor    ?? parameters.SqlStructure.Pagination?.EndCursor,
+                result.startCursor  ?? context.Pagination?.StartCursor,
+                result.endCursor    ?? context.Pagination?.EndCursor,
                 result.totalCount,
                 result.totalPageRecords);
         }
@@ -104,14 +102,9 @@ public class ProcessQuery<M> : IQuery<ProcessQueryParameters,
                     int? totalCount,
                     int? totalPageRecords)
         MappingConfiguration(
+            SqlCompilationContext context,
             List<object[]>                  rowMatrix,
-            SqlStructure                    sqlStructure,
-            List<Type>                      allTypes,
-            List<Type>                      types,
-            Dictionary<string, SqlNode>     sqlNodesApplied,
-            NodeTree                        relativeTree,
-            Dictionary<string, NodeTree>    modelTrees,
-            Dictionary<string, NodeTree>    entityTrees)
+            List<Type>                      types)
     {
         throw new NotImplementedException();
     }

@@ -2,88 +2,11 @@
 using CoffeeBeanery.GraphQL.Core.GraphQL;
 using CoffeeBeanery.GraphQL.Core.Sql;
 using CoffeeBeanery.GraphQL.Helper;
-using MoreLinq;
 
 namespace CoffeeBeanery.GraphQL.Core.Runtime;
 
 public static class SqlHelper
 {
-    /// <summary>
-    /// Method for adding pagination into the query SQL statement 
-    /// </summary>
-    /// <param name="rootTree"></param>
-    /// <param name="sqlQuery"></param>
-    /// <param name="sqlOrderStatement"></param>
-    /// <param name="pagination"></param>
-    /// <param name="hasTotalCount"></param>
-    public static string HandleQueryClause(NodeTree rootTree, string sqlQuery, string sqlOrderStatement,
-        Pagination pagination, bool hasTotalCount = false)
-    {
-        var from = 1;
-        var to = pagination!.PageSize;
-        var sqlWhereStatement = string.Empty;
-
-        if (!string.IsNullOrEmpty(pagination!.After) && pagination.First > 0 &&
-            hasTotalCount)
-        {
-            from = int.Parse(pagination.After) + 1;
-            to = from + pagination.First!.Value;
-            sqlWhereStatement += string.IsNullOrEmpty(sqlWhereStatement)
-                ? $" WHERE \"RowNumber\" BETWEEN {from} AND {to}"
-                : $" AND \"RowNumber\" BETWEEN {from} AND {to}";
-        }
-        else if (!string.IsNullOrEmpty(pagination?.Before) && pagination.Last > 0 &&
-                 hasTotalCount)
-        {
-            to = int.Parse(pagination.Before) - 1;
-            from = to - pagination.Last!.Value;
-            to = to >= 1 ? to : 1;
-            from = from >= 1 ? from : 1;
-            sqlWhereStatement += string.IsNullOrEmpty(sqlWhereStatement)
-                ? $" WHERE \"RowNumber\" BETWEEN {from} AND {to}"
-                : $" AND \"RowNumber\" BETWEEN {from} AND {to}";
-        }
-        else if (pagination!.First > 0 && pagination!.Last > 0 && hasTotalCount)
-        {
-            to = pagination!.First!.Value;
-            sqlWhereStatement += string.IsNullOrEmpty(sqlWhereStatement)
-                ? $" WHERE \"RowNumber\" BETWEEN {pagination!.First} AND {pagination!.Last}"
-                : $" AND \"RowNumber\" BETWEEN {pagination!.First} AND {pagination!.Last}";
-        }
-        else if (pagination!.First > 0 && hasTotalCount)
-        {
-            to = pagination!.First!.Value;
-            sqlWhereStatement += string.IsNullOrEmpty(sqlWhereStatement)
-                ? $" WHERE \"RowNumber\" BETWEEN {pagination!.First} AND \"RowNumber\""
-                : $" AND \"RowNumber\" BETWEEN {pagination!.First} AND \"RowNumber\"";
-        }
-        else if (pagination!.Last > 0 && hasTotalCount)
-        {
-            sqlWhereStatement += string.IsNullOrEmpty(sqlWhereStatement)
-                ? $" WHERE \"RowNumber\" BETWEEN \"RowNumber\" - {pagination!.Last} AND \"RowNumber\""
-                : $" AND \"RowNumber\" BETWEEN \"RowNumber\" - {pagination!.Last} AND \"RowNumber\"";
-        }
-        else
-        {
-            to = 0;
-            from = 0;
-        }
-
-        var hasPagination = pagination.First > 0 || pagination.Last > 0 ||
-                            (pagination.First > 0 &&
-                             !string.IsNullOrEmpty(pagination.After)) ||
-                            (pagination.Last > 0 &&
-                             !string.IsNullOrEmpty(pagination.Before));
-        var sql = $"WITH {rootTree.Schema}s AS (SELECT * FROM (SELECT * FROM (" + sqlQuery + $") {rootTree.Name} ) ";
-        var totalCount = hasPagination && hasTotalCount
-            ? $" DENSE_RANK() OVER({sqlOrderStatement}) AS \"RowNumber\","
-            : "";
-        sqlQuery = ($" {sql} a ) " +
-                    $"SELECT * FROM ( SELECT (SELECT COUNT(DISTINCT \"{"Id".ToSnakeCase(rootTree.Id)}\") FROM {rootTree.Schema}s) \"RecordCount\", " +
-                    $"{totalCount} * FROM {rootTree.Schema}s) a {sqlWhereStatement.Replace('~', 'a')}");
-        return sqlQuery;
-    }
-
     public static void GenerateUpsertStatements(
         Dictionary<string, NodeTree> trees,
         Dictionary<string, SqlNode> sqlUpsertStatementNodes,
