@@ -108,8 +108,13 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                                 (ctx.Pagination.Last > 0 &&
                                  !string.IsNullOrEmpty(ctx.Pagination.Before));
             var sql = $"WITH {rootTree.Schema}s AS (SELECT * FROM (SELECT * FROM (" + sqlQuery + $") {rootTree.Name} ) ";
+            
+            var orderBy = ctx.SqlOrderStatements.Count == 0
+                ? $"\"{"Id".ToSnakeCase(rootTree.Id)}\""
+                : string.Join(",",  ctx.SqlOrderStatements.Select(a => a.Value)).Replace("~*~", $"{rootTree.Schema}s");
+            
             var totalCount = hasPagination && ctx.HasTotalCount
-                ? $" DENSE_RANK() OVER( ORDER BY {(string.IsNullOrEmpty(ctx.SqlOrderStatement) ? $"\"{"Id".ToSnakeCase(rootTree.Id)}\"" : ctx.SqlOrderStatement )}) AS \"RowNumber\","
+                ? $" DENSE_RANK() OVER( ORDER BY {orderBy}) AS \"RowNumber\","
                 : "";
             sqlQuery.Clear();
             sqlQuery.Append($" {sql} a ) " +
