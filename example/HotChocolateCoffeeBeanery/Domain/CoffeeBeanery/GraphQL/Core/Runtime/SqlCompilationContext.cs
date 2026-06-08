@@ -15,7 +15,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
 
         public Dictionary<string, string> SqlWhereStatement { get; set; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         
-        public string SqlOrderStatement { get; set; } = "";
+        public Dictionary<string, string> SqlOrderStatements { get; set; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         public Pagination Pagination { get; set; } = new Pagination();
         

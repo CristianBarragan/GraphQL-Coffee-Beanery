@@ -42,11 +42,11 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                 SqlNodeRegistry.ModelNodes, statementNodes, rootTree, visitedModels, visitedEntities,
                 SqlNodeRegistry.ModelNames, modelSqlNodes, true);
             
-            SqlWhereCompiler.Compile(context, SqlNodeRegistry.ModelTrees, modelSqlNodes, statementNodes, rootSelection, rootTree, 
+            SqlWhereCompiler.Compile(context, modelSqlNodes, statementNodes, rootSelection, rootTree, 
                 rootTree.Name, sqlWhereStatement);
             
             SqlSelectBuilder.HandleGraphQL(context, SqlNodeRegistry.EntityNodes, statementNodes, 
-                sqlWhereStatement, SqlNodeRegistry.EntityTrees, SqlNodeRegistry.EntityNames, rootTree, cache, cacheKey);
+                SqlNodeRegistry.EntityTrees, rootTree, cache, cacheKey);
 
             foreach (var argument in rootSelection.SyntaxNode.Arguments
                          .Where(a => !a.Name.Value.Matches("where")))
@@ -81,12 +81,9 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                 
                 if (argument.Name.ToString().Contains("order"))
                 {
-                    foreach (var orderNode in argument.GetNodes())
-                    {
-                        hasSorting = true;
-                        SqlOrderCompiler.GetFieldsOrdering(SqlNodeRegistry.ModelTrees, orderNode,
-                            rootTree, SqlNodeRegistry.ModelNodes);
-                    }
+                    hasSorting = true;
+                    SqlOrderCompiler.Compile(context, SqlNodeRegistry.ModelTrees, argument,
+                        rootTree, SqlNodeRegistry.ModelNodes, SqlNodeRegistry.EntityTrees);
                 }
             }
             
