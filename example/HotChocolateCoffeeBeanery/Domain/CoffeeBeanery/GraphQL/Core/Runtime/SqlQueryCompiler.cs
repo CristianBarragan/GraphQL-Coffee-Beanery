@@ -83,7 +83,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                 {
                     hasSorting = true;
                     SqlOrderCompiler.Compile(context, SqlNodeRegistry.ModelTrees, argument,
-                        rootTree, SqlNodeRegistry.ModelNodes);
+                        rootTree, SqlNodeRegistry.ModelNodes, SqlNodeRegistry.EntityTrees);
                 }
             }
             

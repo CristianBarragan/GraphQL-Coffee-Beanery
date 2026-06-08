@@ -12,11 +12,12 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
             Dictionary<string, NodeTree> trees,
             ISyntaxNode orderNode,
             NodeTree entity,
-            Dictionary<string, SqlNode> nodeDict) 
+            Dictionary<string, SqlNode> modelNodes,
+            Dictionary<string, NodeTree> entityTrees) 
         {
             var sqlOrderStatement = new Dictionary<string, string>();
             
-            GetFieldsOrdering(trees, orderNode, entity, nodeDict, sqlOrderStatement);
+            GetFieldsOrdering(trees, orderNode, entity, modelNodes, entityTrees, sqlOrderStatement);
             
             context.SqlOrderStatements = sqlOrderStatement;
         }
@@ -26,6 +27,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
             ISyntaxNode orderNode,
             NodeTree currentEntityTree,
             Dictionary<string, SqlNode> modelNodes,
+            Dictionary<string, NodeTree> entityTrees,
             Dictionary<string, string> sqlOrderStatement)
         {
             foreach (var oNode in orderNode.GetNodes())
@@ -54,35 +56,49 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
 
                     if (direction.Contains("DESC") || direction.Contains("ASC"))
                     {
-                        var sortResult = HandleSort(activeEntityTree, field, direction, modelNodes);
-                        if (!string.IsNullOrEmpty(sortResult))
+                        var sortResult = HandleSort(activeEntityTree, field, direction, modelNodes, entityTrees);
+                        if (sortResult.Value != null)
                         {
-                            if (sqlOrderStatement.TryGetValue(activeEntityTree.Alias, out var existing))
-                                sqlOrderStatement[activeEntityTree.Alias] = existing + ", " + sortResult;
+                            if (sqlOrderStatement.TryGetValue(sortResult.Key, out var existing))
+                                sqlOrderStatement[sortResult.Key] = existing + ", " + sortResult.Value;
                             else
-                                sqlOrderStatement[activeEntityTree.Alias] = sortResult;
+                                sqlOrderStatement[sortResult.Key] = sortResult.Value;
                         }
                     }
                 }
 
-                GetFieldsOrdering(modelTrees, oNode, activeEntityTree, modelNodes, sqlOrderStatement);
+                GetFieldsOrdering(modelTrees, oNode, activeEntityTree, modelNodes, entityTrees, sqlOrderStatement);
             }
         }
 
-        private static string HandleSort(
+        private static KeyValuePair<string, string> HandleSort(
             NodeTree nodeTree,
             string field,
             string sortClause,
-            Dictionary<string, SqlNode> modelNodes)
+            Dictionary<string, SqlNode> modelNodes,
+            Dictionary<string, NodeTree> entityTrees)
         {
+            var linkKeys = nodeTree.ModelToEntityLinks.Where(x =>
+                entityTrees[x.AliasTo].Mapping.Any(a => a.DestinationName.Matches(field)));
+
+            NodeTree entityTree;
+
+            foreach (var linkKey in linkKeys)
+            {
+                entityTree = entityTrees[linkKey.AliasTo];
+                return new KeyValuePair<string, string>(entityTree.Alias, $"~*~.\"{field.ToUpperCamelCase().ToSnakeCase(entityTree.Id)}\" {sortClause.Trim()}");
+            }
+            
+            entityTree = entityTrees[nodeTree.Alias];
+            
             var match = modelNodes.FirstOrDefault(kvp =>
                 kvp.Key.StartsWith(nodeTree.Alias, StringComparison.OrdinalIgnoreCase) &&
                 kvp.Key.EndsWith($"~{field}", StringComparison.OrdinalIgnoreCase));
 
             if (match.Value != null)
-                return $"~*~.\"{match.Value.Column.ToSnakeCase(nodeTree.Id)}\" {sortClause.Trim()}";
-
-            return string.Empty;
+                return new KeyValuePair<string, string>(entityTree.Alias, $"~*~.\"{match.Value.Column.ToSnakeCase(entityTree.Id)}\" {sortClause.Trim()}");
+            
+            return new KeyValuePair<string, string>();
         }
     }
 }
