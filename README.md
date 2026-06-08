@@ -50,7 +50,7 @@ This includes:
 - Hot Chocolate : Only requires lean setup
 - Dapper : Used to act a dynamic Data Access Layer
 - PostgreSQL : Database used by the framework
-- Entity Framework
+- Entity Framework : Database schema maintenance
 - Apache AGE : Apache AGE (In progress...)
 - Citus : (TBC)
 
@@ -65,7 +65,7 @@ This includes:
 - Edge types are translated into joins between entities.
 - Paging support out of the box
 - Filtering support out of the box
-- Sorting support out of the box
+- Sorting support out of the box (Hot chocolate has limitations as of now)
 
 ## Customizable Features
 
