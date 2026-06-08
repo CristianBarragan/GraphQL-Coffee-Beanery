@@ -10,12 +10,19 @@ The framework requires only Mappings between domain models and database entities
 
 ## Key Capabilities
 
-- Dynamic GraphQL-to-SQL translation at runtime  
-- Configuration based model-to-entity mapping
+- Dynamic GraphQL-to-SQL translation at runtime
+- Custome configuration based for complex model-to-entity mapping
+- Allows subgraph mutations and queries using the same endpoint and wrapper object
 - No Data Loaders / N + 1 issues
 - Relationship-driven query generation  
 - Built-in support for composing complex data graphs without manual SQL 
 - Extensible architecture to integrate external or business logic out of the box
+- Node types are translated into Left joins between entities.
+- Edge types are translated into joins between entities.
+- Paging support out of the box
+- Filtering support out of the box
+- Sorting support out of the box
+- Alias based so there is no issues when there are multiple models / entities with the same type
 
 ---
 
@@ -47,25 +54,12 @@ This includes:
 4. Validate data persistance and query result.
 
 ### Stack
-- Hot Chocolate : Only requires lean setup
+- Hot Chocolate : Only requires lean setup for AST parsing and auth pipeline integration
 - Dapper : Used to act a dynamic Data Access Layer
 - PostgreSQL : Database used by the framework
 - Entity Framework : Database schema maintenance
 - Apache AGE : Apache AGE (In progress...)
 - Citus : (TBC)
-
-## Current Features
-
-- Configuration based
-- No N+1 problem since the entire query/mutation is batched and materialized by the database engine
-- Hability to add any additional business logic or integration within the GraphQL API project
-- Custom and complex mapping between data entities and domain models
-- Allows subgraph mutations and queries using the same endpoint and wrapper object
-- Node types are translated into Left joins between entities.
-- Edge types are translated into joins between entities.
-- Paging support out of the box
-- Filtering support out of the box
-- Sorting support out of the box (Hot chocolate has limitations as of now)
 
 ## Customizable Features
 
