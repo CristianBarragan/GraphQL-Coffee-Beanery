@@ -2,6 +2,94 @@
 
 ## Overview
 
+CoffeeBeanery is a framework that dynamically translates GraphQL queries into raw SQL at runtime. The transformation happens on the fly, with full query capabilities available out of the box.
+
+The framework requires only:
+
+- Mappings between domain models and database entities  
+- Lightweight annotations to define relationships between models and entities  
+
+From this, CoffeeBeanery is able to generate and execute SQL queries automatically based on incoming GraphQL requests.
+
+---
+
+## Key Capabilities
+
+- Dynamic GraphQL-to-SQL translation at runtime  
+- Declarative model-to-entity mapping system  
+- Relationship-driven query generation  
+- Built-in support for composing complex data graphs without manual SQL  
+- Extensible architecture for integrating business logic within API workflows  
+
+In addition, CoffeeBeanery provides a mechanism for implementing business transactions and injecting custom business logic directly into the API layer. This enables flexible integration scenarios and supports a wide range of domain-specific extensions.
+
+---
+
+## Status
+
+CoffeeBeanery is actively developed and currently serves as a reference implementation and experimentation platform.
+
+It is intended to evolve into a production-ready framework and may eventually be published as a NuGet package once it reaches sufficient maturity and stability.
+
+---
+
+## Contributions
+
+Contributions, feedback, and collaboration are highly welcome.
+
+This includes:
+
+- Design proposals  
+- Feature suggestions  
+- Bug reports  
+- Architectural feedback  
+- Documentation improvements  
+- Any ideas that help improve maturity or broaden adoption  
+
+The goal is to evolve CoffeeBeanery into a robust, widely usable framework through community input and real-world usage.
+
+#### Current focus is to support Graph Data Models and porting the last few remaining features
+
+Running example
+
+1. Clone repository
+2. Run entity framework migrations
+3. Compile and run api project
+3. Use nitro IDE to create any type of graphql operation.
+4. Validate data persistance and query result.
+
+The following libraries are used to achieve all the features listed below:
+
+- Dapper
+- Hot Chocolate
+- Entity Framework
+- PostgreSQL
+- FasterKV
+
+## Current Features
+
+- Configuration based
+- No N+1 problem since the entire query/mutation is batched and materialized by the database engine
+- Hability to add any additional business logic or integration within the GraphQL API project
+- Custom and complex mapping between data entities and domain models
+- Allows subgraph mutations and queries using the same endpoint and wrapper object
+- Node types are translated into Left joins between entities.
+- Edge types are translated into joins between entities.
+- Paging support out of the box
+- Filtering support out of the box
+- Sorting support out of the box
+
+## Customizable Features
+
+- Granular access by table/columns based on token-claims
+- Data and column validations
+- Query cache can be customized in multiple layers
+- Query result handling can be fully customized
+
+# GraphQL Coffee Beanery
+
+## Overview
+
 CoffeeBeanery is a **GraphQL-to-SQL mapping framework** that dynamically translates, maps from/to domain models and entities into SQL queries using a declarative mapping system. All statements are batched to take advantage of the database cache.
 
 It is built on top of:
@@ -27,41 +115,15 @@ The goal is to support **flexible, context-aware data access** while maintaining
 
 ---
 
-## Architecture
+## Excution Flow
 
-        GraphQL Request
-        
-              ↓
-        
-          Resolver
-        
-              ↓
-        
-MappingSet (Inner / Outer context)
-        
-              ↓
-        
-    NodeMap (relationship graph)
-        
-              ↓
-        
-    FieldMap + LinkKey resolution
-        
-              ↓
-        
-        SQL generation
-        
-              ↓
-        
-Database (PostgreSQL via Npgsql/Dapper)
-        
-              ↓
-        
-      Mapped Domain Model
-      
-              ↓
-        
-      Return Connections
+<img src="https://github.com/CristianBarragan/Coffee-Beanery/blob/main/ProcessFlow.png" alt="Execution_Flow" height="60%" width="100%">
+
+---
+
+## Tests
+
+<img src="https://github.com/CristianBarragan/Coffee-Beanery/blob/main/example/HotChocolateCoffeeBeanery/Test/Test_Results.png" alt="Test_Results" height="60%" width="100%">
 
 ---
 
@@ -217,6 +279,9 @@ Represents customer contact information.
 - Relationship
 - Customer.Id → ContactPoint.CustomerId
 
-## Query Execution Flow
+### [Buy me a Coffee ☕]
+*I would love a 100% colombian coffee!*
 
-GraphQL request received → Resolver invoked → MappingSet selected (Inner / Outer) → NodeMap constructed → FieldMaps applied → LinkKeys generate SQL joins → SQL executed via Dapper/Npgsql → Results mapped back to omain model
+<a href="https://www.buymeacoffee.com/cristianbarragan" target="_blank">
+<img src="https://cdn.buymeacoffee.com/buttons/default-orange.png" alt="Buy Me A Coffee" height="41" width="174">
+</a>
