@@ -11,18 +11,19 @@ The framework requires only Mappings between domain models and database entities
 ## Key Capabilities
 
 - Dynamic GraphQL-to-SQL translation at runtime
-- Custome configuration based for complex model-to-entity mapping
+- Custom configuration based for model-to-entity mappings
 - Allows subgraph mutations and queries using the same endpoint and wrapper object
-- No Data Loaders / N + 1 issues
-- Relationship-driven query generation  
-- Built-in support for composing complex data graphs without manual SQL 
+- No Data Loaders / N + 1 issues, all sql statements are batched so PostgreSQL can take advantage of caching data
+- Relationship-driven query generation
+- Built-in support for composing complex data graphs without any additional or manual SQL
 - Extensible architecture to integrate external or business logic out of the box
 - Node types are translated into Left joins between entities.
 - Edge types are translated into joins between entities.
-- Paging support out of the box
+- Pagination support out of the box
 - Filtering support out of the box
 - Sorting support out of the box
 - Alias based so there is no issues when there are multiple models / entities with the same type
+- Support one-to-many, many-to-many, and one-to-one relationships (soon graph relationships)
 
 ---
 
@@ -66,7 +67,7 @@ This includes:
 - Granular access by table/columns based on token-claims
 - Data and column validations
 - Query cache can be customized in multiple layers
-- Query result handling can be fully customized
+- Query result handling can be customized
   
 ## Execution Flow
 
@@ -91,9 +92,9 @@ It is built on top of:
 
 The goal is to support **flexible, context-aware data access** whi
 
-## Mapping Sets
+## Mapping Sets and example
 
-Mapping sets define how a domain model behaves in a specific context.
+Mapping sets define how a domain model behaves in a specific context
 
 ### Available Sets
 
@@ -146,7 +147,8 @@ All customer mappings inherit from:
 
 - Schema
 - Banking
-- EntityParents
+
+ ### EntityParents
 
 Defines upward relationships (joins to parent tables)
 
@@ -228,18 +230,6 @@ Customer → CustomerCustomerRelationship (OuterCustomerId / OuterCustomerKey)
 Usage
 
 Used when querying customers as the target side of relationships.
-
-### ContactPoint Model
-
-Represents customer contact information.
-
-#### Fields
-- ContactPointKey
-- ContactPointType (Mobile, Landline, Email)
-- ContactPointValue
-- CustomerKey
-- Relationship
-- Customer.Id → ContactPoint.CustomerId
 
 ### [Buy me a Coffee ☕]
 *I would love a 100% colombian coffee!*
