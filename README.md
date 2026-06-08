@@ -1,71 +1,204 @@
-## GraphQL Coffee Beanery
+# CoffeeBeanery Mapping System
 
-#### “Why GraphQL and Dapper with GraphQL Coffee Beanery and what does better than existing tools?
+## Overview
 
-Explore the unique approach of using dapper for performance and direct GraphQL operation translations into Raw SQL, providing out of the box features without adding any code, and giving full customisation and integrations based on every project needs.
+CoffeeBeanery is a **GraphQL-to-SQL mapping framework** that dynamically translates, maps from/to domain models and entities into SQL queries using a declarative mapping system. All statements are batched to take advantage of the database cache.
 
-#### “Graphql + C# + Dapper + PostgreSQL - Example”
-#### “Coffee Beanery + Entity Framework GraphQL”
-#### “GraphQL Dapper C# 
-#### “HotChocolate + Dapper Example"
+It is built on top of:
 
-Coffee beanery is a dynamic parser from GraphQL queries into raw SQL queries; the translation happens on the fly and all the features are available out of the box. 
+- GraphQL domain models (`Domain.Model`)
+- Database entities (`Database.Entity`)
+- Custom mapping engine (`CoffeeBeanery.GraphQL.Core.Mapping`)
+- SQL graph construction (`NodeMap`, `FieldMap`, `LinkKey`)
 
-It only requires mappings between models and entities and a few annotations to signal the framework about the relationship between models or entities.
+The goal is to support **flexible, context-aware data access** while maintaining a strict separation between:
 
-Also, the feature to have the means for using business transactions and add custom business code within the api. Makes a unique opportunity to do any integration possible.
+- Domain models (GraphQL layer)
+- Database schema
+- Query generation logic
 
-“Actively developed. Currently a reference implementation and experimentation platform, it might be shipped as a Nuget package once it reaches maturity. 
+### Stack
 
-Any type of contribution and support will be extremely welcome. From proposals, feedback, or any other content that can help out to reach a a wider audience and maturity.”
-
-#### Current focus is to support Graph Data Models and porting the last few remaining features
-
-Running example
-
-1. Clone repository
-2. Run entity framework migrations
-3. Compile and run api project
-3. Use nitro IDE to create any type of graphql operation.
-4. Validate data persistance and query result.
-
-The following libraries are used to achieve all the features listed below:
-
-- Dapper
-- Hot Chocolate
+- Hot Chocolate : Only requires lean setup
+- Dapper : Used to act a dynamic Data Access Layer
+- PostgreSQL : Database used by the framework
 - Entity Framework
-- PostgreSQL
-- FasterKV
+- Apache AGE : In the near future will also support Relationship Base Graphs along with the other features
 
-## Current Features
+---
 
-- Configuration based
-- No N+1 problem since the entire query/mutation is batched and materialized by the database engine
-- Hability to add any additional business logic or integration within the GraphQL API project
-- Custom and complex mapping between data entities and domain models
-- Allows subgraph mutations and queries using the same endpoint and wrapper object
-- Node types are translated into Left joins between entities.
-- Edge types are translated into joins between entities.
-- Paging support out of the box
-- Filtering support out of the box
-- Sorting support out of the box
+## Architecture
 
-## Customizable Features
+GraphQL Request
+↓
+Resolver
+↓
+MappingSet (Inner / Outer context)
+↓
+NodeMap (relationship graph)
+↓
+FieldMap + LinkKey resolution
+↓
+SQL generation
+↓
+Database (PostgreSQL via Npgsql/Dapper)
+↓
+Mapped Domain Model
 
-- Granular access by table/columns based on token-claims
-- Data and column validations
-- Query cache can be customized in multiple layers
-- Query result handling can be fully customized
+---
 
-## Documentation in progress - check the [example](https://github.com/CristianBarragan/GraphQL-Coffee-Beanery/tree/main/example/HotChocolateCoffeeBeanery), contains several types of mappings, it only needs a mapping setup between entities and models.
+## Core Concepts
 
-## Tests
+## Mapping Sets
 
-<img src="https://github.com/CristianBarragan/Coffee-Beanery/blob/main/example/HotChocolateCoffeeBeanery/Test/Test_Results.png" alt="Test_Results" height="60%" width="100%">
+Mapping sets define how a domain model behaves in a specific context.
 
-### [Buy me a Coffee ☕]
-*I would love a 100% colombian coffee!*
+### Available Sets
 
-<a href="https://www.buymeacoffee.com/cristianbarragan" target="_blank">
-<img src="https://cdn.buymeacoffee.com/buttons/default-orange.png" alt="Buy Me A Coffee" height="41" width="174">
-</a>
+- InnerCustomerMappingSet → Internal perspective of a customer
+- OuterCustomerMappingSet → External perspective of a customer
+
+---
+
+## Inner vs Outer Customer
+
+### Inner Customer
+
+- Represents internal actor in a relationship
+- Uses:
+  - InnerCustomerId
+  - InnerCustomerKey
+- Used when the customer is the **source** of a relationship
+
+---
+
+### Outer Customer
+
+- Represents external/target actor in a relationship
+- Uses:
+  - OuterCustomerId
+  - OuterCustomerKey
+- Used when the customer is the **target** of a relationship
+
+---
+
+## Base Mapping
+
+All customer mappings inherit from:
+
+---
+
+## CustomerBaseMapping
+
+### Responsibilities
+
+- Defines schema
+- Defines core relationships
+- Defines field mappings
+- Defines upsert keys
+- NodeMap
+
+---
+
+### NodeMap is the central structure used to build SQL queries.
+
+- Schema
+- Banking
+- EntityParents
+
+Defines upward relationships (joins to parent tables)
+
+Customer → CustomerCustomerRelationship
+
+Supports joins via:
+Id
+CustomerKey
+
+---
+
+### EntityChildren 
+
+Defines one-to-many relationships
+
+Customer → ContactPoint
+Customer → CustomerBankingRelationship
+
+---
+
+### ModelChildren
+
+Defines domain-level navigation relationships
+
+Customer → Product
+
+---
+
+### ModelToEntityLinks
+
+Maps domain models to database entities
+
+Customer.CustomerKey → Customer.CustomerKey
+
+---
+
+### Field Mapping
+
+Field mapping defines how domain fields map to database columns.
+
+---
+
+### Supported types
+Scalars (string, int, Guid)
+Enums
+Nested relationships
+Example Enum Mapping
+CustomerType.Person → 0
+CustomerType.Organisation → 1
+Upsert Keys
+
+---
+
+Defines unique identity for insert/update operations.
+
+### Purpose
+- Prevent duplicate inserts
+- Ensure safe updates
+- Enable idempotency
+- InnerCustomerMapping
+- Purpose
+
+Handles internal relationship traversal.
+
+#### Key Relationships
+Customer → CustomerCustomerRelationship (InnerCustomerId / InnerCustomerKey)
+Customer → Customer table via CustomerKey
+Usage
+
+Used when querying customers as the source side of relationships.
+
+#### OuterCustomerMapping
+Purpose
+
+Handles external relationship traversal.
+
+#### Key Relationships
+Customer → CustomerCustomerRelationship (OuterCustomerId / OuterCustomerKey)
+Usage
+
+Used when querying customers as the target side of relationships.
+
+### ContactPoint Model
+
+Represents customer contact information.
+
+#### Fields
+- ContactPointKey
+- ContactPointType (Mobile, Landline, Email)
+- ContactPointValue
+- CustomerKey
+- Relationship
+- Customer.Id → ContactPoint.CustomerId
+
+## Query Execution Flow
+
+GraphQL request received → Resolver invoked → MappingSet selected (Inner / Outer) → NodeMap constructed → FieldMaps applied → LinkKeys generate SQL joins → SQL executed via Dapper/Npgsql → Results mapped back to omain model
