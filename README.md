@@ -58,13 +58,13 @@ Running example
 3. Use nitro IDE to create any type of graphql operation.
 4. Validate data persistance and query result.
 
-The following libraries are used to achieve all the features listed below:
-
-- Dapper
-- Hot Chocolate
+### Stack
+- Hot Chocolate : Only requires lean setup
+- Dapper : Used to act a dynamic Data Access Layer
+- PostgreSQL : Database used by the framework
 - Entity Framework
-- PostgreSQL
-- FasterKV
+- Apache AGE : Apache AGE (In progress...)
+- Citus : (TBC)
 
 ## Current Features
 
@@ -85,36 +85,7 @@ The following libraries are used to achieve all the features listed below:
 - Data and column validations
 - Query cache can be customized in multiple layers
 - Query result handling can be fully customized
-
-# GraphQL Coffee Beanery
-
-## Overview
-
-CoffeeBeanery is a **GraphQL-to-SQL mapping framework** that dynamically translates, maps from/to domain models and entities into SQL queries using a declarative mapping system. All statements are batched to take advantage of the database cache.
-
-It is built on top of:
-
-- GraphQL domain models (`Domain.Model`)
-- Database entities (`Database.Entity`)
-- Custom mapping engine (`CoffeeBeanery.GraphQL.Core.Mapping`)
-- SQL graph construction (`NodeMap`, `FieldMap`, `LinkKey`)
-
-The goal is to support **flexible, context-aware data access** while maintaining a strict separation between:
-
-- Domain models (GraphQL layer)
-- Database schema
-- Query generation logic
-
-### Stack
-
-- Hot Chocolate : Only requires lean setup
-- Dapper : Used to act a dynamic Data Access Layer
-- PostgreSQL : Database used by the framework
-- Entity Framework
-- Apache AGE : In the near future will also support Relationship Base Graphs along with the other features
-
----
-
+  
 ## Execution Flow
 
 <img src="https://github.com/CristianBarragan/Coffee-Beanery/blob/main/ProcessFlow.png" alt="Execution_Flow" height="5%" width="10%">
@@ -128,6 +99,15 @@ The goal is to support **flexible, context-aware data access** while maintaining
 ---
 
 ## Core Concepts
+
+It is built on top of:
+
+- GraphQL domain models (`Domain.Model`)
+- Database entities (`Database.Entity`)
+- Custom mapping engine (`CoffeeBeanery.GraphQL.Core.Mapping`)
+- SQL graph construction (`NodeMap`, `FieldMap`, `LinkKey`)
+
+The goal is to support **flexible, context-aware data access** whi
 
 ## Mapping Sets
 
