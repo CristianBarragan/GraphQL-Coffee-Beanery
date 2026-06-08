@@ -115,9 +115,9 @@ The goal is to support **flexible, context-aware data access** while maintaining
 
 ---
 
-## Excution Flow
+## Execution Flow
 
-<img src="https://github.com/CristianBarragan/Coffee-Beanery/blob/main/ProcessFlow.png" alt="Execution_Flow" height="10%" width="30%">
+<img src="https://github.com/CristianBarragan/Coffee-Beanery/blob/main/ProcessFlow.png" alt="Execution_Flow" height="5%" width="10%">
 
 ---
 
