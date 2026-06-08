@@ -4,53 +4,41 @@
 
 CoffeeBeanery is a framework that dynamically translates GraphQL queries into raw SQL at runtime. The transformation happens on the fly, with full query capabilities available out of the box.
 
-The framework requires only:
-
-- Mappings between domain models and database entities  
-- Lightweight annotations to define relationships between models and entities  
-
-From this, CoffeeBeanery is able to generate and execute SQL queries automatically based on incoming GraphQL requests.
+The framework requires only Mappings between domain models and database entities
 
 ---
 
 ## Key Capabilities
 
 - Dynamic GraphQL-to-SQL translation at runtime  
-- Declarative model-to-entity mapping system  
+- Configuration based model-to-entity mapping
+- No Data Loaders / N + 1 issues
 - Relationship-driven query generation  
-- Built-in support for composing complex data graphs without manual SQL  
-- Extensible architecture for integrating business logic within API workflows  
-
-In addition, CoffeeBeanery provides a mechanism for implementing business transactions and injecting custom business logic directly into the API layer. This enables flexible integration scenarios and supports a wide range of domain-specific extensions.
+- Built-in support for composing complex data graphs without manual SQL 
+- Extensible architecture to integrate external or business logic out of the box
 
 ---
 
 ## Status
 
-CoffeeBeanery is actively developed and currently serves as a reference implementation and experimentation platform.
-
-It is intended to evolve into a production-ready framework and may eventually be published as a NuGet package once it reaches sufficient maturity and stability.
+CoffeeBeanery is actively developed and the main focus is integrating Apache AGE for graph relationship based support
 
 ---
 
 ## Contributions
 
-Contributions, feedback, and collaboration are highly welcome.
+Contributions, feedback, and collaboration are welcome
 
 This includes:
 
-- Design proposals  
-- Feature suggestions  
-- Bug reports  
-- Architectural feedback  
-- Documentation improvements  
-- Any ideas that help improve maturity or broaden adoption  
+- Design proposals
+- Feature suggestions
+- Bug reports
+- Architectural feedback
+- Documentation improvements
+- Any ideas that help improve maturity or broaden adoption
 
-The goal is to evolve CoffeeBeanery into a robust, widely usable framework through community input and real-world usage.
-
-#### Current focus is to support Graph Data Models and porting the last few remaining features
-
-Running example
+### Running example
 
 1. Clone repository
 2. Run entity framework migrations
