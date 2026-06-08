@@ -4,53 +4,41 @@
 
 CoffeeBeanery is a framework that dynamically translates GraphQL queries into raw SQL at runtime. The transformation happens on the fly, with full query capabilities available out of the box.
 
-The framework requires only:
-
-- Mappings between domain models and database entities  
-- Lightweight annotations to define relationships between models and entities  
-
-From this, CoffeeBeanery is able to generate and execute SQL queries automatically based on incoming GraphQL requests.
+The framework requires only Mappings between domain models and database entities
 
 ---
 
 ## Key Capabilities
 
 - Dynamic GraphQL-to-SQL translation at runtime  
-- Declarative model-to-entity mapping system  
+- Configuration based model-to-entity mapping
+- No Data Loaders / N + 1 issues
 - Relationship-driven query generation  
-- Built-in support for composing complex data graphs without manual SQL  
-- Extensible architecture for integrating business logic within API workflows  
-
-In addition, CoffeeBeanery provides a mechanism for implementing business transactions and injecting custom business logic directly into the API layer. This enables flexible integration scenarios and supports a wide range of domain-specific extensions.
+- Built-in support for composing complex data graphs without manual SQL 
+- Extensible architecture to integrate external or business logic out of the box
 
 ---
 
 ## Status
 
-CoffeeBeanery is actively developed and currently serves as a reference implementation and experimentation platform.
-
-It is intended to evolve into a production-ready framework and may eventually be published as a NuGet package once it reaches sufficient maturity and stability.
+CoffeeBeanery is actively developed and the main focus is integrating Apache AGE for graph relationship based support
 
 ---
 
 ## Contributions
 
-Contributions, feedback, and collaboration are highly welcome.
+Contributions, feedback, and collaboration are welcome
 
 This includes:
 
-- Design proposals  
-- Feature suggestions  
-- Bug reports  
-- Architectural feedback  
-- Documentation improvements  
-- Any ideas that help improve maturity or broaden adoption  
+- Design proposals
+- Feature suggestions
+- Bug reports
+- Architectural feedback
+- Documentation improvements
+- Any ideas that help improve maturity or broaden adoption
 
-The goal is to evolve CoffeeBeanery into a robust, widely usable framework through community input and real-world usage.
-
-#### Current focus is to support Graph Data Models and porting the last few remaining features
-
-Running example
+### Running example
 
 1. Clone repository
 2. Run entity framework migrations
@@ -58,13 +46,13 @@ Running example
 3. Use nitro IDE to create any type of graphql operation.
 4. Validate data persistance and query result.
 
-The following libraries are used to achieve all the features listed below:
-
-- Dapper
-- Hot Chocolate
-- Entity Framework
-- PostgreSQL
-- FasterKV
+### Stack
+- Hot Chocolate : Only requires lean setup
+- Dapper : Used to act a dynamic Data Access Layer
+- PostgreSQL : Database used by the framework
+- Entity Framework : Database schema maintenance
+- Apache AGE : Apache AGE (In progress...)
+- Citus : (TBC)
 
 ## Current Features
 
@@ -77,7 +65,7 @@ The following libraries are used to achieve all the features listed below:
 - Edge types are translated into joins between entities.
 - Paging support out of the box
 - Filtering support out of the box
-- Sorting support out of the box
+- Sorting support out of the box (Hot chocolate has limitations as of now)
 
 ## Customizable Features
 
@@ -85,39 +73,10 @@ The following libraries are used to achieve all the features listed below:
 - Data and column validations
 - Query cache can be customized in multiple layers
 - Query result handling can be fully customized
+  
+## Execution Flow
 
-# GraphQL Coffee Beanery
-
-## Overview
-
-CoffeeBeanery is a **GraphQL-to-SQL mapping framework** that dynamically translates, maps from/to domain models and entities into SQL queries using a declarative mapping system. All statements are batched to take advantage of the database cache.
-
-It is built on top of:
-
-- GraphQL domain models (`Domain.Model`)
-- Database entities (`Database.Entity`)
-- Custom mapping engine (`CoffeeBeanery.GraphQL.Core.Mapping`)
-- SQL graph construction (`NodeMap`, `FieldMap`, `LinkKey`)
-
-The goal is to support **flexible, context-aware data access** while maintaining a strict separation between:
-
-- Domain models (GraphQL layer)
-- Database schema
-- Query generation logic
-
-### Stack
-
-- Hot Chocolate : Only requires lean setup
-- Dapper : Used to act a dynamic Data Access Layer
-- PostgreSQL : Database used by the framework
-- Entity Framework
-- Apache AGE : In the near future will also support Relationship Base Graphs along with the other features
-
----
-
-## Excution Flow
-
-<img src="https://github.com/CristianBarragan/Coffee-Beanery/blob/main/ProcessFlow.png" alt="Execution_Flow" height="60%" width="100%">
+<img src="https://github.com/CristianBarragan/Coffee-Beanery/blob/main/ProcessFlow.png" alt="Execution_Flow" height="5%" width="10%">
 
 ---
 
@@ -128,6 +87,15 @@ The goal is to support **flexible, context-aware data access** while maintaining
 ---
 
 ## Core Concepts
+
+It is built on top of:
+
+- GraphQL domain models (`Domain.Model`)
+- Database entities (`Database.Entity`)
+- Custom mapping engine (`CoffeeBeanery.GraphQL.Core.Mapping`)
+- SQL graph construction (`NodeMap`, `FieldMap`, `LinkKey`)
+
+The goal is to support **flexible, context-aware data access** whi
 
 ## Mapping Sets
 
