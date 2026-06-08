@@ -21,7 +21,7 @@ public class WrapperMutationResolver : IInputType, IOutputType
 
     [UsePaging]
     [UseFiltering]
-    [UseSorting]
+    // [UseSorting]
     public async Task<Connection<Wrapper>> UpsertWrapper(
         [Service] IProcessService<Wrapper> service,
         [SchemaService] IResolverContext resolverContext,

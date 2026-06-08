@@ -1,6 +1,6 @@
 ﻿using CoffeeBeanery.GraphQL.Core.GraphQL;
 using CoffeeBeanery.GraphQL.Core.Sql;
-using HotChocolate.Execution.Processing;
+using CoffeeBeanery.GraphQL.Helper;
 using HotChocolate.Language;
 
 namespace CoffeeBeanery.GraphQL.Core.Runtime
@@ -8,54 +8,80 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
     internal static class SqlOrderCompiler
     {
         public static void Compile(
-            SqlCompilationContext ctx,
+            SqlCompilationContext context,
             Dictionary<string, NodeTree> trees,
-            ISelection orderNode,
+            ISyntaxNode orderNode,
             NodeTree entity,
-            Dictionary<string, SqlNode> nodeDict)
+            Dictionary<string, SqlNode> nodeDict) 
         {
-            ctx.SqlOrderStatement = GetFieldsOrdering(trees, orderNode.SyntaxNode, entity, nodeDict);
+            var sqlOrderStatement = new Dictionary<string, string>();
+            
+            GetFieldsOrdering(trees, orderNode, entity, nodeDict, sqlOrderStatement);
+            
+            context.SqlOrderStatements = sqlOrderStatement;
         }
-        
-        public static string GetFieldsOrdering(Dictionary<string, NodeTree> modelTrees,
-            ISyntaxNode orderNode, NodeTree currentEntityTree, Dictionary<string, SqlNode> modelNodes)
+
+        private static void GetFieldsOrdering(
+            Dictionary<string, NodeTree> modelTrees,
+            ISyntaxNode orderNode,
+            NodeTree currentEntityTree,
+            Dictionary<string, SqlNode> modelNodes,
+            Dictionary<string, string> sqlOrderStatement)
         {
-            var orderString = string.Empty;
             foreach (var oNode in orderNode.GetNodes())
             {
-                var currentEntity = currentEntityTree.Name;
-                if (oNode.ToString().Contains("{") && oNode.ToString()[0] != '{' &&
-                    oNode.ToString().Contains(":"))
+                var activeEntityTree = currentEntityTree;
+                var oNodeStr = oNode.ToString();
+
+                if (oNodeStr.Contains("{") && oNodeStr[0] != '{' && oNodeStr.Contains(":"))
                 {
-                    currentEntity = oNode.ToString().Split(":")[0];
+                    var entityName = oNodeStr.Split(":")[0].Trim();
+                    var matched = modelTrees.Values.FirstOrDefault(t =>
+                        t.Name.Equals(entityName, StringComparison.OrdinalIgnoreCase) ||
+                        t.Alias.Equals(entityName, StringComparison.OrdinalIgnoreCase) ||
+                        t.Name.Equals(entityName.Replace("_", ""), StringComparison.OrdinalIgnoreCase) ||
+                        t.Alias.Equals(entityName.Replace("_", ""), StringComparison.OrdinalIgnoreCase));
+
+                    if (matched != null)
+                        activeEntityTree = matched;
                 }
 
-                if (!oNode.ToString().Contains("{") && oNode.ToString().Contains(":"))
+                if (!oNodeStr.Contains("{") && oNodeStr.Contains(":"))
                 {
-                    var column = oNode.ToString().Split(":");
-                    if ((column[1].Contains("DESC") || column[1].Contains("ASC")) &&
-                        modelTrees.ContainsKey(currentEntity))
+                    var parts = oNodeStr.Split(":");
+                    var field = parts[0].Trim();
+                    var direction = parts[1].Trim();
+
+                    if (direction.Contains("DESC") || direction.Contains("ASC"))
                     {
-                        var currentNodeTree = modelTrees[currentEntity];
-                        orderString +=
-                            SqlGraphQlHelper.HandleSort(currentNodeTree, column[0],
-                                column[1], modelNodes);
+                        var sortResult = HandleSort(activeEntityTree, field, direction, modelNodes);
+                        if (!string.IsNullOrEmpty(sortResult))
+                        {
+                            if (sqlOrderStatement.TryGetValue(activeEntityTree.Alias, out var existing))
+                                sqlOrderStatement[activeEntityTree.Alias] = existing + ", " + sortResult;
+                            else
+                                sqlOrderStatement[activeEntityTree.Alias] = sortResult;
+                        }
                     }
                 }
 
-                orderString +=
-                    $", {GetFieldsOrdering(modelTrees, oNode, currentEntityTree, modelNodes)}";
+                GetFieldsOrdering(modelTrees, oNode, activeEntityTree, modelNodes, sqlOrderStatement);
             }
-
-            return orderString;
         }
-        
-       private static string HandleSort(NodeTree nodeTree, string field, string sortClause, Dictionary<string, SqlNode> modelNodes)
+
+        private static string HandleSort(
+            NodeTree nodeTree,
+            string field,
+            string sortClause,
+            Dictionary<string, SqlNode> modelNodes)
         {
-            if (modelNodes.TryGetValue($"{nodeTree.Name}~{field}", out var sqlNodeTo))
-            {
-                return $" ~*~.{sqlNodeTo.RelationshipKey.Split('~')[0]} ORDER BY {sortClause},";
-            }
+            var match = modelNodes.FirstOrDefault(kvp =>
+                kvp.Key.StartsWith(nodeTree.Alias, StringComparison.OrdinalIgnoreCase) &&
+                kvp.Key.EndsWith($"~{field}", StringComparison.OrdinalIgnoreCase));
+
+            if (match.Value != null)
+                return $"~*~.\"{match.Value.Column.ToSnakeCase(nodeTree.Id)}\" {sortClause.Trim()}";
+
             return string.Empty;
         }
     }

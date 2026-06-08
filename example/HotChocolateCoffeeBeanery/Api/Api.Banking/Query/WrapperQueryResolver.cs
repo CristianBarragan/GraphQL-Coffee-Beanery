@@ -20,7 +20,7 @@ public class WrapperQueryResolver
 
     [UsePaging]
     [UseFiltering]
-    [UseSorting]
+    // [UseSorting]
     public async Task<Connection<Wrapper>> GetWrapper(
         [Service] IProcessService<Wrapper> service,
         [SchemaService] IResolverContext resolverContext,

@@ -2,8 +2,12 @@ using Amazon;
 using Amazon.RDS.Util;
 using Api.Banking.Mutation;
 using Api.Banking.Query;
+using Domain.Model;
 using Domain.Shared.Extension;
 using HotChocolate.AspNetCore;
+using HotChocolate.Data.Sorting;
+using HotChocolate.Language;
+using HotChocolate.Types.Descriptors;
 using HotChocolate.Types.Pagination;
 
 namespace Api.Banking;
@@ -37,7 +41,6 @@ public class Program
         var connectionString = configuration.GetConnectionString("BankingConnectionString");
 
         services.AddDomainModelServiceCollection(connectionString);
-       
         var isRds = false;
 
         if (isRds)
@@ -60,7 +63,12 @@ public class Program
         }
 
         builder.Services.AddControllers().AddNewtonsoftJson();
+        builder.Services.AddSingleton<
+            ISortDefinitionProvider,
+            SortDefinitionProvider>();
 
+        builder.Services.AddSingleton<
+            DynamicSortModule>();
         builder.Services.AddGraphQLServer()
             .AddQueryType(d =>
             {
@@ -74,11 +82,16 @@ public class Program
 
                 d.Field("wrapper")
                     .Argument("wrapper", d => d.Type<WrapperInputType>())
+                    .Argument("order", a =>
+                        a.Type<AnyType>())
                     .ResolveWith<WrapperMutationResolver>(r => r.UpsertWrapper(default, default, default));
             })
             .SetPagingOptions(new PagingOptions() { DefaultPageSize = 10, IncludeTotalCount = true })
             .AddFiltering()
-            .AddSorting()
+            // .AddType<SortInputType<Wrapper>>()
+            .AddType<DynamicSortModule.SortInput>()
+            .AddType<EnumType<SortDirection>>()
+            .AddTypeModule<DynamicSortModule>()
             .InitializeOnStartup();
 
         Dapper.DefaultTypeMap.MatchNamesWithUnderscores = true;
