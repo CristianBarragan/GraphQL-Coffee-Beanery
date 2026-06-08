@@ -73,7 +73,7 @@ public class Program
                 d.Name("Mutation");
 
                 d.Field("wrapper")
-                    .Argument("wrapper", d => d.Type<CustomerInputType>())
+                    .Argument("wrapper", d => d.Type<WrapperInputType>())
                     .ResolveWith<WrapperMutationResolver>(r => r.UpsertWrapper(default, default, default));
             })
             .SetPagingOptions(new PagingOptions() { DefaultPageSize = 10, IncludeTotalCount = true })

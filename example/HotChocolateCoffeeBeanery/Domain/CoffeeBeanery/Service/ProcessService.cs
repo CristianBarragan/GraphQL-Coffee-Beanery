@@ -4,6 +4,7 @@ using CoffeeBeanery.GraphQL.Core.Sql;
 using CoffeeBeanery.GraphQL.Helper;
 using FASTER.core;
 using HotChocolate.Execution.Processing;
+using MoreLinq.Extensions;
 
 namespace CoffeeBeanery.Service
 {
@@ -37,30 +38,26 @@ namespace CoffeeBeanery.Service
         public async Task<QueryResult<M>> QueryProcessAsync(
             string cacheKey, ISelection selection, string modelName, CancellationToken cancellationToken)
         {
-            var ctx = new SqlCompilationContext();
-            
             var rootTree = SqlNodeRegistry.ModelTrees.First(a => 
                 a.Value.ModelName.Matches(modelName)).Value;
+            var context = new SqlCompilationContext();
             
-            var sqlStructure = SqlQueryCompiler.Compile(
+            SqlQueryCompiler.Compile(
+                context,
                 selection,
                 rootTree,
-                SqlNodeRegistry.EntityNodes,
-                SqlNodeRegistry.EntityTrees,
-                SqlNodeRegistry.ModelTrees,
                 _cache,
                 cacheKey
             );
             
-            sqlStructure.ModelTrees = SqlNodeRegistry.ModelTrees;
-            sqlStructure.EntityTrees = SqlNodeRegistry.EntityTrees;
-            sqlStructure.RelativeTree = rootTree;
-            sqlStructure.SqlNodes = SqlNodeRegistry.EntityNodes.Select(a => a.Value).ToArray();
+            context.ModelTrees = SqlNodeRegistry.ModelTrees;
+            context.EntityTrees = SqlNodeRegistry.EntityTrees;
+            context.RelativeTree = rootTree;
+            context.SqlNodesApplied = SqlNodeRegistry.EntityNodes;
 
             var parameters = new ProcessQueryParameters
             {
-                SqlStructure = sqlStructure,
-                Pagination = ctx.Pagination,
+                Context = context,
                 Model = modelName
             };
 
@@ -82,36 +79,31 @@ namespace CoffeeBeanery.Service
         public async Task<QueryResult<M>> MutationProcessAsync(
             string cacheKey, ISelection selection, string modelName, CancellationToken cancellationToken)
         {
-            var ctx = new SqlCompilationContext();
-            
             var rootTree = SqlNodeRegistry.ModelTrees.First(a => 
                 a.Value.ModelName.Matches(modelName)).Value;
             
             var sqlWhereStatement = new Dictionary<string, string>();
+            var context = new SqlCompilationContext();
 
-            var mutationStructure = SqlMutationCompiler.Compile(selection, rootTree, sqlWhereStatement, SqlNodeRegistry.ModelTrees, SqlNodeRegistry.EntityTrees, SqlNodeRegistry.ModelNodes, 
+            SqlMutationCompiler.Compile(context, selection, rootTree, sqlWhereStatement, SqlNodeRegistry.ModelTrees, SqlNodeRegistry.EntityTrees, SqlNodeRegistry.ModelNodes, 
                 SqlNodeRegistry.EntityNodes, SqlNodeRegistry.ModelNames, SqlNodeRegistry.EntityNames);
 
-            var sqlStructure = SqlQueryCompiler.Compile(
+            SqlQueryCompiler.Compile(
+                context,
                 selection,
                 rootTree,
-                SqlNodeRegistry.EntityNodes,
-                SqlNodeRegistry.EntityTrees,
-                SqlNodeRegistry.ModelTrees,
                 _cache,
                 cacheKey
             );
             
-            sqlStructure.SqlUpsert = mutationStructure.SqlUpsert;
-            sqlStructure.ModelTrees = SqlNodeRegistry.ModelTrees;
-            sqlStructure.EntityTrees = SqlNodeRegistry.EntityTrees;
-            sqlStructure.RelativeTree = rootTree;
-            sqlStructure.SqlNodes = SqlNodeRegistry.EntityNodes.Select(a => a.Value).ToArray();
+            context.ModelTrees = SqlNodeRegistry.ModelTrees;
+            context.EntityTrees = SqlNodeRegistry.EntityTrees;
+            context.RelativeTree = rootTree;
+            context.SqlNodesApplied = SqlNodeRegistry.EntityNodes; 
 
             var parameters = new ProcessQueryParameters
             {
-                SqlStructure = sqlStructure,
-                Pagination = ctx.Pagination,
+                Context = context,
                 Model = modelName
             };
 

@@ -7,7 +7,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
 {
     internal static class SqlPagingCompiler
     {
-        public static void Compile(NodeTree rootTree, SqlCompilationContext ctx, ISelection rootSelection)
+        public static void GetPagination(NodeTree rootTree, SqlCompilationContext ctx, ISelection rootSelection)
         {
             var hasPagination = false;
             
@@ -48,7 +48,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
             }
         }
         
-        private static void HandleQueryClause(NodeTree rootTree, SqlCompilationContext ctx, bool hasTotalCount = false)
+        private static void HandleQueryClause(NodeTree rootTree, SqlCompilationContext ctx)
         {
             var sqlQuery = new StringBuilder();
             sqlQuery.AppendLine(ctx.SelectSql);
@@ -57,7 +57,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
             var sqlWhereStatement = string.Empty;
 
             if (!string.IsNullOrEmpty(ctx.Pagination!.After) && ctx.Pagination.First > 0 &&
-                hasTotalCount)
+                ctx.HasTotalCount)
             {
                 from = int.Parse(ctx.Pagination.After) + 1;
                 to = from + ctx.Pagination.First!.Value;
@@ -66,7 +66,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                     : $" AND \"RowNumber\" BETWEEN {from} AND {to}";
             }
             else if (!string.IsNullOrEmpty(ctx.Pagination?.Before) && ctx.Pagination.Last > 0 &&
-                     hasTotalCount)
+                ctx.HasTotalCount)
             {
                 to = int.Parse(ctx.Pagination.Before) - 1;
                 from = to - ctx.Pagination.Last!.Value;
@@ -76,21 +76,21 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                     ? $" WHERE \"RowNumber\" BETWEEN {from} AND {to}"
                     : $" AND \"RowNumber\" BETWEEN {from} AND {to}";
             }
-            else if (ctx.Pagination!.First > 0 && ctx.Pagination!.Last > 0 && hasTotalCount)
+            else if (ctx.Pagination!.First > 0 && ctx.Pagination!.Last > 0 && ctx.HasTotalCount)
             {
                 to = ctx.Pagination!.First!.Value;
                 sqlWhereStatement += string.IsNullOrEmpty(sqlWhereStatement)
                     ? $" WHERE \"RowNumber\" BETWEEN {ctx.Pagination!.First} AND {ctx.Pagination!.Last}"
                     : $" AND \"RowNumber\" BETWEEN {ctx.Pagination!.First} AND {ctx.Pagination!.Last}";
             }
-            else if (ctx.Pagination!.First > 0 && hasTotalCount)
+            else if (ctx.Pagination!.First > 0 && ctx.HasTotalCount)
             {
                 to = ctx.Pagination!.First!.Value;
                 sqlWhereStatement += string.IsNullOrEmpty(sqlWhereStatement)
                     ? $" WHERE \"RowNumber\" BETWEEN {ctx.Pagination!.First} AND \"RowNumber\""
                     : $" AND \"RowNumber\" BETWEEN {ctx.Pagination!.First} AND \"RowNumber\"";
             }
-            else if (ctx.Pagination!.Last > 0 && hasTotalCount)
+            else if (ctx.Pagination!.Last > 0 && ctx.HasTotalCount)
             {
                 sqlWhereStatement += string.IsNullOrEmpty(sqlWhereStatement)
                     ? $" WHERE \"RowNumber\" BETWEEN \"RowNumber\" - {ctx.Pagination!.Last} AND \"RowNumber\""
@@ -108,8 +108,8 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                                 (ctx.Pagination.Last > 0 &&
                                  !string.IsNullOrEmpty(ctx.Pagination.Before));
             var sql = $"WITH {rootTree.Schema}s AS (SELECT * FROM (SELECT * FROM (" + sqlQuery + $") {rootTree.Name} ) ";
-            var totalCount = hasPagination && hasTotalCount
-                ? $" DENSE_RANK() OVER({ctx.SqlOrderStatement}) AS \"RowNumber\","
+            var totalCount = hasPagination && ctx.HasTotalCount
+                ? $" DENSE_RANK() OVER( ORDER BY {(string.IsNullOrEmpty(ctx.SqlOrderStatement) ? $"\"{"Id".ToSnakeCase(rootTree.Id)}\"" : ctx.SqlOrderStatement )}) AS \"RowNumber\","
                 : "";
             sqlQuery.Clear();
             sqlQuery.Append($" {sql} a ) " +

@@ -30,7 +30,5 @@ public class SqlQueryStructure
 
     public bool HasRequestedFields { get; set; }
     
-    public string WhereClause { get; set; } = string.Empty;
-
     public string JoinOnKey { get; set; } = string.Empty;
 } 
