@@ -1,4 +1,4 @@
-# CoffeeBeanery Mapping System
+# GraphQL Coffee Beanery
 
 ## Overview
 
