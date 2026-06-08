@@ -29,21 +29,39 @@ The goal is to support **flexible, context-aware data access** while maintaining
 
 ## Architecture
 
-GraphQL Request
-↓
-Resolver
-↓
+        GraphQL Request
+        
+              ↓
+        
+          Resolver
+        
+              ↓
+        
 MappingSet (Inner / Outer context)
-↓
-NodeMap (relationship graph)
-↓
-FieldMap + LinkKey resolution
-↓
-SQL generation
-↓
+        
+              ↓
+        
+    NodeMap (relationship graph)
+        
+              ↓
+        
+    FieldMap + LinkKey resolution
+        
+              ↓
+        
+        SQL generation
+        
+              ↓
+        
 Database (PostgreSQL via Npgsql/Dapper)
-↓
-Mapped Domain Model
+        
+              ↓
+        
+      Mapped Domain Model
+      
+              ↓
+        
+      Return Connections
 
 ---
 
