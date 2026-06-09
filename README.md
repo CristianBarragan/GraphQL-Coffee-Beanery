@@ -68,7 +68,9 @@ Coffee Beanery takes a fundamentally different approach by generating a complete
 
 ## Benchmarks
 
-Tested with [Apidog](https://apidog.com) against a live PostgreSQL instance. No application-level caching — PostgreSQL built-in query cache only. All datasets use fully randomized data.
+Tested with [Apidog](https://apidog.com) against a live PostgreSQL instance. No application-level caching — PostgreSQL built-in query cache only. All datasets use fully randomized UUID data.
+
+The `Product` model in these tests spans **4 physical tables** across 3 schemas (`Banking`, `Lending`, `Account`). A single customer query generates 10 upsert statements and **1 SELECT** joining all 5 tables with 4 levels of nesting — resolved in a single database round trip. A resolver-chain architecture would require 5+ sequential round trips for the same graph.
 
 ### Single Customer — `eq` filter
 
@@ -92,9 +94,9 @@ Tested with [Apidog](https://apidog.com) against a live PostgreSQL instance. No 
 | Total Duration    | 239 ms |
 | Pass Rate         | 100%   |
 
-Scaling from 1 to 3 customers across a `Wrapper → CustomerCustomerEdge → InnerCustomer → Product` graph added only **3 ms** to average response time. The total execution duration remained identical at 239 ms because all entities are resolved in a single batched SQL statement — no resolver chains, no N+1 round trips.
+Scaling from 1 to 3 customers (3× entities, 3× upserts, 3× assertions) across a 4-table product graph added only **3 ms** to average response time. Total execution duration remained identical at **239 ms** — all entities resolved in one batched SQL statement regardless of entity count.
 
-→ Full results and per-dataset breakdown: [BENCHMARKS.md](./BENCHMARKS.md)
+→ Full results, per-dataset breakdown, and generated SQL breakdown: [BENCHMARKS.md](./BENCHMARKS.md)
 
 ---
 
