@@ -153,6 +153,8 @@ This architecture avoids resolver chains, eliminates N+1 query patterns, and all
 
 ## Tests
 
+Raw tests, none cache - optimizations
+
 <img src="https://github.com/CristianBarragan/Coffee-Beanery/blob/main/example/HotChocolateCoffeeBeanery/Test/Test_Results.png" alt="Test_Results" height="60%" width="100%">
 
 ---
