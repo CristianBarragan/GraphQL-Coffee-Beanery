@@ -57,7 +57,7 @@ Coffee Beanery takes a fundamentally different approach by generating a complete
 | Feature                   | Coffee Beanery   | Hot Chocolate | GraphQL.NET   |
 | ------------------------- | ---------------- | ------------- | ------------- |
 | Dapper First              | ✅ Yes            | ⚠️ Partial    | ⚠️ Partial    |
-| GraphQL-to-SQL Generation | ✅ Yes            | ❌ No          | ❌ No          |
+| GraphQL-to-SQL Generation | ✅ Yes            | ⚠️ Partial    | ❌ No          |
 | Runtime Query Planning    | ✅ Yes            | ❌ No          | ❌ No          |
 | Automatic Join Generation | ✅ Yes            | ❌ No          | ❌ No          |
 | N+1 Elimination           | ✅ Database-Level | ⚠️ DataLoader | ⚠️ DataLoader |
