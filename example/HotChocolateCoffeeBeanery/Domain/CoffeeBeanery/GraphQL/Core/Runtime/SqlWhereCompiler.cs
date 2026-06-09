@@ -148,9 +148,14 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
         private static string BuildInCondition(string clauseValue, SqlNode node, string enumeration)
         {
             var inValues = string.Empty;
-            foreach (var val in clauseValue.Split(','))
+            var cleanedClauseValue = clauseValue.Trim().TrimStart('[').TrimEnd(']');
+    
+            foreach (var val in cleanedClauseValue.Split(','))
             {
-                var valAux = val.Sanitize().Replace("(", "").Replace(")", "").ToUpperCamelCase();
+                var valAux = val.Sanitize()
+                    .Replace("(", "").Replace(")", "")
+                    .Replace("[", "").Replace("]", "")  // belt-and-suspenders for any nested brackets
+                    .ToUpperCamelCase();
                 inValues += $"'{(string.IsNullOrEmpty(enumeration) ? valAux : enumeration)}'" + ",";
             }
             return $" ( ~.\"{node.Column}\" in ({inValues.TrimEnd(',')})";

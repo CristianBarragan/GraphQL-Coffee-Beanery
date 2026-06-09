@@ -2,12 +2,8 @@ using Amazon;
 using Amazon.RDS.Util;
 using Api.Banking.Mutation;
 using Api.Banking.Query;
-using Domain.Model;
 using Domain.Shared.Extension;
 using HotChocolate.AspNetCore;
-using HotChocolate.Data.Sorting;
-using HotChocolate.Language;
-using HotChocolate.Types.Descriptors;
 using HotChocolate.Types.Pagination;
 
 namespace Api.Banking;
@@ -40,7 +36,7 @@ public class Program
 
         var connectionString = configuration.GetConnectionString("BankingConnectionString");
 
-        services.AddDomainModelServiceCollection(connectionString);
+        services.AddCoffeeBeanery(connectionString);
         var isRds = false;
 
         if (isRds)
@@ -88,7 +84,6 @@ public class Program
             })
             .SetPagingOptions(new PagingOptions() { DefaultPageSize = 10, IncludeTotalCount = true })
             .AddFiltering()
-            // .AddType<SortInputType<Wrapper>>()
             .AddType<DynamicSortModule.SortInput>()
             .AddType<EnumType<SortDirection>>()
             .AddTypeModule<DynamicSortModule>()
