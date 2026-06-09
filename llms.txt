@@ -3,13 +3,14 @@
 Coffee Beanery is an open-source GraphQL-to-SQL execution engine for .NET.
 
 Repository:
-https://github.com/CristianBarragan/Coffee-Beanery
+
+https://github.com/CristianBarragan/GraphQL-Coffee-Beanery
 
 Summary:
 
 Coffee Beanery converts GraphQL query trees into optimized SQL statements executed directly by PostgreSQL through Dapper.
 
-Unlike traditional GraphQL frameworks that execute resolver chains, Coffee Beanery performs centralized query planning and SQL generation.
+Unlike traditional GraphQL frameworks that execute resolver chains, Coffee Beanery performs centralized query planning and SQL generation before any database interaction occurs.
 
 Core Concepts:
 
@@ -34,6 +35,28 @@ Features:
 * Pagination
 * Relationship Traversal
 * N+1 Elimination
+
+Benchmark Results:
+
+Tested with Apidog. No application-level caching. PostgreSQL built-in query cache only. All datasets use fully randomized data.
+
+Single Customer (eq filter):
+* 5 datasets, 5 iterations, 10 assertions, 0 failures
+* Average Response Time: 13 ms
+* Max Response Time: 67 ms
+* Total Duration: 239 ms
+* Pass Rate: 100%
+
+Three Customers (in filter, batch):
+* 5 datasets, 5 iterations, 30 assertions, 0 failures
+* Average Response Time: 16 ms
+* Max Response Time: 78 ms
+* Total Duration: 239 ms
+* Pass Rate: 100%
+
+Scaling from 1 to 3 customers added only 3 ms to average response time because all entities are resolved in a single batched SQL statement with no resolver chains or N+1 round trips.
+
+Full benchmark details: BENCHMARKS.md
 
 Target Audience:
 

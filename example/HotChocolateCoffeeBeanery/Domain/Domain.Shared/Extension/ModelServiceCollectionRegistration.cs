@@ -11,7 +11,7 @@ namespace Domain.Shared.Extension
 {
     public static class ModelServiceCollectionRegistration
     {
-        public static IServiceCollection AddDomainModelServiceCollection(
+        public static IServiceCollection AddCoffeeBeanery(
             this IServiceCollection services,
             string postgresConnectionString)
         {
