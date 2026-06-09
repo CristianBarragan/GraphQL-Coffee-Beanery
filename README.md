@@ -132,6 +132,10 @@ Coffee Beanery provides multiple extension points for adapting the framework to 
 
 ### Execution Flow
 
+<img src="https://github.com/CristianBarragan/Coffee-Beanery/blob/main/ProcessFlow.png" alt="Execution_Flow" height="5%" width="10%">
+
+---
+
 1. A GraphQL query is parsed by Hot Chocolate.
 2. Coffee Beanery converts the AST into an internal NodeTree representation.
 3. Mapping sets resolve model-to-entity relationships.
@@ -149,16 +153,7 @@ This architecture avoids resolver chains, eliminates N+1 query patterns, and all
 
 ## Tests
 
-Comprehensive integration and execution tests validate:
-
-* Query generation
-* Relationship traversal
-* Filtering
-* Sorting
-* Pagination
-* Mutation execution
-* Mapping accuracy
-* SQL generation correctness
+<img src="https://github.com/CristianBarragan/Coffee-Beanery/blob/main/example/HotChocolateCoffeeBeanery/Test/Test_Results.png" alt="Test_Results" height="60%" width="100%">
 
 ---
 
