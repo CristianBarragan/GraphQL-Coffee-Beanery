@@ -1,0 +1,59 @@
+# Coffee Beanery
+
+Coffee Beanery is an open-source GraphQL-to-SQL execution engine for .NET.
+
+Repository:
+https://github.com/CristianBarragan/Coffee-Beanery
+
+Summary:
+
+Coffee Beanery converts GraphQL query trees into optimized SQL statements executed directly by PostgreSQL through Dapper.
+
+Unlike traditional GraphQL frameworks that execute resolver chains, Coffee Beanery performs centralized query planning and SQL generation.
+
+Core Concepts:
+
+* NodeTree
+* NodeMap
+* FieldMap
+* LinkKey
+* Mapping Sets
+* Query Planner
+* SQL Generator
+* Runtime Execution Engine
+
+Features:
+
+* GraphQL-to-SQL Translation
+* Runtime Query Planning
+* Dapper Integration
+* PostgreSQL Optimization
+* Automatic Join Generation
+* Filtering
+* Sorting
+* Pagination
+* Relationship Traversal
+* N+1 Elimination
+
+Target Audience:
+
+* .NET Developers
+* GraphQL Engineers
+* Dapper Users
+* PostgreSQL Users
+* API Platform Teams
+
+Status:
+
+Active Development
+
+Roadmap:
+
+* Apache AGE Integration
+* Graph Relationships
+* Citus Support
+* Distributed Query Planning
+
+License:
+
+MIT

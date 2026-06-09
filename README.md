@@ -2,238 +2,253 @@
 
 ## Overview
 
-CoffeeBeanery is a framework that dynamically translates GraphQL queries into raw SQL at runtime. The transformation happens on the fly, with full query capabilities available out of the box.
+Coffee Beanery is a high-performance GraphQL-to-SQL execution engine for .NET that transforms GraphQL query trees into optimized SQL statements executed directly by PostgreSQL.
 
-The framework requires only Mappings between domain models and database entities
+Unlike traditional GraphQL implementations that resolve fields individually, Coffee Beanery analyzes the entire GraphQL query structure, generates an optimized execution plan, and delegates execution to the database engine. This approach eliminates common GraphQL performance bottlenecks, reduces database round trips, and enables PostgreSQL to optimize joins, filtering, sorting, pagination, and execution plans.
+
+Coffee Beanery is designed for database-first architectures where performance, scalability, and complex relationship traversal are essential.
+
+---
+
+## Why Coffee Beanery?
+
+Most GraphQL frameworks rely on resolver chains and DataLoaders to mitigate N+1 query issues.
+
+Coffee Beanery takes a fundamentally different approach by generating a complete SQL execution plan from the GraphQL Abstract Syntax Tree (AST) before any database interaction occurs.
+
+### Benefits
+
+* Eliminates resolver-per-field execution
+* Removes the need for DataLoaders
+* Reduces database round trips
+* Centralizes query planning and optimization
+* Leverages native PostgreSQL execution capabilities
+* Provides predictable performance for deeply nested object graphs
+* Generates SQL dynamically without requiring manual query definitions
 
 ---
 
 ## Key Capabilities
 
-- Dynamic GraphQL-to-SQL translation at runtime
-- Custom configuration based for model-to-entity mappings
-- Allows subgraph mutations and queries using the same endpoint and wrapper object
-- No Data Loaders / N + 1 issues, all sql statements are batched so PostgreSQL can take advantage of caching data
-- Relationship-driven query generation
-- Built-in support for composing complex data graphs without any additional or manual SQL
-- Extensible architecture to integrate external or business logic out of the box
-- Node types are translated into Left joins between entities.
-- Edge types are translated into joins between entities.
-- Pagination support out of the box
-- Filtering support out of the box
-- Sorting support out of the box
-- Alias based so there is no issues when there are multiple models / entities with the same type
-- Support one-to-many, many-to-many, and one-to-one relationships (soon graph relationships)
+* Dynamic GraphQL-to-SQL translation
+* Dapper-first architecture
+* Runtime query planning
+* Model-to-entity mapping engine
+* Relationship-driven query generation
+* Automatic SQL join construction
+* One-to-one relationship support
+* One-to-many relationship support
+* Many-to-many relationship support
+* Built-in pagination
+* Built-in filtering
+* Built-in sorting
+* Batched SQL execution
+* Alias-based graph traversal
+* Extensible execution pipeline
+* Custom business logic integration
+* Query handler support
+* PostgreSQL query optimization
+* Automatic execution plan reuse through PostgreSQL caching
+
+---
+
+## Comparison
+
+| Feature                   | Coffee Beanery   | Hot Chocolate | GraphQL.NET   |
+| ------------------------- | ---------------- | ------------- | ------------- |
+| Dapper First              | ✅ Yes            | ⚠️ Partial    | ⚠️ Partial    |
+| GraphQL-to-SQL Generation | ✅ Yes            | ❌ No          | ❌ No          |
+| Runtime Query Planning    | ✅ Yes            | ❌ No          | ❌ No          |
+| Automatic Join Generation | ✅ Yes            | ❌ No          | ❌ No          |
+| N+1 Elimination           | ✅ Database-Level | ⚠️ DataLoader | ⚠️ DataLoader |
+| Source Customization      | ✅ Full           | ⚠️ Limited    | ⚠️ Limited    |
+| PostgreSQL Optimization   | ✅ Yes            | ⚠️ Partial    | ⚠️ Partial    |
 
 ---
 
 ## Status
 
-CoffeeBeanery is actively developed and the main focus is integrating Apache AGE for graph relationship based support
+Coffee Beanery is actively under development. The current focus is integrating Apache AGE to provide native graph relationship support alongside relational query capabilities.
 
 ---
 
-## Contributions
+## Quick Start
 
-Contributions, feedback, and collaboration are welcome
+### Clone the Repository
 
-This includes:
+```bash
+git clone https://github.com/CristianBarragan/Coffee-Beanery.git
+```
 
-- Design proposals
-- Feature suggestions
-- Bug reports
-- Architectural feedback
-- Documentation improvements
-- Any ideas that help improve maturity or broaden adoption
+### Apply Database Migrations
 
-### Running example
+```bash
+dotnet ef database update
+```
 
-1. Clone repository
-2. Run entity framework migrations
-3. Compile and run api project
-3. Use nitro IDE to create any type of graphql operation.
-4. Validate data persistance and query result.
+### Run the Example Application
 
-### Stack
-- Hot Chocolate : Only requires lean setup for AST parsing and auth pipeline integration
-- Dapper : Used to act a dynamic Data Access Layer
-- PostgreSQL : Database used by the framework
-- Entity Framework : Database schema maintenance
-- Apache AGE : Apache AGE (In progress...)
-- Citus : (TBC)
+```bash
+dotnet run
+```
 
-## Customizable Features
+### Explore the API
 
-- Granular access by table/columns based on token-claims
-- Data and column validations
-- Query cache can be customized in multiple layers
-- Query result handling can be customized
-  
-## Execution Flow
+Open Nitro or your preferred GraphQL IDE and execute queries and mutations against the configured endpoint.
 
-<img src="https://github.com/CristianBarragan/Coffee-Beanery/blob/main/ProcessFlow.png" alt="Execution_Flow" height="5%" width="10%">
+---
+
+## Technology Stack
+
+Coffee Beanery is built using:
+
+* Hot Chocolate
+* Dapper
+* PostgreSQL
+* Entity Framework
+* Apache AGE (In Progress)
+* Citus (Planned)
+
+---
+
+## Customization
+
+Coffee Beanery provides multiple extension points for adapting the framework to your business requirements.
+
+### Supported Customizations
+
+* Column-level security
+* Table-level security
+* Claims-based authorization
+* Data validation
+* Query caching strategies
+* Result transformation pipelines
+* Custom execution handlers
+* Domain-specific query processing
+
+---
+
+## How It Works
+
+### Execution Flow
+
+1. A GraphQL query is parsed by Hot Chocolate.
+2. Coffee Beanery converts the AST into an internal NodeTree representation.
+3. Mapping sets resolve model-to-entity relationships.
+4. The query planner generates optimized SQL statements.
+5. PostgreSQL executes the generated SQL in batches.
+6. Results are mapped back to domain entities and models.
+7. Optional query handlers enrich or customize execution.
+8. The GraphQL response is returned to the client.
+
+### Result
+
+This architecture avoids resolver chains, eliminates N+1 query patterns, and allows PostgreSQL to optimize execution plans, joins, and caching strategies.
 
 ---
 
 ## Tests
 
-<img src="https://github.com/CristianBarragan/Coffee-Beanery/blob/main/example/HotChocolateCoffeeBeanery/Test/Test_Results.png" alt="Test_Results" height="60%" width="100%">
+Comprehensive integration and execution tests validate:
+
+* Query generation
+* Relationship traversal
+* Filtering
+* Sorting
+* Pagination
+* Mutation execution
+* Mapping accuracy
+* SQL generation correctness
 
 ---
 
 ## Core Concepts
 
-It is built on top of:
+### NodeTree
 
-- GraphQL domain models (`Domain.Model`)
-- Database entities (`Database.Entity`)
-- Custom mapping engine (`CoffeeBeanery.GraphQL.Core.Mapping`)
-- SQL graph construction (`NodeMap`, `FieldMap`, `LinkKey`)
+Represents the GraphQL query structure and serves as the foundation for query planning.
 
-The goal is to support **flexible, context-aware data access** whi
+### NodeMap
 
-## Mapping Sets and example
+Defines how domain models map to one or more database entities.
 
-Mapping sets define how a domain model behaves in a specific context
+### FieldMap
 
-### Available Sets
+Maps model properties to database columns and controls field-level translation.
 
-- InnerCustomerMappingSet → Internal perspective of a customer
-- OuterCustomerMappingSet → External perspective of a customer
+### LinkKey
 
----
+Defines relationships and join paths between entities.
 
-## Inner vs Outer Customer
+### Mapping Sets
 
-### Inner Customer
+Provide context-aware mappings for a domain model.
 
-- Represents internal actor in a relationship
-- Uses:
-  - InnerCustomerId
-  - InnerCustomerKey
-- Used when the customer is the **source** of a relationship
+#### Examples
+
+* InnerCustomerMappingSet
+* OuterCustomerMappingSet
+
+Mapping sets allow the same domain model to behave differently depending on the execution context.
 
 ---
 
-### Outer Customer
+## Roadmap
 
-- Represents external/target actor in a relationship
-- Uses:
-  - OuterCustomerId
-  - OuterCustomerKey
-- Used when the customer is the **target** of a relationship
+### Current Features
 
----
+* Runtime Query Planning
+* SQL Generation Engine
+* Mapping Engine
+* Dapper Integration
+* PostgreSQL Support
 
-## Base Mapping
+### In Progress
 
-All customer mappings inherit from:
+* Apache AGE Integration
+* Native Graph Relationship Support
 
----
+### Planned
 
-## CustomerBaseMapping
-
-### Responsibilities
-
-- Defines schema
-- Defines core relationships
-- Defines field mappings
-- Defines upsert keys
-- NodeMap
+* Citus Integration
+* Distributed Query Planning
+* Performance Analytics
+* Advanced Query Diagnostics
 
 ---
 
-### NodeMap is the central structure used to build SQL queries.
+## Contributing
 
-- Schema
-- Banking
+Contributions, feedback, and collaboration are welcome.
 
- ### EntityParents
+### Ways to Contribute
 
-Defines upward relationships (joins to parent tables)
+* Feature requests
+* Bug reports
+* Performance improvements
+* Documentation enhancements
+* Architecture proposals
+* New mapping strategies
+* Testing improvements
 
-Customer → CustomerCustomerRelationship
-
-Supports joins via:
-Id
-CustomerKey
-
----
-
-### EntityChildren 
-
-Defines one-to-many relationships
-
-Customer → ContactPoint
-Customer → CustomerBankingRelationship
+Whether you're improving documentation or proposing major architectural changes, every contribution helps improve the project.
 
 ---
 
-### ModelChildren
+## Support
 
-Defines domain-level navigation relationships
+If Coffee Beanery helps your team build faster and more scalable GraphQL APIs, consider supporting the project.
 
-Customer → Product
-
----
-
-### ModelToEntityLinks
-
-Maps domain models to database entities
-
-Customer.CustomerKey → Customer.CustomerKey
-
----
-
-### Field Mapping
-
-Field mapping defines how domain fields map to database columns.
-
----
-
-### Supported types
-Scalars (string, int, Guid)
-Enums
-Nested relationships
-Example Enum Mapping
-CustomerType.Person → 0
-CustomerType.Organisation → 1
-Upsert Keys
-
----
-
-Defines unique identity for insert/update operations.
-
-### Purpose
-- Prevent duplicate inserts
-- Ensure safe updates
-- Enable idempotency
-- InnerCustomerMapping
-- Purpose
-
-Handles internal relationship traversal.
-
-#### Key Relationships
-Customer → CustomerCustomerRelationship (InnerCustomerId / InnerCustomerKey)
-Customer → Customer table via CustomerKey
-Usage
-
-Used when querying customers as the source side of relationships.
-
-#### OuterCustomerMapping
-Purpose
-
-Handles external relationship traversal.
-
-#### Key Relationships
-Customer → CustomerCustomerRelationship (OuterCustomerId / OuterCustomerKey)
-Usage
-
-Used when querying customers as the target side of relationships.
-
-### [Buy me a Coffee ☕]
+[Buy me a Coffee ☕]
 *I would love a 100% colombian coffee!*
 
 <a href="https://www.buymeacoffee.com/cristianbarragan" target="_blank">
 <img src="https://cdn.buymeacoffee.com/buttons/default-orange.png" alt="Buy Me A Coffee" height="41" width="174">
 </a>
+
+---
+
+## Keywords
+
+GraphQL SQL Generator • GraphQL Query Planner • GraphQL Dapper • GraphQL PostgreSQL • GraphQL Database First • GraphQL Runtime SQL • GraphQL Query Optimization • GraphQL Performance • GraphQL N+1 Solution • GraphQL Execution Engine • GraphQL Relationship Mapping • GraphQL Join Generation • GraphQL AST Translation • High Performance GraphQL • Hot Chocolate Dapper • .NET GraphQL Framework • PostgreSQL GraphQL Framework
+Relationship Mapping • GraphQL Join Generation • GraphQL AST Translation • High Performance GraphQL • Hot Chocolate Dapper • .NET GraphQL Framework • PostgreSQL GraphQL Framework
