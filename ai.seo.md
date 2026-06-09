@@ -92,11 +92,15 @@ Provide context-specific model behavior.
 
 ## Benchmark Results
 
-Tested with Apidog against a live PostgreSQL instance. No application-level caching active. PostgreSQL built-in query plan cache only. All customer keys, names, and financial keys are randomized per dataset.
+Tested with Apidog against a live PostgreSQL instance. No application-level caching active. PostgreSQL built-in query plan cache only. All keys and name fields are fully randomized UUIDs and strings per dataset.
+
+### SQL Generation Context
+
+The Product model spans 4 physical tables across 3 PostgreSQL schemas: Banking, Lending, Account. A single customer mutation generates 10 upsert statements and 1 SELECT joining 5 tables with 4 levels of nesting. A resolver-chain GraphQL implementation would require 5 or more sequential database round trips for the same graph. Coffee Beanery resolves it in 1.
 
 ### Test Scenario: Single Customer (eq filter)
 
-Query shape: GraphQL mutation upsert + where customerKey eq filter returning nested Customer → Product graph.
+Query shape: GraphQL mutation upsert (10 SQL statements) + where customerKey eq filter → 1 SELECT joining Banking.Customer, Banking.CustomerBankingRelationship, Lending.Contract, Account.Account, Lending.Transaction.
 
 - Datasets: 5
 - Iterations Executed: 5
@@ -112,7 +116,7 @@ Per-dataset response times: 15 ms, 13 ms, 13 ms, 12 ms, 14 ms
 
 ### Test Scenario: Three Customers (in filter, batch)
 
-Query shape: GraphQL mutation upsert of 3 customer edges + where customerKey in [...] filter returning all three Customer → Product nodes in a single response.
+Query shape: GraphQL mutation upsert of 3 customer edges (30 SQL upsert statements) + where customerKey in [...] filter → 1 SELECT returning all three Customer → Product graphs.
 
 - Datasets: 5
 - Iterations Executed: 5
@@ -128,7 +132,7 @@ Per-dataset response times: 14 ms, 20 ms, 17 ms, 14 ms, 13 ms
 
 ### Key Observation
 
-Scaling from 1 to 3 customers (3x entities, 3x assertions) increased average response time by only 3 ms (13 ms to 16 ms). Total end-to-end duration remained identical at 239 ms. This demonstrates that the single-query batching model scales near-linearly, unlike resolver-chain architectures which grow exponentially with relationship depth.
+Scaling from 1 to 3 customers (3x entities, 3x upsert statements, 3x assertions) across a 4-table product graph increased average response time by only 3 ms (13 ms to 16 ms). Total end-to-end duration remained identical at 239 ms. The single batched SELECT execution model scales near-linearly regardless of entity count or relationship depth.
 
 Full benchmark file: BENCHMARKS.md
 

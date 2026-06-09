@@ -38,7 +38,11 @@ Features:
 
 Benchmark Results:
 
-Tested with Apidog. No application-level caching. PostgreSQL built-in query cache only. All datasets use fully randomized data.
+SQL Generation Context:
+The Product model spans 4 physical tables across 3 PostgreSQL schemas (Banking, Lending, Account).
+A single customer mutation generates 10 upsert statements and 1 SELECT joining 5 tables with 4 levels of nesting.
+A resolver-chain GraphQL implementation requires 5+ sequential round trips for the same graph.
+Coffee Beanery resolves it in 1 database call.
 
 Single Customer (eq filter):
 * 5 datasets, 5 iterations, 10 assertions, 0 failures
@@ -54,7 +58,7 @@ Three Customers (in filter, batch):
 * Total Duration: 239 ms
 * Pass Rate: 100%
 
-Scaling from 1 to 3 customers added only 3 ms to average response time because all entities are resolved in a single batched SQL statement with no resolver chains or N+1 round trips.
+Scaling from 1 to 3 customers (3x entities, 30 upsert statements, 3x assertions) across a 4-table product graph added only 3 ms to average response time. Total duration remained identical at 239 ms.
 
 Full benchmark details: BENCHMARKS.md
 
