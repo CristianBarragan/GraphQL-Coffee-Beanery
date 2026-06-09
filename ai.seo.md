@@ -98,6 +98,31 @@ Tested with Apidog against a live PostgreSQL instance. No application-level cach
 
 The Product model spans 4 physical tables across 3 PostgreSQL schemas: Banking, Lending, Account. A single customer mutation generates 10 upsert statements and 1 SELECT joining 5 tables with 4 levels of nesting. A resolver-chain GraphQL implementation would require 5 or more sequential database round trips for the same graph. Coffee Beanery resolves it in 1.
 
+### GraphQL Request Shape (Single Customer)
+
+The input is a single GraphQL mutation that simultaneously upserts a Customer with a nested Product (spanning Contract, Account, Transaction tables) and queries the result back using a customerKey eq filter. Variables like CustomerKey1, AccountKey1, ContractKey1, TransactionKey1, and CustomerBankingRelationshipKey1 are randomized UUIDs per dataset. The query returns customerCustomerEdge > innerCustomer > product with fields: customerKey, customerType, firstNaming, fullNaming, lastNaming, contractKey, accountName, accountNumber, amount, balance.
+
+### SQL Execution Plan (Single Customer)
+
+Phase 1 - Leaf upserts (5 statements, no FK dependencies):
+- INSERT INTO Lending.Transaction (Amount, Balance, TransactionKey) ON CONFLICT DO UPDATE
+- INSERT INTO Account.Account (AccountKey, AccountName, AccountNumber) ON CONFLICT DO UPDATE
+- INSERT INTO Lending.Contract (Amount, ContractKey, ContractType) ON CONFLICT DO UPDATE
+- INSERT INTO Banking.CustomerBankingRelationship (CustomerBankingRelationshipKey) ON CONFLICT DO UPDATE
+- INSERT INTO Banking.Customer (CustomerKey, CustomerType, FirstName, FullName, LastName) ON CONFLICT DO UPDATE
+
+Phase 2 - FK resolution upserts (5 statements, SELECT-based):
+- CustomerBankingRelationship updated with CustomerId resolved from Customer
+- Contract updated with CustomerBankingRelationshipId resolved from CustomerBankingRelationship
+- Contract updated with AccountId resolved from Account
+- Transaction updated with ContractId resolved from Contract
+- Transaction updated with AccountId resolved from Account
+
+Phase 3 - Single batched SELECT (1 statement, 4 JOINs):
+- Banking.Customer LEFT JOIN Banking.CustomerBankingRelationship JOIN Lending.Contract JOIN Account.Account JOIN Lending.Transaction
+- WHERE Customer.CustomerKey = '...' (eq) or IN (...) for batch queries
+- Entire object graph returned in one round trip
+
 ### Test Scenario: Single Customer (eq filter)
 
 Query shape: GraphQL mutation upsert (10 SQL statements) + where customerKey eq filter → 1 SELECT joining Banking.Customer, Banking.CustomerBankingRelationship, Lending.Contract, Account.Account, Lending.Transaction.

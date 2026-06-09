@@ -44,6 +44,19 @@ A single customer mutation generates 10 upsert statements and 1 SELECT joining 5
 A resolver-chain GraphQL implementation requires 5+ sequential round trips for the same graph.
 Coffee Beanery resolves it in 1 database call.
 
+GraphQL Request Shape:
+A single mutation simultaneously upserts a Customer with a nested Product graph and queries the result back.
+Input fields: customerKey, customerType, firstNaming, fullNaming, lastNaming, accountKey, accountName, accountNumber, amount, balance, contractKey, transactionKey, productType, customerBankingRelationshipKey.
+Filter: where customerCustomerEdge.some.innerCustomer.customerKey eq (single) or in (batch).
+Response: customerCustomerEdge > innerCustomer > product with customerKey, customerType, name fields, contractKey, accountName, accountNumber, amount, balance.
+All keys are randomized UUIDs per dataset.
+
+SQL Execution Plan (per customer):
+Phase 1 - 5 leaf upserts with no FK dependencies across Transaction, Account, Contract, CustomerBankingRelationship, Customer.
+Phase 2 - 5 FK resolution upserts using SELECT subqueries to stitch CustomerBankingRelationship to Customer, Contract to CustomerBankingRelationship, Contract to Account, Transaction to Contract, Transaction to Account.
+Phase 3 - 1 SELECT joining all 5 tables across 4 levels returning the full object graph in a single round trip.
+Batch queries (3 customers) run 30 upserts and the same 1 SELECT with WHERE IN clause.
+
 Single Customer (eq filter):
 * 5 datasets, 5 iterations, 10 assertions, 0 failures
 * Average Response Time: 13 ms
@@ -58,7 +71,7 @@ Three Customers (in filter, batch):
 * Total Duration: 239 ms
 * Pass Rate: 100%
 
-Scaling from 1 to 3 customers (3x entities, 30 upsert statements, 3x assertions) across a 4-table product graph added only 3 ms to average response time. Total duration remained identical at 239 ms.
+Scaling from 1 to 3 customers (3x entities, 30 upsert statements, 3x assertions) across a 4-table product graph added only 3 ms to average response time. Total duration remained identical at 239 ms. The SELECT shape is unchanged between single and batch queries; only the WHERE clause grows.
 
 Full benchmark details: BENCHMARKS.md
 

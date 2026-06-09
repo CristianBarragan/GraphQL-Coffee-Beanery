@@ -72,6 +72,54 @@ Tested with [Apidog](https://apidog.com) against a live PostgreSQL instance. No 
 
 The `Product` model in these tests spans **4 physical tables** across 3 schemas (`Banking`, `Lending`, `Account`). A single customer query generates 10 upsert statements and **1 SELECT** joining all 5 tables with 4 levels of nesting — resolved in a single database round trip. A resolver-chain architecture would require 5+ sequential round trips for the same graph.
 
+This GraphQL mutation:
+
+```graphql
+mutation a {
+  wrapper(
+    wrapper: {
+      model: INNER_CUSTOMER
+      customerCustomerEdge: [{
+        innerCustomer: {
+          customerKey: "{{CustomerKey1}}"
+          customerType: PERSON
+          firstNaming: "{{FirstNaming1}}"
+          product: [{
+            accountKey: "{{AccountKey1}}"
+            contractKey: "{{ContractKey1}}"
+            transactionKey: "{{TransactionKey1}}"
+            productType: CREDIT_CARD
+            ...
+          }]
+        }
+      }]
+    }
+    where: {
+      customerCustomerEdge: {
+        some: { innerCustomer: { customerKey: { eq: "{{CustomerKey1}}" } } }
+      }
+    }
+  ) {
+    edges { node { customerCustomerEdge { innerCustomer {
+      customerKey customerType firstNaming
+      product { contractKey accountName amount balance }
+    }}}}
+  }
+}
+```
+
+Compiles into 10 upserts + this single SELECT across 3 schemas:
+
+```sql
+SELECT Customer.*, CBR.*, Contract.*, Account.*, Transaction.*
+FROM "Banking"."Customer" Customer
+LEFT JOIN "Banking"."CustomerBankingRelationship" CBR ON Customer."Id" = CBR."CustomerId"
+  JOIN "Lending"."Contract" Contract ON CBR."Id" = Contract."CustomerBankingRelationshipId"
+    JOIN "Account"."Account" Account ON Contract."AccountId" = Account."Id"
+      JOIN "Lending"."Transaction" Transaction ON Account."Id" = Transaction."AccountId"
+WHERE (Customer."CustomerKey" = '...');
+```
+
 ### Single Customer — `eq` filter
 
 5 datasets · 5 iterations · 10 assertions · **0 failures**
@@ -94,9 +142,9 @@ The `Product` model in these tests spans **4 physical tables** across 3 schemas 
 | Total Duration    | 239 ms |
 | Pass Rate         | 100%   |
 
-Scaling from 1 to 3 customers (3× entities, 3× upserts, 3× assertions) across a 4-table product graph added only **3 ms** to average response time. Total execution duration remained identical at **239 ms** — all entities resolved in one batched SQL statement regardless of entity count.
+Scaling from 1 to 3 customers (3× entities, 30 upserts, 3× assertions) across a 4-table product graph added only **3 ms** to average response time. Total execution duration remained identical at **239 ms** — the SELECT shape stays the same, only the `WHERE ... IN (...)` clause grows.
 
-→ Full results, per-dataset breakdown, and generated SQL breakdown: [BENCHMARKS.md](./BENCHMARKS.md)
+→ Full GraphQL requests, complete generated SQL, and per-dataset breakdown: [BENCHMARKS.md](./BENCHMARKS.md)
 
 ---
 
