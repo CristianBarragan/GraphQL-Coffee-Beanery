@@ -98,6 +98,18 @@ Tested with Apidog against a live PostgreSQL instance. No application-level cach
 
 The Product model spans 4 physical tables across 3 PostgreSQL schemas: Banking, Lending, Account. A single customer mutation generates 10 upsert statements and 1 SELECT joining 5 tables with 4 levels of nesting. A resolver-chain GraphQL implementation would require 5 or more sequential database round trips for the same graph. Coffee Beanery resolves it in 1.
 
+
+### Startup Warmup Pipeline
+
+Before the first request is served, Coffee Beanery executes a full mapping warmup:
+
+1. GraphWarmup.Init scans the assembly for all IMappingSet implementations and registers them against both model and entity enum axes.
+2. MappingWarmup.WarmupMap walks every FieldMap and stores resolved PropertyInfo objects in NodeMap.ModelProperties and NodeMap.EntityProperties, eliminating per-request Type.GetProperty calls.
+3. BulkMapper.Compile builds Expression-based getter and setter delegates compiled to IL via Expression.Lambda.Compile(), stored in ConcurrentDictionary keyed by TypeFullName.PropertyName.
+4. NodeTreeIterator.GenerateTree pre-builds the full traversal tree for every root mapping so query planning at request time walks a pre-computed structure.
+
+At request time, the Mapper uses three ConcurrentDictionary caches (_propCache, _getterCache, _setterCache) populated during warmup. MapByAlias resolves the NodeMap by alias, iterates FieldMaps, and copies values using the pre-compiled delegates with zero reflection overhead.
+
 ### GraphQL Request Shape (Single Customer)
 
 The input is a single GraphQL mutation that simultaneously upserts a Customer with a nested Product (spanning Contract, Account, Transaction tables) and queries the result back using a customerKey eq filter. Variables like CustomerKey1, AccountKey1, ContractKey1, TransactionKey1, and CustomerBankingRelationshipKey1 are randomized UUIDs per dataset. The query returns customerCustomerEdge > innerCustomer > product with fields: customerKey, customerType, firstNaming, fullNaming, lastNaming, contractKey, accountName, accountNumber, amount, balance.
