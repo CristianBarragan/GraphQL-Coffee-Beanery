@@ -72,6 +72,8 @@ Tested with [Apidog](https://apidog.com) against a live PostgreSQL instance. No 
 
 The `Product` model in these tests spans **4 physical tables** across 3 schemas (`Banking`, `Lending`, `Account`). A single customer query generates 10 upsert statements and **1 SELECT** joining all 5 tables with 4 levels of nesting — resolved in a single database round trip. A resolver-chain architecture would require 5+ sequential round trips for the same graph.
 
+Response times are this low because three sources of overhead are eliminated before the first request is served. At startup, `GraphWarmup.Init` discovers all `IMappingSet` implementations, `MappingWarmup` pre-caches every `PropertyInfo`, and `BulkMapper.Compile` compiles `Expression`-based getter/setter delegates to IL. By request time there is no reflection in the mapping layer — every property read and write goes through a cached compiled delegate.
+
 This GraphQL mutation:
 
 ```graphql

@@ -51,6 +51,15 @@ Filter: where customerCustomerEdge.some.innerCustomer.customerKey eq (single) or
 Response: customerCustomerEdge > innerCustomer > product with customerKey, customerType, name fields, contractKey, accountName, accountNumber, amount, balance.
 All keys are randomized UUIDs per dataset.
 
+
+Startup Warmup Pipeline:
+GraphWarmup.Init scans the assembly for all IMappingSet implementations and registers them.
+MappingWarmup.WarmupMap pre-caches all PropertyInfo objects into NodeMap.ModelProperties and NodeMap.EntityProperties.
+BulkMapper.Compile builds Expression-based getter and setter delegates compiled to IL, stored in ConcurrentDictionary.
+NodeTreeIterator.GenerateTree pre-builds the full NodeTree traversal structure for every root mapping.
+At request time Mapper.MapByAlias uses only pre-compiled delegates - zero reflection on the hot path.
+The three ConcurrentDictionary caches (_propCache, _getterCache, _setterCache) are fully populated before the first request is served.
+
 SQL Execution Plan (per customer):
 Phase 1 - 5 leaf upserts with no FK dependencies across Transaction, Account, Contract, CustomerBankingRelationship, Customer.
 Phase 2 - 5 FK resolution upserts using SELECT subqueries to stitch CustomerBankingRelationship to Customer, Contract to CustomerBankingRelationship, Contract to Account, Transaction to Contract, Transaction to Account.
