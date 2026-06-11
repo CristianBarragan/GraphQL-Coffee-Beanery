@@ -11,22 +11,26 @@
         protected BaseMappingRegistration(string alias, string model)
         {
             Prefix = alias;
+            Model = model;
             RegistrationKey = string.IsNullOrWhiteSpace(alias)
                 ? typeof(TModel).Name
                 : $"{alias}{typeof(TModel).Name}";
-            Model = model;
         }
 
         protected string A(string name) =>
             string.IsNullOrWhiteSpace(Prefix) ? name : $"{Prefix}{name}";
         
-        protected string A(string tempPrefix, string name) =>
-            string.IsNullOrWhiteSpace(tempPrefix) ? name : $"{tempPrefix}{name}";
+        protected string A(string appendix,string name) =>
+            string.IsNullOrWhiteSpace(appendix) ? name : $"{appendix}{name}";
+        
+        protected string G(string graphName) =>
+            string.IsNullOrWhiteSpace(Prefix) ? graphName : $"Graph{Prefix}{graphName}";
 
-        protected virtual bool     IsEntity => true;
-        protected virtual bool     IsModel  => true;
-        protected virtual bool     IsGraph  => false;
-        protected virtual EnumMap? EnumMap  => null;
+        protected bool     IsEntity => true;
+        protected bool     IsModel  => true;
+        protected bool     IsGraph  => false;
+        
+        protected EnumMap? EnumMap  => null;
 
         protected abstract NodeMap BuildMap();
 
@@ -36,9 +40,9 @@
             map.IsEntity = IsEntity;
             map.IsModel  = IsModel;
             map.IsGraph  = IsGraph;
+            map.Prefix = Prefix;
             map.Alias    = RegistrationKey;
             map.ModelName = Model;
-            map.Prefix = Prefix;
 
             MappingRegistry.Register(typeof(TModel), typeof(TEntity), map, RegistrationKey);
         }
@@ -48,33 +52,38 @@
         where TModel : class
     {
         protected readonly string Prefix;
+        
         protected readonly string Model;
+        
         protected readonly string RegistrationKey;
+        
+        protected virtual EnumMap? EnumMap => null;
+
+        protected abstract NodeMap BuildMap();
 
         protected BaseModelMappingRegistration(string alias, string model)
         {
             Prefix = alias;
+            Model = model;
             RegistrationKey = string.IsNullOrWhiteSpace(alias)
                 ? typeof(TModel).Name
                 : $"{alias}{typeof(TModel).Name}";
-            Model = model;
         }
 
         protected string A(string name) =>
             string.IsNullOrWhiteSpace(Prefix) ? name : $"{Prefix}{name}";
-
-        protected virtual EnumMap? EnumMap => null;
-
-        protected abstract NodeMap BuildMap();
+        
+        protected string G(string graphName) =>
+            string.IsNullOrWhiteSpace(Prefix) ? graphName : $"Graph{Prefix}{graphName}";
 
         public void Register()
         {
             var map      = BuildMap();
             map.IsModel  = true;
             map.IsEntity = false;
+            map.Prefix = Prefix;
             map.Alias    = RegistrationKey;
             map.ModelName = Model;
-            map.Prefix = Prefix;
 
             MappingRegistry.Register(typeof(TModel), entityType: null, map, RegistrationKey);
         }

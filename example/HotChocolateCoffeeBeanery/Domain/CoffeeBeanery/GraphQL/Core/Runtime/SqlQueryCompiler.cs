@@ -23,6 +23,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
             var hasSorting = false;
             var hasPagination = false;
             context.Pagination = new Pagination();
+            context.EntityTrees = SqlNodeRegistry.EntityTrees;
             var modelSqlNodes = new Dictionary<string, SqlNode>(StringComparer.OrdinalIgnoreCase);
             context.HasTotalCount = rootSelection.SyntaxNode.GetNodes()
                 .ToList().Last(a => a.Kind == SyntaxKind.SelectionSet).GetNodes().ToList()

@@ -24,6 +24,7 @@ public class TransactionMapping
     {
         var map = new NodeMap
         {
+            ModelName = nameof(Transaction),
             Schema = nameof(DataEntity.Schema.Lending)
         };
         

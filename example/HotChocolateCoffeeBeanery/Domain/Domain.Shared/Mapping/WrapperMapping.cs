@@ -22,7 +22,10 @@ public class WrapperMapping
 
     protected override NodeMap BuildMap()
     {
-        var map = new NodeMap();
+        var map = new NodeMap()
+        {
+            ModelName = nameof(Wrapper)
+        };
 
         map.ModelChildren.AddRange(new[]
         {

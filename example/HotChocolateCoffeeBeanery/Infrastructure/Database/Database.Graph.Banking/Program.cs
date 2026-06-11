@@ -24,7 +24,7 @@ namespace Database.Entity.Banking
                 services.AddPostgressDbContext<BankingGraphContext>(
                     connectionStringBuilder,
                     Schema.BankingGraph.ToString(),
-                    ServiceLifetime.Transient);
+                    ServiceLifetime.Scoped);
             }).Build().RunAsync();
         }
     }

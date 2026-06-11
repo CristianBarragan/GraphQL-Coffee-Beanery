@@ -23,6 +23,7 @@ public class ContractMapping : BaseMappingRegistration<Contract, DataEntity.Cont
     {
         var map = new NodeMap
         {
+            ModelName = nameof(Contract),
             Schema = nameof(DataEntity.Schema.Lending)
         };
 

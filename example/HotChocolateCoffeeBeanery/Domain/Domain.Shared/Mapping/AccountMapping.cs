@@ -23,6 +23,7 @@ public class AccountMapping : BaseMappingRegistration<Account, DataEntity.Accoun
     {
         var map = new NodeMap
         {
+            ModelName = nameof(Account),
             Schema = nameof(DataEntity.Schema.Account)
         };
 

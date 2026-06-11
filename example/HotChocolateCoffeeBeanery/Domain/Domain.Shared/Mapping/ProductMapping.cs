@@ -21,7 +21,10 @@ public class ProductMapping : BaseModelMappingRegistration<Product>
 
     protected override NodeMap BuildMap()
     {
-        var map = new NodeMap();
+        var map = new NodeMap()
+        {
+            ModelName = nameof(Product)
+        };
 
         // ModelChildren — links from Product model to its child models
         map.ModelChildren.AddRange(new[]

@@ -1,5 +1,6 @@
 ﻿using System.Reflection;
 using CoffeeBeanery.GraphQL.Core.Mapping;
+using CoffeeBeanery.GraphQL.Core.Sql;
 using CoffeeBeanery.GraphQL.Core.Warmup;
 using CoffeeBeanery.GraphQL.Helper;
 
@@ -19,6 +20,7 @@ public static class GraphWarmup
 
         var sets = assembly.GetTypes()
             .Where(t => typeof(TSet).IsAssignableFrom(t)
+                        && !typeof(GraphModel).IsAssignableFrom(t)
                         && !t.IsInterface
                         && !t.IsAbstract)
             .Select(t => (TSet)Activator.CreateInstance(t)!)
@@ -29,17 +31,33 @@ public static class GraphWarmup
 
         foreach (var type in enum1Values)
         {
-            foreach (var type2 in enum2Values)
+            for (int i = 0; i < enum2Values.Count; i++)
             {
-                foreach (var set in sets)
+                var set = sets.FirstOrDefault(a =>
+                    a.GetType().Name.Replace("MappingSet", "").Matches(enum2Values[i].ToString()));
+
+                if (set == null)
                 {
-                    if ($"{type2.ToString()}MappingSet".Matches(set.GetType().Name) ||
-                        ($"{type.ToString()}MappingSet".Matches(set.GetType().Name) && type2.ToString() == type.ToString()))
-                    {
-                        set.Register(type, type2);
-                    }
+                    continue;
                 }
+                
+                set.Register(type, enum2Values[i]);
             }
+            
+            // foreach (var type2 in enum2Values)
+            // {
+            // var registered = new List<string>();
+                
+                // foreach (var set in sets)
+                // {
+                //     // if (registered.Contains($"{set.GetType().FullName}~{type.GetType().FullName}~{type2.GetType().FullName}"))
+                //     // {
+                //     //     continue;
+                //     // }
+                //     
+                //     // registered.Add($"{set.GetType().FullName}~{type.GetType().FullName}~{type2.GetType().FullName}");
+                // }
+            // }
         }
 
         MappingWarmup.Warmup(MappingRegistry.Registry);

@@ -9,6 +9,8 @@ namespace CoffeeBeanery.GraphQL.Core.Mapping
         
         public string Schema { get; set; } = "public";
 
+        public bool IsRoot { get; set; }
+        
         public bool IsModel { get; set; }
         
         public bool IsEntity { get; set; }
@@ -52,6 +54,8 @@ namespace CoffeeBeanery.GraphQL.Core.Mapping
         public string Alias { get; set; }
 
         public string ModelName { get; set; }
+        
+        public GraphMap? GraphMap { get; set; }
 
     }
 

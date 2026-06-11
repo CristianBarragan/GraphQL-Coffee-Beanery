@@ -24,6 +24,7 @@ public class CustomerBankingRelationshipMapping
     {
         var map = new NodeMap
         {
+            ModelName = nameof(CustomerBankingRelationship),
             Schema = nameof(DataEntity.Schema.Banking)
         };
 

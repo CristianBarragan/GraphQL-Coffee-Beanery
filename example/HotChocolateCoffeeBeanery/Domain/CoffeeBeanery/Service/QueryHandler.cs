@@ -18,9 +18,9 @@ namespace CoffeeBeanery.Service
 
         public QueryHandler(
             ILoggerFactory loggerFactory,
-            NpgsqlConnection dbConnection,
+            NpgsqlDataSource dataSource,
             IMapper mapper)
-            : base(loggerFactory, dbConnection)
+            : base(loggerFactory, dataSource)
         {
             _mapper = mapper;
         }
