@@ -81,6 +81,11 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
             var linkKeys = nodeTree.ModelToEntityLinks.Where(x =>
                 entityTrees[x.AliasTo].Mapping.Any(a => a.DestinationName.Matches(field)));
 
+            if (linkKeys.GetEnumerator().Current == null)
+            {
+                return new KeyValuePair<string, string>();
+            }
+
             NodeTree entityTree;
 
             foreach (var linkKey in linkKeys)
@@ -88,7 +93,12 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                 entityTree = entityTrees[linkKey.AliasTo];
                 return new KeyValuePair<string, string>(entityTree.Alias, $"~*~.\"{field.ToUpperCamelCase().ToSnakeCase(entityTree.Id)}\" {sortClause.Trim()}");
             }
-            
+
+            if (!entityTrees.ContainsKey(nodeTree.Alias))
+            {
+                return new KeyValuePair<string, string>();
+            }
+
             entityTree = entityTrees[nodeTree.Alias];
             
             var match = modelNodes.FirstOrDefault(kvp =>

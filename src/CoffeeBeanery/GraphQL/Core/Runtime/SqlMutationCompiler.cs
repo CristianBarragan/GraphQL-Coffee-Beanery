@@ -25,51 +25,9 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
             var statements = new List<string>();
             var selectStatements = new List<string>();
 
-            var mutationArgument = GetMutationArgument(rootSelection);
-
-            foreach (var mutationNode in EnumerateMutations(mutationArgument))
-            {
-                ProcessMutation(
-                    mutationNode,
-                    rootTree,
-                    sqlWhereStatement,
-                    modelTrees,
-                    entityTrees,
-                    modelSqlNodes,
-                    entitySqlNodes,
-                    sqlUpsertStatementNodes,
-                    models,
-                    entities,
-                    statements,
-                    selectStatements);
-            }
-
-            statements.Reverse();
-
-            context.UpsertSql =
-                string.Join(";",
-                    statements
-                        .Concat(selectStatements)
-                        .Where(x => !string.IsNullOrWhiteSpace(x)));
-        }
-
-        private static void ProcessMutation(
-            ISyntaxNode mutationNode,
-            NodeTree rootTree,
-            Dictionary<string, string> sqlWhereStatement,
-            Dictionary<string, NodeTree> modelTrees,
-            Dictionary<string, NodeTree> entityTrees,
-            Dictionary<string, SqlNode> modelSqlNodes,
-            Dictionary<string, SqlNode> entitySqlNodes,
-            Dictionary<string, SqlNode> sqlUpsertStatementNodes,
-            List<string> models,
-            List<string> entities,
-            List<string> statements,
-            List<string> selectStatements)
-        {
             SqlSelectBuilder.GetMutations(
                 modelTrees,
-                mutationNode,
+                rootSelection.SyntaxNode,
                 modelSqlNodes,
                 entitySqlNodes,
                 sqlUpsertStatementNodes,
@@ -77,7 +35,37 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                 string.Empty,
                 models);
 
+            ProcessMutation(
+                rootTree,
+                sqlWhereStatement,
+                modelTrees,
+                entityTrees,
+                sqlUpsertStatementNodes,
+                entities,
+                statements,
+                selectStatements);
+
+            statements.Reverse();
+
+            context.UpsertSql =
+                string.Join(";\n",
+                    statements
+                        .Concat(selectStatements)
+                        .Where(x => !string.IsNullOrWhiteSpace(x)));
+        }
+
+        private static void ProcessMutation(
+            NodeTree rootTree,
+            Dictionary<string, string> sqlWhereStatement,
+            Dictionary<string, NodeTree> modelTrees,
+            Dictionary<string, NodeTree> entityTrees,
+            Dictionary<string, SqlNode> sqlUpsertStatementNodes,
+            List<string> entities,
+            List<string> statements,
+            List<string> selectStatements)
+        {
             SqlHelper.GenerateUpsertStatements(
+                modelTrees,
                 entityTrees,
                 sqlUpsertStatementNodes,
                 rootTree,

@@ -44,5 +44,7 @@ namespace CoffeeBeanery.GraphQL.Core.GraphQL
 
         public bool IsModel { get; set; }
         
+        public GraphMap? GraphMap { get; set; }
+        
     }
 }

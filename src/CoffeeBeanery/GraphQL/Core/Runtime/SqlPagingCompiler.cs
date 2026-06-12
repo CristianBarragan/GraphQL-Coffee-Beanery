@@ -2,6 +2,7 @@
 using CoffeeBeanery.GraphQL.Core.GraphQL;
 using CoffeeBeanery.GraphQL.Helper;
 using HotChocolate.Execution.Processing;
+using Microsoft.EntityFrameworkCore.Query;
 
 namespace CoffeeBeanery.GraphQL.Core.Runtime
 {
@@ -110,7 +111,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
             var sql = $"WITH {rootTree.Schema}s AS (SELECT * FROM (SELECT * FROM (" + sqlQuery + $") {rootTree.Name} ) ";
             
             var orderBy = ctx.SqlOrderStatements.Count == 0
-                ? $"\"{"Id".ToSnakeCase(rootTree.Id)}\""
+                ? $"\"{"Id".ToString().ToSnakeCase(ctx.EntityTrees[rootTree.ModelToEntityLinks[0].AliasTo].Id)}\""
                 : string.Join(",",  ctx.SqlOrderStatements.Select(a => a.Value)).Replace("~*~", $"{rootTree.Schema}s");
             
             var totalCount = hasPagination && ctx.HasTotalCount
