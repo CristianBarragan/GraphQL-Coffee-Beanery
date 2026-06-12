@@ -1,6 +1,8 @@
-﻿namespace Domain.Model;
+﻿using CoffeeBeanery.GraphQL.Core.Sql;
 
-public class CustomerCustomerEdge
+namespace Domain.Model;
+
+public class CustomerCustomerEdge : IModel 
 {
     public Guid? CustomerCustomerRelationshipKey { get; set; }
     
@@ -13,12 +15,6 @@ public class CustomerCustomerEdge
     public Guid? InnerCustomerKey { get; set; }
     
     public Customer? InnerCustomer { get; set; }
-    
-    public string? Clause { get; set; }
-    
-    public int? LevelDepth { get; set; }
-    
-    public LevelDirection? LevelDirection { get; set; }
-    
-    public GraphType? GraphType { get; set; }
+
+    public GraphModel? GraphModel { get; set; }
 }

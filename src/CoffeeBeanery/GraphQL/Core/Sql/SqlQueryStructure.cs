@@ -13,6 +13,8 @@ public class SqlQueryStructure
     public string Name { get; set; }
     
     public string Alias { get; set; }
+    
+    public string GraphQuery { get; set; } = string.Empty;
 
     public List<string> Columns { get; set; } = new List<string>();
 

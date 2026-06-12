@@ -11,13 +11,13 @@ namespace Database.Graph.Banking.Migrations
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.Sql(@"
-                CREATE EXTENSION IF NOT EXISTS age;
                 LOAD 'age';
+                CREATE EXTENSION IF NOT EXISTS age;
                 SET search_path = ag_catalog, ""$user"", public;
             ");
             
             migrationBuilder.Sql(@$"
-                SELECT create_graph('{nameof(CustomerCustomerRelationshipEdge)}');
+                SELECT create_graph('{nameof(CustomerCustomerEdge)}');
             ");
         }
 

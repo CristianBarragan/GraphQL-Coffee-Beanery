@@ -7,8 +7,6 @@ using HotChocolate.Types.Pagination;
 
 namespace Api.Banking.Mutation;
 
-// WrapperMutationResolver.cs
-
 [ExtendObjectType("WrapperMutation")]
 public class WrapperMutationResolver : IInputType, IOutputType
 {

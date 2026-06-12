@@ -23,6 +23,7 @@ public class ContactPointMapping : BaseMappingRegistration<ContactPoint, DataEnt
     {
         var map = new NodeMap
         {
+            ModelName = nameof(ContactPoint),
             Schema = nameof(DataEntity.Schema.Banking)
         };
 

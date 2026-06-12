@@ -30,24 +30,25 @@ public class InnerCustomerMapping : CustomerBaseMapping<InnerCustomerMapping>
     protected override NodeMap BuildMap()
     {
         var map = base.BuildMap();
+        map.ModelName = nameof(CustomerMappingType.InnerCustomer);
         
         map.EntityParents.AddRange(new[]
         {   
             new LinkKey
             {
-                AliasFrom = A(nameof(DataEntity.Customer)), 
+                AliasFrom  = A(nameof(DataEntity.Customer)),
                 From       = nameof(DataEntity.Customer),
                 FromColumn = nameof(DataEntity.Customer.Id),
-                AliasTo = A(nameof(DataEntity.CustomerCustomerRelationship)),
+                AliasTo    = nameof(DataEntity.CustomerCustomerRelationship),
                 To         = nameof(DataEntity.CustomerCustomerRelationship),
                 ToColumn   = nameof(DataEntity.CustomerCustomerRelationship.InnerCustomerId)
             },
             new LinkKey
             {
-                AliasFrom = A(nameof(DataEntity.Customer)),
+                AliasFrom  = A(nameof(DataEntity.Customer)),
                 From       = nameof(DataEntity.Customer),
                 FromColumn = nameof(DataEntity.Customer.CustomerKey),
-                AliasTo = A(nameof(DataEntity.CustomerCustomerRelationship)),
+                AliasTo    = nameof(DataEntity.CustomerCustomerRelationship),
                 To         = nameof(DataEntity.CustomerCustomerRelationship),
                 ToColumn   = nameof(DataEntity.CustomerCustomerRelationship.InnerCustomerKey)
             }
@@ -72,22 +73,25 @@ public class OuterCustomerMapping : CustomerBaseMapping<OuterCustomerMapping>
     protected override NodeMap BuildMap()
     {
         var map = base.BuildMap();
+        map.ModelName = nameof(CustomerMappingType.OuterCustomer);
         
         map.EntityParents.AddRange(new[]
         {   
             new LinkKey
             {
+                AliasFrom  = A(nameof(DataEntity.Customer)),
                 From       = nameof(DataEntity.Customer),
                 FromColumn = nameof(DataEntity.Customer.Id),
-                AliasTo = A(nameof(DataEntity.CustomerCustomerRelationship)),
+                AliasTo    = nameof(DataEntity.CustomerCustomerRelationship),
                 To         = nameof(DataEntity.CustomerCustomerRelationship),
                 ToColumn   = nameof(DataEntity.CustomerCustomerRelationship.OuterCustomerId)
             },
             new LinkKey
             {
+                AliasFrom  = A(nameof(DataEntity.Customer)),
                 From       = nameof(DataEntity.Customer),
                 FromColumn = nameof(DataEntity.Customer.CustomerKey),
-                AliasTo = A(nameof(DataEntity.CustomerCustomerRelationship)),
+                AliasTo    = nameof(DataEntity.CustomerCustomerRelationship),
                 To         = nameof(DataEntity.CustomerCustomerRelationship),
                 ToColumn   = nameof(DataEntity.CustomerCustomerRelationship.OuterCustomerKey)
             }

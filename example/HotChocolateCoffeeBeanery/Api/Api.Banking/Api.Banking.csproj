@@ -19,6 +19,7 @@
         <PackageReference Include="HotChocolate.Data" Version="15.1.12" />
         <PackageReference Include="HotChocolate.Types" Version="15.1.12" />
         <PackageReference Include="HotChocolate.Types.Analyzers" Version="15.1.12" />
+        <PackageReference Include="Konnektr.Npgsql.Age" Version="2.0.0" />
         <PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="8.0.7" />
         <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="8.0.0"/>
         <PackageReference Include="Microsoft.VisualStudio.Web.CodeGeneration.Design" Version="8.0.3" />

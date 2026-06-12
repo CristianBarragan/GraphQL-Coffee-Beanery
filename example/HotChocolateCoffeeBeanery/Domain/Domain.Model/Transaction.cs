@@ -1,6 +1,8 @@
-﻿namespace Domain.Model;
+﻿using CoffeeBeanery.GraphQL.Core.Sql;
 
-public class Transaction
+namespace Domain.Model;
+
+public class Transaction : IModel
 {
 
     public Guid TransactionKey { get; set; }

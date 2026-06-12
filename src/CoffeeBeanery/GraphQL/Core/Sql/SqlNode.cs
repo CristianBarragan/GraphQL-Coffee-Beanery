@@ -40,10 +40,7 @@
 
         public Dictionary<string, int> FromEnumeration { get; set; } = new();
         public Dictionary<string, int> ToEnumeration { get; set; } = new();
-
-        public bool IsGraph => SqlNodeTypes.Contains(SqlNodeType.Graph);
-        public bool IsEdge => SqlNodeTypes.Contains(SqlNodeType.Edge);
-        public bool IsNode => SqlNodeTypes.Contains(SqlNodeType.Node);
+        
         public bool FromComplexModel { get; set; }
         
         public object Clone()
@@ -66,7 +63,11 @@
                 EntityChildren = this.EntityChildren,
                 EntityParents = this.EntityParents,
                 EntityRelatedChildren = this.EntityRelatedChildren,
-                EntityRelatedParents = this.EntityRelatedParents
+                EntityRelatedParents = this.EntityRelatedParents,
+                SourceColumn = this.SourceColumn,
+                Prefix = this.Prefix,
+                Id = this.Id,
+                FromComplexModel = this.FromComplexModel
             };
         }
     }

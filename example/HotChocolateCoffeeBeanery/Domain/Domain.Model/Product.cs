@@ -1,6 +1,8 @@
-﻿namespace Domain.Model;
+﻿using CoffeeBeanery.GraphQL.Core.Sql;
 
-public class Product
+namespace Domain.Model;
+
+public class Product : IModel
 {
     public Guid? CustomerBankingRelationshipKey { get; set; }
     

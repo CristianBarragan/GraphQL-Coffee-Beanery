@@ -4,9 +4,30 @@
 
 Coffee Beanery is a high-performance GraphQL-to-SQL execution engine for .NET that transforms GraphQL query trees into optimized SQL statements executed directly by PostgreSQL.
 
-Unlike traditional GraphQL implementations that resolve fields individually, Coffee Beanery analyzes the entire GraphQL query structure, generates an optimized execution plan, and delegates execution to the database engine. This approach eliminates common GraphQL performance bottlenecks, reduces database round trips, and enables PostgreSQL to optimize joins, filtering, sorting, pagination, and execution plans.
+Unlike traditional GraphQL implementations that resolve fields individually, Coffee Beanery analyzes the entire GraphQL query structure, generates a unified execution plan, and delegates execution to the database engine. This approach eliminates common GraphQL performance bottlenecks, reduces database round trips, and enables PostgreSQL to fully optimize joins, filtering, sorting, pagination, and execution strategies.
 
 Coffee Beanery is designed for database-first architectures where performance, scalability, and complex relationship traversal are essential.
+
+### Hybrid Relational + Graph Execution
+
+Coffee Beanery extends this model by introducing **native graph relationship support using Apache AGE**, enabling both relational and graph workloads to be executed within the same query plan.
+
+Instead of treating graph traversal as a separate concern, Coffee Beanery:
+
+* Translates GraphQL queries into a **hybrid execution plan**
+* Executes relational logic using SQL
+* Executes graph traversal using Cypher via Apache AGE
+* Merges results into a single, optimized response
+
+This allows:
+
+* Deeply nested object graphs spanning relational and graph data
+* Recursive and multi-hop relationship traversal
+* Directional graph queries (incoming/outgoing edges)
+* Seamless integration of graph traversal with filtering, sorting, and pagination
+
+By combining SQL and graph execution into a single pipeline, Coffee Beanery enables **graph-native querying within a PostgreSQL-first architecture**, without introducing additional services or data stores.
+
 
 ---
 
@@ -49,6 +70,189 @@ Coffee Beanery takes a fundamentally different approach by generating a complete
 - Query handler support
 - PostgreSQL query optimization
 - Automatic execution plan reuse through PostgreSQL caching
+- Hybrid relational + graph query execution
+- Apache AGE graph traversal integration
+- Cypher query generation
+- Recursive and depth-controlled graph traversal
+- Graph + relational query composition
+
+---
+
+## Advanced Graph Relationship Execution (Apache AGE)
+
+Coffee Beanery extends beyond traditional relational query planning by introducing **first-class graph traversal support** powered by Apache AGE.
+
+This enables hybrid query execution where **relational joins and graph traversals coexist in a single execution plan**, all generated from a GraphQL query.
+
+---
+
+### Why This Matters
+
+Traditional systems treat relational and graph data separately. Coffee Beanery unifies them:
+
+* Relational data → handled via SQL joins
+* Graph relationships → executed via Apache AGE (Cypher)
+* Both → composed into a **single optimized pipeline**
+
+This allows:
+
+* Recursive relationship traversal
+* Multi-hop queries (depth-controlled)
+* Directional graph exploration (incoming/outgoing)
+* Seamless blending of graph + relational filtering, sorting, and pagination
+
+---
+
+### Core Concepts
+
+#### 1. GraphMap Configuration
+
+Graph behavior is defined declaratively within the mapping layer:
+
+* `GraphName` → Apache AGE graph
+* `EdgeLabel` → edge type
+* `EdgeKeyColumn` → unique edge identifier
+* `FromVertex` / `ToVertex` → vertex definitions
+* Join columns → bridge relational ↔ graph models
+
+This allows Coffee Beanery to:
+
+* Generate Cypher queries automatically
+* Align graph edges with relational entities
+* Maintain consistency between models
+
+---
+
+#### 2. Dual Write Strategy (Relational + Graph)
+
+Mutations automatically generate:
+
+1. **Relational upserts**
+
+   * Persist entities and relationships in PostgreSQL tables
+
+2. **Graph merges**
+
+   * Create/update edges using Cypher
+
+Example (simplified):
+
+```sql
+MERGE (a:Customer { InnerCustomerKey: '...' })
+MERGE (b:Customer { OuterCustomerKey: '...' })
+MERGE (a)-[r:CustomerCustomerEdge]->(b)
+SET r.CustomerCustomerRelationshipKey = '...'
+```
+
+This ensures:
+
+* Graph and relational data stay synchronized
+* No duplicate edges
+* Idempotent operations
+
+---
+
+#### 3. Graph-Aware Query Execution
+
+During query generation:
+
+* SQL handles base entity selection and joins
+* Apache AGE handles relationship traversal
+* Results are merged via generated subqueries
+
+Example traversal:
+
+```cypher
+MATCH (a:Customer)-[r:CustomerCustomerEdge]->(b:Customer)
+RETURN a, b, r
+```
+
+The result is materialized and joined back into the SQL execution plan.
+
+---
+
+#### 4. GraphModel in GraphQL
+
+Graph traversal is controlled directly from GraphQL:
+
+```graphql
+graphModel: {
+  edgeKey: "..."
+  minDepth: 1
+  maxDepth: 1
+  recursive: true
+  relationshipDirection: OUTGOING
+  status: ACTIVE
+}
+```
+
+This enables:
+
+* Depth-limited traversal
+* Recursive graph exploration
+* Directional filtering
+* Runtime control of graph execution behavior
+
+---
+
+### Execution Flow
+
+1. GraphQL query is parsed into AST
+2. Coffee Beanery builds a unified execution plan
+3. Relational operations compiled into SQL
+4. Graph traversal compiled into Cypher
+5. Cypher executed via `ag_catalog.cypher`
+6. Results merged into SQL query using CTEs
+7. Final result returned as a single response
+
+---
+
+### Example: Hybrid Query Plan
+
+A single GraphQL request can:
+
+* Upsert relational entities
+* Merge graph edges
+* Traverse graph relationships
+* Join results with relational data
+* Apply filtering, sorting, and pagination
+
+All executed in **one round-trip to PostgreSQL**.
+
+---
+
+### Key Advantages
+
+* Eliminates need for separate graph services
+* No impedance mismatch between SQL and graph models
+* Fully dynamic graph traversal from GraphQL
+* Consistent mapping and execution pipeline
+* Leverages PostgreSQL query planner + AGE engine
+
+---
+
+### When to Use Graph Relationships
+
+Use Apache AGE integration when:
+
+* Relationships are recursive or hierarchical
+* Traversal depth is dynamic
+* Relationships are many-to-many and evolving
+* You need graph algorithms or path-based queries
+* Relational joins become inefficient or complex
+
+---
+
+### Summary
+
+Coffee Beanery’s Apache AGE integration transforms it from a SQL query generator into a **hybrid relational-graph execution engine**, enabling:
+
+* Unified data modeling
+* Advanced relationship traversal
+* High-performance query execution
+* Fully dynamic GraphQL-driven graph operations
+
+This is not just graph support—it is **graph-native query planning inside a SQL-first architecture**.
 
 ---
 
@@ -150,12 +354,6 @@ Scaling from 1 to 3 customers (3× entities, 30 upserts, 3× assertions) across 
 
 ---
 
-## Status
-
-Coffee Beanery is actively under development. The current focus is integrating Apache AGE to provide native graph relationship support alongside relational query capabilities.
-
----
-
 ## Quick Start
 
 ### Clone the Repository
@@ -190,7 +388,7 @@ Coffee Beanery is built using:
 - Dapper
 - PostgreSQL
 - Entity Framework
-- Apache AGE (In Progress)
+- Apache AGE (Graph Execution Engine)
 - Citus (Planned)
 
 ---
@@ -262,8 +460,6 @@ Provide context-aware mappings for a domain model.
 
 Mapping sets allow the same domain model to behave differently depending on the execution context.
 
----
-
 ## Roadmap
 
 ### Current Features
@@ -273,11 +469,6 @@ Mapping sets allow the same domain model to behave differently depending on the 
 - Mapping Engine
 - Dapper Integration
 - PostgreSQL Support
-
-### In Progress
-
-- Apache AGE Integration
-- Native Graph Relationship Support
 
 ### Planned
 

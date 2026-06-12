@@ -1,6 +1,8 @@
+using CoffeeBeanery.GraphQL.Core.Sql;
+
 namespace Domain.Model;
 
-public class Wrapper
+public class Wrapper : IModel
 {
     public string CacheKey { get; set; }
     

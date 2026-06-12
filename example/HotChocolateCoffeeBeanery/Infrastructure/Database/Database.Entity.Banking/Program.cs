@@ -22,7 +22,7 @@ namespace Database.Entity.Banking
                 services.AddPostgressDbContext<BankingEntityContext>(
                     connectionStringBuilder,
                     Schema.Banking.ToString(),
-                    ServiceLifetime.Transient);
+                    ServiceLifetime.Scoped);
                 
             }).Build().RunAsync();
         }

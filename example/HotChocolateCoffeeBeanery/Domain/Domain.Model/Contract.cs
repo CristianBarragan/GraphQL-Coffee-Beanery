@@ -1,6 +1,8 @@
-﻿namespace Domain.Model;
+﻿using CoffeeBeanery.GraphQL.Core.Sql;
 
-public class Contract
+namespace Domain.Model;
+
+public class Contract : IModel
 {
     public Guid? ContractKey { get; set; }
 

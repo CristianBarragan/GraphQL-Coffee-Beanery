@@ -1,5 +1,4 @@
 ﻿using CoffeeBeanery.CQRS;
-using CoffeeBeanery.GraphQL.Core.GraphQL;
 using CoffeeBeanery.GraphQL.Core.Runtime;
 using CoffeeBeanery.GraphQL.Core.Sql;
 using Dapper;
@@ -12,11 +11,11 @@ public class ProcessQuery<M> : IQuery<ProcessQueryParameters,
     where M : class
 {
     private readonly ILogger<ProcessQuery<M>> _logger;
-    private readonly NpgsqlConnection _db;
+    private readonly NpgsqlDataSource  _db;
 
     public ProcessQuery(
         ILoggerFactory loggerFactory,
-        NpgsqlConnection db)
+        NpgsqlDataSource  db)
     {
         _logger = loggerFactory.CreateLogger<ProcessQuery<M>>();
         _db = db;
@@ -27,24 +26,23 @@ public class ProcessQuery<M> : IQuery<ProcessQueryParameters,
         CancellationToken ct)
     {
         var context = parameters.Context;
-        var types   = context.SplitOnDapper.Values.ToList();
-        var splitOn = context.SplitOnDapper.Keys.ToList();
+        context.SplitOnDapper = context.SplitOnDapper.OrderBy(a => a.Key.Split('~')[1].Length).ToDictionary(a => a.Key, a => a.Value);
+        var orderedSplitOn = context.SplitOnDapper.ToDictionary(a => a.Key.Split('~')[1], a => a.Value); 
+        var types   = orderedSplitOn.Values.ToList();
+        var splitOn = orderedSplitOn.Keys.ToList();
 
         var query = context.UpsertSql + ";" +
                     context.SelectSql;
+        
+        await using var connection = await AgeConnectionFactory.OpenAsync(_db);
 
-        if (_db.State != System.Data.ConnectionState.Open)
-            await _db.OpenAsync(ct);
-
-        NpgsqlTransaction? tx = null;
-
+        await using var tx = await connection.BeginTransactionAsync(ct);
+        
         try
         {
-            tx = await _db.BeginTransactionAsync(ct);
-
             var rowMatrix = new List<object[]>();
 
-            await _db.QueryAsync(
+            await connection.QueryAsync(
                 query,
                 types.ToArray(),
                 (object[] row) =>
@@ -89,10 +87,6 @@ public class ProcessQuery<M> : IQuery<ProcessQueryParameters,
 
             _logger.LogError(ex, "ProcessQuery failed");
             return ([], 0, 0, 0, 0);
-        }
-        finally
-        {
-            await _db.CloseAsync();
         }
     }
 

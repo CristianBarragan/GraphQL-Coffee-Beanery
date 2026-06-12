@@ -1,6 +1,8 @@
-﻿namespace Domain.Model;
+﻿using CoffeeBeanery.GraphQL.Core.Sql;
 
-public class CustomerCustomerRelationship
+namespace Domain.Model;
+
+public class CustomerCustomerRelationship : IModel
 {
     public Customer? InnerCustomer { get; set; }
     

@@ -5,6 +5,7 @@ using Api.Banking.Query;
 using Domain.Shared.Extension;
 using HotChocolate.AspNetCore;
 using HotChocolate.Types.Pagination;
+using Npgsql;
 
 namespace Api.Banking;
 
@@ -57,7 +58,19 @@ public class Program
         {
             builder.Services.AddNpgsqlDataSource(connectionString!);
         }
-
+        
+        builder.Services.AddScoped<Func<NpgsqlConnection>>(sp => () =>
+        {
+            var conn = new NpgsqlConnection(connectionString);
+            conn.Open();
+    
+            using var initCmd = new NpgsqlCommand(
+                @"LOAD 'age'; SET search_path = ag_catalog, ""$user"", public;", conn);
+            initCmd.ExecuteNonQuery();
+    
+            return conn;
+        });
+        
         builder.Services.AddControllers().AddNewtonsoftJson();
         builder.Services.AddSingleton<
             ISortDefinitionProvider,
