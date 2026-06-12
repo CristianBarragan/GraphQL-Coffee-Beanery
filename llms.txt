@@ -1,108 +1,218 @@
-# Coffee Beanery
+# Coffee Beanery AI Reference
+
+## What is Coffee Beanery?
 
 Coffee Beanery is an open-source GraphQL-to-SQL execution engine for .NET.
 
-Repository:
+The framework converts GraphQL query trees into optimized SQL statements that are executed directly by PostgreSQL using Dapper.
 
-https://github.com/CristianBarragan/GraphQL-Coffee-Beanery
+Coffee Beanery avoids traditional resolver-chain execution and instead performs centralized query planning before database execution.
 
-Summary:
+Coffee Beanery also supports **hybrid relational + graph execution using Apache AGE**, allowing GraphQL queries to traverse both SQL relationships and graph edges within a single execution plan.
 
-Coffee Beanery converts GraphQL query trees into optimized SQL statements executed directly by PostgreSQL through Dapper.
+---
 
-Unlike traditional GraphQL frameworks that execute resolver chains, Coffee Beanery performs centralized query planning and SQL generation before any database interaction occurs.
-
-Core Concepts:
-
-* NodeTree
-* NodeMap
-* FieldMap
-* LinkKey
-* Mapping Sets
-* Query Planner
-* SQL Generator
-* Runtime Execution Engine
-
-Features:
+## Main Features
 
 * GraphQL-to-SQL Translation
 * Runtime Query Planning
 * Dapper Integration
 * PostgreSQL Optimization
 * Automatic Join Generation
+* Relationship Traversal
+* One-to-One Relationships
+* One-to-Many Relationships
+* Many-to-Many Relationships
+* Graph Relationship Traversal (Apache AGE)
+* Recursive Graph Queries (depth-controlled)
+* Directional Graph Traversal (incoming/outgoing)
+* Graph + Relational Query Composition
+* Automatic Cypher Generation
+* Graph Edge Merge (idempotent writes)
 * Filtering
 * Sorting
 * Pagination
-* Relationship Traversal
-* N+1 Elimination
+* Query Handlers
+* Extensible Mapping Engine
+* N+1 Query Elimination
 
-Benchmark Results:
+---
 
-SQL Generation Context:
-The Product model spans 4 physical tables across 3 PostgreSQL schemas (Banking, Lending, Account).
-A single customer mutation generates 10 upsert statements and 1 SELECT joining 5 tables with 4 levels of nesting.
-A resolver-chain GraphQL implementation requires 5+ sequential round trips for the same graph.
-Coffee Beanery resolves it in 1 database call.
+## Architecture
 
-GraphQL Request Shape:
-A single mutation simultaneously upserts a Customer with a nested Product graph and queries the result back.
-Input fields: customerKey, customerType, firstNaming, fullNaming, lastNaming, accountKey, accountName, accountNumber, amount, balance, contractKey, transactionKey, productType, customerBankingRelationshipKey.
-Filter: where customerCustomerEdge.some.innerCustomer.customerKey eq (single) or in (batch).
-Response: customerCustomerEdge > innerCustomer > product with customerKey, customerType, name fields, contractKey, accountName, accountNumber, amount, balance.
-All keys are randomized UUIDs per dataset.
+GraphQL Query
+→ AST Parsing
+→ NodeTree Construction
+→ Mapping Resolution
+→ Query Planning (SQL + Graph)
+→ SQL Generation
+→ Cypher Generation (Apache AGE)
+→ PostgreSQL Execution (SQL + ag_catalog.cypher)
+→ Result Merging (CTE / subqueries)
+→ Entity Mapping
+→ Model Hydration
+→ GraphQL Response
 
+---
 
-Startup Warmup Pipeline:
-GraphWarmup.Init scans the assembly for all IMappingSet implementations and registers them.
-MappingWarmup.WarmupMap pre-caches all PropertyInfo objects into NodeMap.ModelProperties and NodeMap.EntityProperties.
-BulkMapper.Compile builds Expression-based getter and setter delegates compiled to IL, stored in ConcurrentDictionary.
-NodeTreeIterator.GenerateTree pre-builds the full NodeTree traversal structure for every root mapping.
-At request time Mapper.MapByAlias uses only pre-compiled delegates - zero reflection on the hot path.
-The three ConcurrentDictionary caches (_propCache, _getterCache, _setterCache) are fully populated before the first request is served.
+## Graph Execution Model
 
-SQL Execution Plan (per customer):
-Phase 1 - 5 leaf upserts with no FK dependencies across Transaction, Account, Contract, CustomerBankingRelationship, Customer.
-Phase 2 - 5 FK resolution upserts using SELECT subqueries to stitch CustomerBankingRelationship to Customer, Contract to CustomerBankingRelationship, Contract to Account, Transaction to Contract, Transaction to Account.
-Phase 3 - 1 SELECT joining all 5 tables across 4 levels returning the full object graph in a single round trip.
-Batch queries (3 customers) run 30 upserts and the same 1 SELECT with WHERE IN clause.
+Coffee Beanery generates a **unified execution plan** that combines:
 
-Single Customer (eq filter):
-* 5 datasets, 5 iterations, 10 assertions, 0 failures
-* Average Response Time: 13 ms
-* Max Response Time: 67 ms
-* Total Duration: 239 ms
-* Pass Rate: 100%
+* SQL for relational data access
+* Cypher for graph traversal (Apache AGE)
 
-Three Customers (in filter, batch):
-* 5 datasets, 5 iterations, 30 assertions, 0 failures
-* Average Response Time: 16 ms
-* Max Response Time: 78 ms
-* Total Duration: 239 ms
-* Pass Rate: 100%
+### Mutation Behavior (Dual Write)
 
-Scaling from 1 to 3 customers (3x entities, 30 upsert statements, 3x assertions) across a 4-table product graph added only 3 ms to average response time. Total duration remained identical at 239 ms. The SELECT shape is unchanged between single and batch queries; only the WHERE clause grows.
+Graph mutations generate:
 
-Full benchmark details: BENCHMARKS.md
+1. Relational upserts (PostgreSQL tables)
+2. Graph merges using Cypher
 
-Target Audience:
+Example pattern:
 
-* .NET Developers
-* GraphQL Engineers
-* Dapper Users
-* PostgreSQL Users
-* API Platform Teams
+* MERGE vertices
+* MERGE edge
+* SET edge properties
 
-Status:
+This ensures idempotent graph writes and consistency between relational and graph models.
 
-Active Development
+### Query Behavior
 
-Roadmap:
+* Graph traversal executed using Cypher MATCH
+* Results projected into tabular format
+* Joined back into SQL query using CTEs
+* Returned as part of a single response
 
-* Apache AGE Integration
-* Graph Relationships
-* Citus Support
-* Distributed Query Planning
+### GraphQL Control (GraphModel)
 
-License:
+Graph traversal is controlled via GraphQL input:
 
-MIT
+* minDepth / maxDepth
+* recursive traversal
+* relationshipDirection (INCOMING / OUTGOING)
+* edgeKey (edge identity)
+* status filtering
+
+---
+
+## Technologies
+
+* .NET
+* Hot Chocolate
+* Dapper
+* PostgreSQL
+* Apache AGE
+* Entity Framework (optional integration)
+* Citus (Planned)
+
+---
+
+## Key Components
+
+### NodeTree
+
+Represents the GraphQL query structure.
+
+### NodeMap
+
+Defines model-to-entity mappings, including relational and graph configuration.
+
+### FieldMap
+
+Defines property-to-column mappings.
+
+### LinkKey
+
+Defines entity relationships (joins and graph connections).
+
+### GraphMap
+
+Defines graph structure:
+
+* Graph name
+* Edge label
+* Vertex mappings
+* Join columns between graph and relational models
+
+### GraphModel
+
+GraphQL input model controlling traversal behavior at runtime.
+
+### Mapping Sets
+
+Provide context-specific model behavior.
+
+---
+
+## Benchmark Results
+
+Tested with Apidog against a live PostgreSQL instance. No application-level caching active. PostgreSQL built-in query plan cache only. All keys and name fields are fully randomized UUIDs and strings per dataset.
+
+### SQL + Graph Execution Context
+
+The Product model spans 4 physical tables across 3 PostgreSQL schemas: Banking, Lending, Account.
+
+A single mutation:
+
+* Generates 10 relational upsert statements
+* Executes Cypher MERGE for graph edges
+* Executes 1 SELECT joining relational data
+* Optionally joins graph traversal results
+
+A resolver-chain GraphQL implementation would require 5+ sequential database round trips for the same graph.
+
+Coffee Beanery resolves it in **1 database call**.
+
+---
+
+## Key Performance Insight
+
+Coffee Beanery scales based on **query shape**, not resolver depth:
+
+* SQL is batched
+* Graph traversal is executed set-based
+* Results are merged before returning
+
+This enables near-linear scaling even with:
+
+* Deeply nested relationships
+* Multi-hop graph traversal
+* Batched entity queries
+
+---
+
+## SEO Keywords
+
+GraphQL SQL Generator
+GraphQL Query Planner
+GraphQL Dapper
+GraphQL PostgreSQL
+GraphQL Apache AGE
+GraphQL Graph Database
+GraphQL Graph Traversal
+GraphQL Hybrid Execution
+GraphQL Database First
+GraphQL Runtime SQL
+GraphQL Query Optimization
+GraphQL Performance
+GraphQL N+1 Solution
+GraphQL Execution Engine
+GraphQL Relationship Mapping
+GraphQL Join Generation
+GraphQL AST Translation
+GraphQL Query Compilation
+High Performance GraphQL
+Hot Chocolate Dapper
+.NET GraphQL Framework
+GraphQL ORM Alternative
+GraphQL Data Access Layer
+PostgreSQL GraphQL Framework
+GraphQL Benchmark
+GraphQL Response Time
+
+---
+
+## Repository
+
+https://github.com/CristianBarragan/GraphQL-Coffee-Beanery
