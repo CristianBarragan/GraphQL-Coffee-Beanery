@@ -29,35 +29,32 @@ public static class GraphWarmup
         var enum1Values = Enum.GetValues(typeof(TEnum)).Cast<TEnum>().ToList();
         var enum2Values = Enum.GetValues(typeof(T2Enum)).Cast<T2Enum>().ToList();
 
-        foreach (var type in enum1Values)
+        for (int i = 0; i < enum2Values.Count; i++)
         {
-            for (int i = 0; i < enum2Values.Count; i++)
-            {
-                var set = sets.FirstOrDefault(a =>
-                    a.GetType().Name.Replace("MappingSet", "").Matches(enum2Values[i].ToString()));
+            var set = sets.FirstOrDefault(a =>
+                a.GetType().Name.Replace("MappingSet", "").Matches(enum2Values[i].ToString()) &&
+                !a.GetType().Name.Replace("MappingSet", "").Matches(enum1Values[1].ToString()));
 
-                if (set == null)
-                {
-                    continue;
-                }
-                
-                set.Register(type, enum2Values[i]);
+            if (set == null)
+            {
+                continue;
             }
             
-            // foreach (var type2 in enum2Values)
-            // {
-            // var registered = new List<string>();
-                
-                // foreach (var set in sets)
-                // {
-                //     // if (registered.Contains($"{set.GetType().FullName}~{type.GetType().FullName}~{type2.GetType().FullName}"))
-                //     // {
-                //     //     continue;
-                //     // }
-                //     
-                //     // registered.Add($"{set.GetType().FullName}~{type.GetType().FullName}~{type2.GetType().FullName}");
-                // }
-            // }
+            set.Register(enum1Values[0], enum2Values[i]);
+        }
+        
+        for (int i = 0; i < enum2Values.Count; i++)
+        {
+            var set = sets.FirstOrDefault(a =>
+                a.GetType().Name.Replace("MappingSet", "").Matches(enum2Values[i].ToString()) &&
+                !a.GetType().Name.Replace("MappingSet", "").Matches(enum1Values[0].ToString()));
+
+            if (set == null)
+            {
+                continue;
+            }
+            
+            set.Register(enum1Values[1], enum2Values[i]);
         }
 
         MappingWarmup.Warmup(MappingRegistry.Registry);

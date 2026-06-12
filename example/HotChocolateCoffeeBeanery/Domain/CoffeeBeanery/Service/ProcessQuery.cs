@@ -26,8 +26,10 @@ public class ProcessQuery<M> : IQuery<ProcessQueryParameters,
         CancellationToken ct)
     {
         var context = parameters.Context;
-        var types   = context.SplitOnDapper.Values.ToList();
-        var splitOn = context.SplitOnDapper.Keys.ToList();
+        context.SplitOnDapper = context.SplitOnDapper.OrderBy(a => a.Key.Split('~')[1].Length).ToDictionary(a => a.Key, a => a.Value);
+        var orderedSplitOn = context.SplitOnDapper.ToDictionary(a => a.Key.Split('~')[1], a => a.Value); 
+        var types   = orderedSplitOn.Values.ToList();
+        var splitOn = orderedSplitOn.Keys.ToList();
 
         var query = context.UpsertSql + ";" +
                     context.SelectSql;

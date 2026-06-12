@@ -26,8 +26,6 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
         public Dictionary<string, NodeTree> EntityTrees { get; set; } = new Dictionary<string, NodeTree>(StringComparer.InvariantCultureIgnoreCase);
         
         public Dictionary<string, NodeTree> ModelTrees { get; set; } = new Dictionary<string, NodeTree>(StringComparer.InvariantCultureIgnoreCase);
-
-        public Dictionary<string, Type> EntityMapping { get; set; } = new Dictionary<string, Type>(StringComparer.InvariantCultureIgnoreCase);
         
         public NodeTree RelativeTree { get; set; }
     }

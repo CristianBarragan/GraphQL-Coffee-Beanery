@@ -19,7 +19,7 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
 
         public static void BuildModel(string model, NodeMap map)
         {
-            var modelName = map.ModelType.Name;
+            var modelName = map.ModelName;
             var table     = map.EntityType?.Name;
             var linkKeys  = map.LinkKeys;
             var alias     = map.Alias;

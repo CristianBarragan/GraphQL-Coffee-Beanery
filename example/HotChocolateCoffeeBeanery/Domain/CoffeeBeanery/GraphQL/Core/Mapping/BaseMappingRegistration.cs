@@ -42,7 +42,7 @@
             map.IsGraph  = IsGraph;
             map.Prefix = Prefix;
             map.Alias    = RegistrationKey;
-            map.ModelName = Model;
+            map.ModelName = string.IsNullOrEmpty(Prefix) ? Model : Prefix;
 
             MappingRegistry.Register(typeof(TModel), typeof(TEntity), map, RegistrationKey);
         }
@@ -73,6 +73,9 @@
         protected string A(string name) =>
             string.IsNullOrWhiteSpace(Prefix) ? name : $"{Prefix}{name}";
         
+        protected string A(string appendix,string name) =>
+            string.IsNullOrWhiteSpace(appendix) ? name : $"{appendix}{name}";
+        
         protected string G(string graphName) =>
             string.IsNullOrWhiteSpace(Prefix) ? graphName : $"Graph{Prefix}{graphName}";
 
@@ -83,7 +86,7 @@
             map.IsEntity = false;
             map.Prefix = Prefix;
             map.Alias    = RegistrationKey;
-            map.ModelName = Model;
+            map.ModelName = string.IsNullOrEmpty(Prefix) ? Model : Prefix;
 
             MappingRegistry.Register(typeof(TModel), entityType: null, map, RegistrationKey);
         }
