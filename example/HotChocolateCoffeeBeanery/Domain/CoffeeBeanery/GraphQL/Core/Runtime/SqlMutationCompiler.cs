@@ -1,104 +1,44 @@
-﻿using CoffeeBeanery.GraphQL.Core.GraphQL;
-using CoffeeBeanery.GraphQL.Core.Sql;
-using HotChocolate.Execution.Processing;
+﻿// SqlMutationCompiler.cs
+using CoffeeBeanery.GraphQL.Core.Runtime;
 using HotChocolate.Language;
+using HotChocolateCoffeeBeanery.GraphQL.Core.Runtime;
 
-namespace CoffeeBeanery.GraphQL.Core.Runtime
+public static class SqlMutationCompiler
 {
-    public static class SqlMutationCompiler
+    // SqlMutationCompiler.cs — add debug output to verify extraction
+    public static (string InsertSql, string GraphMergeSql) Compile(
+        GraphIL     graph,
+        ISyntaxNode wrapperArgValue)
     {
-        public static void Compile(
-            SqlCompilationContext context,
-            ISelection rootSelection,
-            NodeTree rootTree,
-            Dictionary<string, string> sqlWhereStatement,
-            Dictionary<string, NodeTree> modelTrees,
-            Dictionary<string, NodeTree> entityTrees,
-            Dictionary<string, SqlNode> modelSqlNodes,
-            Dictionary<string, SqlNode> entitySqlNodes,
-            List<string> models,
-            List<string> entities)
+        var mutationValues = MutationValueExtractor.Extract(graph, wrapperArgValue);
+
+        // DEBUG — remove after confirming
+        Console.WriteLine("=== MutationValues extracted ===");
+        foreach (var (alias, fields) in mutationValues)
         {
-            var sqlUpsertStatementNodes =
-                new Dictionary<string, SqlNode>(StringComparer.OrdinalIgnoreCase);
-
-            var statements = new List<string>();
-            var selectStatements = new List<string>();
-
-            SqlSelectBuilder.GetMutations(
-                modelTrees,
-                rootSelection.SyntaxNode,
-                modelSqlNodes,
-                entitySqlNodes,
-                sqlUpsertStatementNodes,
-                rootTree,
-                string.Empty,
-                models);
-
-            ProcessMutation(
-                rootTree,
-                sqlWhereStatement,
-                modelTrees,
-                entityTrees,
-                sqlUpsertStatementNodes,
-                entities,
-                statements,
-                selectStatements);
-
-            context.UpsertSql =
-                string.Join(";\n",
-                    statements
-                        .Concat(selectStatements)
-                        .Where(x => !string.IsNullOrWhiteSpace(x)));
+            Console.WriteLine($"  [{alias}]");
+            foreach (var (k, v) in fields)
+                Console.WriteLine($"    {k} = {v}");
         }
 
-        private static void ProcessMutation(
-            NodeTree rootTree,
-            Dictionary<string, string> sqlWhereStatement,
-            Dictionary<string, NodeTree> modelTrees,
-            Dictionary<string, NodeTree> entityTrees,
-            Dictionary<string, SqlNode> sqlUpsertStatementNodes,
-            List<string> entities,
-            List<string> statements,
-            List<string> selectStatements)
+        var plan = MutationPlanner.Build(graph, mutationValues);
+
+        Console.WriteLine("=== MutationPlan nodes ===");
+        foreach (var node in plan.Nodes.Values)
         {
-            SqlHelper.GenerateUpsertStatements(
-                modelTrees,
-                entityTrees,
-                sqlUpsertStatementNodes,
-                rootTree,
-                entities,
-                sqlWhereStatement,
-                new List<string>(),
-                statements,
-                selectStatements);
+            Console.WriteLine($"  [{node.Alias}] identity=[{string.Join(",", node.IdentityFields.Select(f => f.Column))}] data=[{string.Join(",", node.DataFields.Select(f => f.Column))}]");
         }
 
-        private static ISyntaxNode GetMutationArgument(
-            ISelection rootSelection)
-        {
-            return rootSelection.SyntaxNode
-                .GetNodes()
-                .First(x => x.Kind == SyntaxKind.Argument);
-        }
+        var (inserts, merges) = MutationRenderer.Render(plan, graph);
 
-        private static IEnumerable<ISyntaxNode> EnumerateMutations(
-            ISyntaxNode mutationArgument)
-        {
-            if (mutationArgument.ToString().StartsWith("["))
-            {
-                foreach (var mutationNode in mutationArgument
-                             .GetNodes()
-                             .Last()
-                             .GetNodes())
-                {
-                    yield return mutationNode;
-                }
+        Console.WriteLine("=== Inserts ===");
+        foreach (var s in inserts) Console.WriteLine(s);
+        Console.WriteLine("=== Merges ===");
+        foreach (var s in merges) Console.WriteLine(s);
 
-                yield break;
-            }
-
-            yield return mutationArgument;
-        }
+        return (
+            string.Join(";\n", inserts),
+            string.Join("\n",  merges)
+        );
     }
 }

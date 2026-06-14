@@ -1,5 +1,4 @@
 using CoffeeBeanery.CQRS;
-using CoffeeBeanery.GraphQL.Core.GraphQL;
 using CoffeeBeanery.GraphQL.Core.Sql;
 using Npgsql;
 using System.Collections;
@@ -12,7 +11,7 @@ namespace CoffeeBeanery.Service
     public class QueryHandler<M> : ProcessQuery<M>,
         IQuery<ProcessQueryParameters,
             (List<M> list, int? startCursor, int? endCursor, int? totalCount, int? totalPageRecords)>
-        where M : class
+        where M : class, new()
     {
         private readonly IMapper _mapper;
 
@@ -25,58 +24,40 @@ namespace CoffeeBeanery.Service
             _mapper = mapper;
         }
 
-        public override (List<M> models,
-                         int? startCursor,
-                         int? endCursor,
-                         int? totalCount,
-                         int? totalPageRecords)
-        MappingConfiguration(
-            SqlCompilationContext context,
-            List<object[]> rowMatrix,
-            List<Type> types)
+        // Called by QueryEngine after SQL execution — receives pre-fetched rows
+        public async Task<(List<M> list, int? startCursor, int? endCursor, int? totalCount, int? totalPageRecords)>
+            HydrateAsync(
+                IList<object[]> rowMatrix,
+                ProcessQueryParameters input,
+                CancellationToken ct)
         {
             int totalCount  = 0;
             int pageRecords = 0;
 
-            var aliasIndex     = BuildAliasIndex(context.SplitOnDapper);
-            var rootModelTree  = GetRootFromWrapper<M>(context.ModelTrees);
-            var rootAliasIndex = 0;
-            string rootAlias   = rootModelTree.Alias;
+            var graph      = input.Context.Graph;
+            var aliasIndex = BuildAliasIndex(input.Context.SplitOnDapper);
+            var rootNode   = GetRootNode<M>(graph);
 
-            foreach (var kv in aliasIndex)
-            {
-                if (kv.Value.Equals(rootAlias, StringComparison.OrdinalIgnoreCase))
-                {
-                    rootAliasIndex = kv.Key;
-                    break;
-                }
-            }
+            var rootAliasIndex = aliasIndex
+                .FirstOrDefault(kv =>
+                    kv.Value.Equals(rootNode.Alias, StringComparison.OrdinalIgnoreCase))
+                .Key;
 
             var rowsByRootKey = new Dictionary<Guid, List<object[]>>();
             var rootKeyOrder  = new List<Guid>();
             var seenCounts    = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 
+            // Group rows by root entity key
             foreach (var row in rowMatrix)
             {
                 if (row[rootAliasIndex] is TotalPageRecords tp) { pageRecords = tp.PageRecords; continue; }
-                if (row[rootAliasIndex] is TotalRecordCount tr) { totalCount  = tr.RecordCount; continue; }
+                if (row[rootAliasIndex] is TotalRecordCount tr) { totalCount  = tr.RecordCount;  continue; }
 
                 var rootEntity = row[rootAliasIndex];
-                var rootKey    = Guid.Empty;
+                if (rootEntity == null) continue;
 
-                if (rootEntity != null)
-                {
-                    var keyProp = rootEntity.GetType()
-                        .GetProperties(BindingFlags.Public | BindingFlags.Instance)
-                        .FirstOrDefault(p =>
-                            (p.PropertyType == typeof(Guid) || p.PropertyType == typeof(Guid?)) &&
-                            p.Name.EndsWith("Key", StringComparison.OrdinalIgnoreCase));
-
-                    if (keyProp?.GetValue(rootEntity) is Guid g)
-                        rootKey = g;
-                }
-
-                if (rootKey == Guid.Empty) continue;
+                var keyProp = FindKeyProperty(rootEntity.GetType());
+                if (keyProp?.GetValue(rootEntity) is not Guid rootKey || rootKey == Guid.Empty) continue;
 
                 if (!rowsByRootKey.ContainsKey(rootKey))
                 {
@@ -106,27 +87,12 @@ namespace CoffeeBeanery.Service
 
                         var alias = aliasIndex.TryGetValue(i, out var a) ? a : row[i].GetType().Name;
 
-                        NodeTree entityTree;
+                        if (!graph.Nodes.TryGetValue(alias, out _)) continue;
 
-                        if (context.EntityTrees.TryGetValue(alias, out var byAlias))
-                        {
-                            entityTree = byAlias;
-                        }
-                        else
-                        {
-                            var entityType = row[i].GetType();
-                            var seen       = seenCounts.GetValueOrDefault(entityType.Name, 0);
-                            seenCounts[entityType.Name] = seen + 1;
-                            entityTree = ResolveEntityTree(alias, entityType,
-                                types.ElementAtOrDefault(i), seen, context.EntityTrees);
-                        }
-
-                        if (entityTree == null) continue;
-
-                        if (!rawByAlias.TryGetValue(entityTree.Alias, out var bucket))
+                        if (!rawByAlias.TryGetValue(alias, out var bucket))
                         {
                             bucket = new List<object>();
-                            rawByAlias[entityTree.Alias] = bucket;
+                            rawByAlias[alias] = bucket;
                         }
 
                         bucket.Add(row[i]);
@@ -143,29 +109,40 @@ namespace CoffeeBeanery.Service
                 {
                     RootObject    = rootObject,
                     CurrentObject = rootObject,
-                    ModelTypes    = context.SplitOnDapper.Select(a => a.Value).ToList(),
                     RawObjects    = dedupedRaw,
                     Objects       = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase),
                     AllObjects    = new Dictionary<string, List<object>>(StringComparer.OrdinalIgnoreCase),
                 };
 
-                Build(rootModelTree, context.ModelTrees, context.EntityTrees, nodeResult);
+                Build(rootNode, graph, nodeResult);
 
-                var wrapperObj = (M)nodeResult.RootObject;
+                var wrapper = (M)nodeResult.RootObject;
 
-                if (nodeResult.Objects.TryGetValue(rootModelTree.Alias, out var rootObj))
-                    Attach(wrapperObj, rootObj, nodeResult);
+                if (nodeResult.Objects.TryGetValue(rootNode.Alias, out var rootObj))
+                    Attach(wrapper, rootObj, nodeResult);
 
-                wrappers.Add(wrapperObj);
+                wrappers.Add(wrapper);
             }
 
             return (
-                wrappers.OfType<M>().ToList(),
-                context.Pagination?.StartCursor,
-                context.Pagination?.EndCursor,
+                wrappers,
+                input.Context.PaginationContext?.StartCursor,
+                input.Context.PaginationContext?.EndCursor,
                 totalCount,
                 pageRecords);
         }
+
+        // IQuery entry point — executes SQL then hydrates (used outside QueryEngine if needed)
+        public async Task<(List<M> list, int? startCursor, int? endCursor, int? totalCount, int? totalPageRecords)>
+            ExecuteAsync(ProcessQueryParameters input, CancellationToken ct)
+        {
+            var rowMatrix = await base.ExecuteAsync(input, ct);
+            return await HydrateAsync(rowMatrix, input, ct);
+        }
+
+        // =========================
+        // Mapping
+        // =========================
 
         private List<object> MapAlias(string alias, NodeResult nodeResult)
         {
@@ -191,95 +168,80 @@ namespace CoffeeBeanery.Service
             return mapped;
         }
 
+        // =========================
+        // Tree walking
+        // =========================
+
         private void Build(
-            NodeTree modelTree,
-            Dictionary<string, NodeTree> modelTrees,
-            Dictionary<string, NodeTree> entityTrees,
+            GraphILNode node,
+            GraphIL graph,
             NodeResult nodeResult)
         {
-            if (!nodeResult.Objects.TryGetValue(modelTree.Alias, out var currentModel))
+            if (!nodeResult.Objects.TryGetValue(node.Alias, out var currentModel))
             {
-                var mappedList = MapAlias(modelTree.Alias, nodeResult);
+                var mappedList = MapAlias(node.Alias, nodeResult);
 
                 if (mappedList.Count > 0)
                 {
                     currentModel = mappedList[0];
-                    nodeResult.Objects[modelTree.Alias]    = currentModel;
-                    nodeResult.AllObjects[modelTree.Alias] = mappedList;
+                    nodeResult.Objects[node.Alias]    = currentModel;
+                    nodeResult.AllObjects[node.Alias] = mappedList;
                 }
                 else
                 {
-                    currentModel = Activator.CreateInstance(modelTree.ModelType)!;
-                    nodeResult.Objects[modelTree.Alias] = currentModel;
+                    currentModel = Activator.CreateInstance(node.EntityType)!;
+                    nodeResult.Objects[node.Alias] = currentModel;
                 }
             }
 
             nodeResult.CurrentObject = currentModel!;
 
-            foreach (var linkKey in modelTree.ModelChildren ?? Enumerable.Empty<LinkKey>())
+            // Walk outbound edges from this node
+            if (!graph.EdgesBySourceAlias.TryGetValue(node.Alias, out var edges))
+                return;
+
+            foreach (var edge in edges)
             {
-                var childAlias = !string.IsNullOrWhiteSpace(linkKey.AliasTo)
-                    ? linkKey.AliasTo
-                    : linkKey.To;
+                if (!graph.Nodes.TryGetValue(edge.ToAlias, out var childNode)) continue;
 
-                NodeTree childModelTree = null;
+                Build(childNode, graph, nodeResult);
 
-                if (modelTrees.TryGetValue(childAlias, out var directModel))
-                {
-                    childModelTree = directModel;
-                }
-                else
-                {
-                    var childEntityTree = ResolveChildEntityTree(childAlias, entityTrees);
-                    if (childEntityTree != null)
-                        childModelTree = ResolveModelTreeForEntity(childEntityTree, childAlias, modelTrees);
-                }
-
-                if (childModelTree == null) continue;
-
-                Build(childModelTree, modelTrees, entityTrees, nodeResult);
-
-                if (nodeResult.Objects.TryGetValue(childModelTree.Alias, out var childObj))
-                    Attach(currentModel, childObj, nodeResult, childModelTree.Prefix, childModelTree.Alias);
+                if (nodeResult.Objects.TryGetValue(childNode.Alias, out var childObj))
+                    Attach(currentModel, childObj, nodeResult, childAlias: childNode.Alias);
             }
 
-            if (!modelTree.IsEntity) return;
+            ProjectAggregates(nodeResult, graph);
+        }
 
-            var entityTree = entityTrees.TryGetValue(modelTree.Alias, out var et)
-                ? et
-                : entityTrees.Values.FirstOrDefault(t =>
-                    t.ModelType == modelTree.ModelType && t.IsEntity);
+        // =========================
+        // Helpers
+        // =========================
 
-            if (entityTree == null) return;
+        private static GraphILNode GetRootNode<TWrapper>(GraphIL graph)
+        {
+            var wrapperType  = typeof(TWrapper);
+            var rootListProp = wrapperType
+                .GetProperties(BindingFlags.Public | BindingFlags.Instance)
+                .FirstOrDefault(p =>
+                    p.PropertyType.IsGenericType &&
+                    p.PropertyType.GetGenericTypeDefinition() == typeof(List<>));
 
-            foreach (var childLink in entityTree.Children.Concat(entityTree.RelatedChildren))
-            {
-                var childAlias   = !string.IsNullOrWhiteSpace(childLink.AliasTo) ? childLink.AliasTo : childLink.To;
-                var childEntTree = ResolveChildEntityTree(childAlias, entityTrees);
-                if (childEntTree == null) continue;
+            if (rootListProp == null)
+                throw new InvalidOperationException(
+                    $"{wrapperType.Name} has no List<T> root property");
 
-                var childModelTree = ResolveModelTreeForEntity(childEntTree, childAlias, modelTrees);
-                if (childModelTree == null) continue;
+            var rootEntityType = rootListProp.PropertyType.GetGenericArguments()[0];
 
-                Build(childModelTree, modelTrees, entityTrees, nodeResult);
-
-                if (nodeResult.Objects.TryGetValue(childModelTree.Alias, out var childObj))
-                    Attach(currentModel, childObj, nodeResult, childModelTree.Prefix, childModelTree.Alias);
-            }
-
-            ProjectAggregates(nodeResult, modelTrees);
+            return graph.Nodes.Values.FirstOrDefault(n => n.EntityType == rootEntityType)
+                   ?? throw new InvalidOperationException(
+                       $"No GraphILNode found for entity type '{rootEntityType.Name}'");
         }
 
         private static List<object> DeduplicateByKey(List<object> items)
         {
             if (items.Count == 0) return items;
 
-            var keyProp = items[0].GetType()
-                .GetProperties(BindingFlags.Public | BindingFlags.Instance)
-                .FirstOrDefault(p =>
-                    (p.PropertyType == typeof(Guid) || p.PropertyType == typeof(Guid?)) &&
-                    p.Name.EndsWith("Key", StringComparison.OrdinalIgnoreCase));
-
+            var keyProp = FindKeyProperty(items[0].GetType());
             if (keyProp == null) return items;
 
             var seen   = new HashSet<Guid>();
@@ -294,23 +256,32 @@ namespace CoffeeBeanery.Service
             return result;
         }
 
-        private static void ProjectAggregates(
-            NodeResult nodeResult,
-            Dictionary<string, NodeTree> modelTrees)
+        private static PropertyInfo? FindKeyProperty(Type type) =>
+            type.GetProperties(BindingFlags.Public | BindingFlags.Instance)
+                .FirstOrDefault(p =>
+                    (p.PropertyType == typeof(Guid) || p.PropertyType == typeof(Guid?)) &&
+                    p.Name.EndsWith("Key", StringComparison.OrdinalIgnoreCase));
+
+        private static void ProjectAggregates(NodeResult nodeResult, GraphIL graph)
         {
-            foreach (var modelTree in modelTrees.Values.Where(t => t.IsModel))
+            foreach (var node in graph.Nodes.Values)
             {
-                if (!nodeResult.Objects.TryGetValue(modelTree.Alias, out var targetModel)) continue;
+                if (!nodeResult.Objects.TryGetValue(node.Alias, out var targetModel)) continue;
 
                 var targetType = targetModel.GetType();
 
-                foreach (var field in modelTree.Mapping)
+                foreach (var field in node.Fields)
                 {
-                    var sourceAlias = field.DestinationAlias;
-                    if (string.IsNullOrWhiteSpace(sourceAlias)) continue;
+                    // Fields that reference another alias carry a dot-separated DestinationName
+                    var parts = field.DestinationName.Split('.');
+                    if (parts.Length < 2) continue;
+
+                    var sourceAlias = parts[0];
+                    var sourcePropName = parts[^1];
+
                     if (!nodeResult.Objects.TryGetValue(sourceAlias, out var sourceObj)) continue;
 
-                    var sourceProp = sourceObj.GetType().GetProperty(field.DestinationName.Split('.').Last());
+                    var sourceProp = sourceObj.GetType().GetProperty(sourcePropName);
                     var targetProp = targetType.GetProperty(field.SourceName);
 
                     if (sourceProp == null || targetProp == null) continue;
@@ -345,11 +316,7 @@ namespace CoffeeBeanery.Service
                         ? bucket
                         : new[] { child };
 
-                var keyProp = childType
-                    .GetProperties(BindingFlags.Public | BindingFlags.Instance)
-                    .FirstOrDefault(p =>
-                        (p.PropertyType == typeof(Guid) || p.PropertyType == typeof(Guid?)) &&
-                        p.Name.EndsWith("Key", StringComparison.OrdinalIgnoreCase));
+                var keyProp = FindKeyProperty(childType);
 
                 foreach (var item in candidates)
                 {
@@ -385,7 +352,7 @@ namespace CoffeeBeanery.Service
                 nodeResult.Objects[childAlias] = child;
         }
 
-        private static void SafeSet(PropertyInfo prop, object instance, object value)
+        private static void SafeSet(PropertyInfo prop, object instance, object? value)
         {
             if (prop == null || value == null) return;
             var targetType = prop.PropertyType;
@@ -399,7 +366,7 @@ namespace CoffeeBeanery.Service
                     existing = Activator.CreateInstance(targetType);
                     prop.SetValue(instance, existing);
                 }
-                var list = (IList)existing;
+                var list = (IList)existing!;
 
                 if (value is IEnumerable enumerable && value is not string)
                 {
@@ -426,66 +393,14 @@ namespace CoffeeBeanery.Service
             }
         }
 
-        private static NodeTree? ResolveChildEntityTree(
-            string childAlias, Dictionary<string, NodeTree> entityTrees)
-        {
-            if (entityTrees.TryGetValue(childAlias, out var direct)) return direct;
-
-            var fallback = entityTrees.Values.FirstOrDefault(t =>
-                t.Alias.Equals(childAlias, StringComparison.OrdinalIgnoreCase));
-
-            if (fallback == null)
-            {
-                Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.WriteLine($"[WARN] Child entity tree '{childAlias}' not found. Skipping.");
-                Console.ResetColor();
-            }
-
-            return fallback;
-        }
-
-        private static NodeTree? ResolveModelTreeForEntity(
-            NodeTree entityTree,
-            string childAlias,
-            Dictionary<string, NodeTree> modelTrees)
-        {
-            var result =
-                modelTrees.Values.FirstOrDefault(t =>
-                    t.Alias.Equals(childAlias,
-                        StringComparison.OrdinalIgnoreCase))
-                ?? modelTrees.Values.FirstOrDefault(t =>
-                    t.ModelType == entityTree.ModelType);
-
-            return result;
-        }
-
-        private static NodeTree GetRootFromWrapper<TWrapper>(
-            Dictionary<string, NodeTree> modelTrees)
-        {
-            var wrapperType  = typeof(TWrapper);
-            var rootListProp = wrapperType
-                .GetProperties(BindingFlags.Public | BindingFlags.Instance)
-                .FirstOrDefault(p =>
-                    p.PropertyType.IsGenericType &&
-                    p.PropertyType.GetGenericTypeDefinition() == typeof(List<>));
-
-            if (rootListProp == null)
-                throw new InvalidOperationException($"{wrapperType.Name} has no List<T> root property");
-
-            var rootModelType = rootListProp.PropertyType.GetGenericArguments()[0];
-
-            return modelTrees.Values.FirstOrDefault(t => t.ModelType == rootModelType)
-                   ?? throw new InvalidOperationException(
-                       $"No NodeTree found for root model type '{rootModelType.Name}'");
-        }
-
         private static PropertyInfo? ResolveNavigationProperty(
             Type parentType, Type childType, string prefix, string childAlias)
         {
             if (!string.IsNullOrWhiteSpace(childAlias))
             {
                 var aliasProp = parentType.GetProperty(
-                    childAlias, BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
+                    childAlias,
+                    BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
                 if (aliasProp != null) return aliasProp;
             }
 
@@ -503,45 +418,15 @@ namespace CoffeeBeanery.Service
                 });
         }
 
-        private static NodeTree? ResolveEntityTree(
-            string? alias, Type entityType, Type? modelType, int seen,
-            Dictionary<string, NodeTree> entityTrees)
-        {
-            if (!string.IsNullOrEmpty(alias) && entityTrees.TryGetValue(alias, out var byAlias))
-                return byAlias;
-
-            if (!string.IsNullOrEmpty(alias))
-            {
-                var caseMatch = entityTrees.Values.FirstOrDefault(t =>
-                    t.Alias.Equals(alias, StringComparison.OrdinalIgnoreCase));
-                if (caseMatch != null) return caseMatch;
-            }
-
-            var candidates = entityTrees.Values
-                .Where(t => t.EntityType == entityType &&
-                            (modelType == null || t.ModelType == modelType))
-                .OrderBy(t => t.Id)
-                .ToList();
-
-            if (!candidates.Any())
-                candidates = entityTrees.Values
-                    .Where(t => t.EntityType?.Name.Equals(
-                        entityType.Name, StringComparison.OrdinalIgnoreCase) == true)
-                    .OrderBy(t => t.Id)
-                    .ToList();
-
-            return seen < candidates.Count ? candidates[seen] : candidates.FirstOrDefault();
-        }
-
         private static Dictionary<int, string> BuildAliasIndex(
             Dictionary<string, Type> splitOnDapper)
         {
             var dict = new Dictionary<int, string>();
-            int i = 0;
+            int i    = 0;
             foreach (var kv in splitOnDapper)
             {
-                var alias = kv.Key.Contains('~') 
-                    ? kv.Key.Split('~')[0] 
+                var alias = kv.Key.Contains('~')
+                    ? kv.Key.Split('~')[0]
                     : kv.Value?.Name ?? kv.Key;
                 dict[i++] = alias;
             }
@@ -551,8 +436,8 @@ namespace CoffeeBeanery.Service
 
     public class NodeResult
     {
-        public object RootObject    { get; set; }
-        public object CurrentObject { get; set; }
+        public object RootObject    { get; set; } = null!;
+        public object CurrentObject { get; set; } = null!;
 
         public Dictionary<string, List<object>> RawObjects { get; set; }
             = new(StringComparer.OrdinalIgnoreCase);
@@ -562,8 +447,5 @@ namespace CoffeeBeanery.Service
 
         public Dictionary<string, List<object>> AllObjects { get; set; }
             = new(StringComparer.OrdinalIgnoreCase);
-
-        public List<Type>     ModelTypes     { get; set; }
-        public List<NodeTree> ModelNodeTrees { get; set; }
     }
 }

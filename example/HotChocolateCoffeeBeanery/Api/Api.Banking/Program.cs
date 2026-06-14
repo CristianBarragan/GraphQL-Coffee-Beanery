@@ -2,7 +2,11 @@ using Amazon;
 using Amazon.RDS.Util;
 using Api.Banking.Mutation;
 using Api.Banking.Query;
+using CoffeeBeanery.GraphQL.Core.Mapping;
+using CoffeeBeanery.GraphQL.Core.Sql;
+using CoffeeBeanery.GraphQL.Core.Warmup;
 using Domain.Shared.Extension;
+using Domain.Shared.Mapping;
 using HotChocolate.AspNetCore;
 using HotChocolate.Types.Pagination;
 using Npgsql;
@@ -37,7 +41,7 @@ public class Program
 
         var connectionString = configuration.GetConnectionString("BankingConnectionString");
 
-        services.AddCoffeeBeanery(connectionString);
+        services.AddCoffeeBeanery();
         var isRds = false;
 
         if (isRds)
@@ -93,7 +97,8 @@ public class Program
                     .Argument("wrapper", d => d.Type<WrapperInputType>())
                     .Argument("order", a =>
                         a.Type<AnyType>())
-                    .ResolveWith<WrapperMutationResolver>(r => r.UpsertWrapper(default, default, default));
+                    .ResolveWith<WrapperMutationResolver>(r => r.UpsertWrapper(default, 
+                        default, default));
             })
             .SetPagingOptions(new PagingOptions() { DefaultPageSize = 10, IncludeTotalCount = true })
             .AddFiltering()

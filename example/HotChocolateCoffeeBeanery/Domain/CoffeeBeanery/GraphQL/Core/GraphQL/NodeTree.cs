@@ -1,50 +1,47 @@
-﻿using CoffeeBeanery.GraphQL.Core.Mapping;
-using CoffeeBeanery.GraphQL.Core.Sql;
+﻿using System.Reflection;
+using CoffeeBeanery.GraphQL.Core.Contracts;
+using CoffeeBeanery.GraphQL.Core.Mapping;
+using HotChocolate.Language;
 
-namespace CoffeeBeanery.GraphQL.Core.GraphQL
+namespace CoffeeBeanery.GraphQL.Core.GraphQL;
+
+public sealed class NodeTree
 {
-    public sealed class NodeTree
-    {
-        
-        public string Alias { get; set; } = "";
-        public string ModelName { get; set; } = "";
-        public string Name { get; set; } = "";
-        public string Schema { get; set; } = "public";
-        public int Id { get; init; }
+    public ISyntaxNode SyntaxNode { get; set; }
+    public string Alias { get; set; } = "";
+    public string Name { get; set; } = "";
 
-        public string Prefix { get; set; }
+    public List<string> SelectedFields { get; set; } = new();
+    public List<NodeTree> Children { get; set; } = new();
+    public List<NodeTree> RelatedChildren { get; set; } = new();
+    
+    public List<NodeTree> Parents { get; set; } = new();
+    public List<NodeTree> RelatedParents { get; set; } = new();
+    
+    public NodeMetadata Metadata { get; set; } = new();
+    
+    public bool IsEntity => EntityType != null;
+    
+    public string ModelName => Name;
 
-        public NodeMap NodeMap { get; set; }
+    public NodeMap NodeMap { get; set; }
 
-        public List<LinkKey> Parents { get; set; } = new();
-        
-        public List<LinkKey> RelatedParents { get; set; } = new();
-        
-        public List<LinkKey> RelatedChildren { get; set; } = new();
-        
-        public List<LinkKey> Children { get; set; } = new();
+    public Type ModelType { get; set; }
+    public Type EntityType { get; set; }
+    
+    public List<NodeRelation> Relations { get; set; } = new();
+    
+}
 
-        public List<LinkKey> ModelToEntityLinks { get; set; } = new();
-        
-        public List<LinkKey> ModelChildren { get; set; } = new();
-        
-        public List<LinkKey> ModelParents { get; set; } = new();
+public sealed class NodeMetadata
+{
+    public List<string> UpsertKeys { get; set; } = new();
+}
 
-        public List<FieldMap> Mapping { get; set; } = new();
-        
-        public List<string> UpsertKeys { get; set; } = new();
-
-        public Type EntityType { get; set; }
-        
-        public Type ModelType { get; set; }
-
-        public bool IsGraph { get; set; }
-
-        public bool IsEntity { get; set; }
-
-        public bool IsModel { get; set; }
-        
-        public GraphMap? GraphMap { get; set; }
-        
-    }
+public class NodeRelation
+{
+    public string FromAlias { get; set; } = "";
+    public string ToAlias { get; set; } = "";
+    public string FromColumn { get; set; } = "";
+    public string ToColumn { get; set; } = "";
 }

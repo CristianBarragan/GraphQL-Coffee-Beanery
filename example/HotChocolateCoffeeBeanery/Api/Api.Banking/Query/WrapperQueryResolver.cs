@@ -1,4 +1,5 @@
-﻿using CoffeeBeanery.GraphQL.Core.Helper;
+﻿using CoffeeBeanery.GraphQL.Core.Contracts;
+using CoffeeBeanery.GraphQL.Core.Helper;
 using CoffeeBeanery.Service;
 using Domain.Model;
 using HotChocolate.Resolvers;
@@ -20,7 +21,6 @@ public class WrapperQueryResolver
 
     [UsePaging]
     [UseFiltering]
-    // [UseSorting]
     public async Task<Connection<Wrapper>> GetWrapper(
         [Service] IProcessService<Wrapper> service,
         [SchemaService] IResolverContext resolverContext,
@@ -32,23 +32,13 @@ public class WrapperQueryResolver
             
             var set = await service.QueryProcessAsync(
                 wrapper.CacheKey, resolverContext.Selection,
-                wrapper.Model.ToString(), CancellationToken.None);
+                CancellationToken.None);
 
-            var entityNodes = set.Models
-                .Where(a => a is not null)
-                .Select(a => new EntityNode<Wrapper>(a, nameof(Wrapper)));
-
-            var connection = ContextResolverHelper.GenerateConnection<Wrapper>(
-                entityNodes,
-                new Pagination
-                {
-                    TotalRecordCount = new TotalRecordCount { RecordCount = set.TotalCount },
-                    TotalPageRecords = new TotalPageRecords { PageRecords = set.TotalPageRecords },
-                    StartCursor = set.StartCursor,
-                    After = set.EndCursor?.ToString(),
-                });
-            
-            return connection;
+            return ContextResolverHelper.ToConnection(
+                set.Items,
+                new Pagination(),
+                totalCount: set.Items.Count,
+                cursorSelector: x => x.CacheKey.ToString());
         }
         catch (Exception ex)
         {

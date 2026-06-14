@@ -1,4 +1,5 @@
-﻿using CoffeeBeanery.GraphQL.Core.GraphQL;
+﻿
+using CoffeeBeanery.GraphQL.Core.GraphQL;
 using CoffeeBeanery.GraphQL.Core.Helper;
 using CoffeeBeanery.GraphQL.Core.Mapping;
 

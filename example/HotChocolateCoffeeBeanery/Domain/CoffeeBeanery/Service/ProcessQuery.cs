@@ -1,105 +1,51 @@
-﻿using CoffeeBeanery.CQRS;
-using CoffeeBeanery.GraphQL.Core.Runtime;
+﻿using CoffeeBeanery.GraphQL.Core.Contracts;
 using CoffeeBeanery.GraphQL.Core.Sql;
+using CoffeeBeanery.Service;
 using Dapper;
 using Npgsql;
 
-namespace CoffeeBeanery.Service;
-
-public class ProcessQuery<M> : IQuery<ProcessQueryParameters,
-    (List<M> list, int? startCursor, int? endCursor, int? totalCount, int? totalPageRecords)>
+public class ProcessQuery<M> :
+    IQuery<ProcessQueryParameters, List<object[]>>
     where M : class
 {
     private readonly ILogger<ProcessQuery<M>> _logger;
-    private readonly NpgsqlDataSource  _db;
+    private readonly NpgsqlDataSource _db;
 
     public ProcessQuery(
         ILoggerFactory loggerFactory,
-        NpgsqlDataSource  db)
+        NpgsqlDataSource db)
     {
         _logger = loggerFactory.CreateLogger<ProcessQuery<M>>();
         _db = db;
     }
 
-    public async Task<(List<M>, int?, int?, int?, int?)> ExecuteAsync(
+    public async Task<List<object[]>> ExecuteAsync(
         ProcessQueryParameters parameters,
         CancellationToken ct)
     {
-        var context = parameters.Context;
-        context.SplitOnDapper = context.SplitOnDapper.OrderBy(a => a.Key.Split('~')[1].Length).ToDictionary(a => a.Key, a => a.Value);
-        var orderedSplitOn = context.SplitOnDapper.ToDictionary(a => a.Key.Split('~')[1], a => a.Value); 
-        var types   = orderedSplitOn.Values.ToList();
-        var splitOn = orderedSplitOn.Keys.ToList();
+        var ctx = parameters.Context;
+        var result = new List<object[]>();
 
-        var query = context.UpsertSql + ";" +
-                    context.SelectSql;
-        
         await using var connection = await AgeConnectionFactory.OpenAsync(_db);
 
-        await using var tx = await connection.BeginTransactionAsync(ct);
-        
-        try
-        {
-            var rowMatrix = new List<object[]>();
+        var splitTypes = ctx.SplitOnDapper?.Count > 0
+            ? ctx.SplitOnDapper.OrderBy(x => x.Key).Select(x => x.Value).ToArray()
+            : Array.Empty<Type>();
 
-            await connection.QueryAsync(
-                query,
-                types.ToArray(),
-                (object[] row) =>
-                {
-                    rowMatrix.Add((object[])row.Clone());
-                    return 0;
-                },
-                splitOn:     string.Join(",", splitOn),
-                transaction: tx);
+        var splitOn = string.Join(",",
+            ctx.SplitOnDapper?.OrderBy(x => x.Key).Select(x => x.Key)
+            ?? Enumerable.Empty<string>());
 
-            await tx.CommitAsync(ct);
-
-            var result = MappingConfiguration(
-                context,
-                rowMatrix,
-                types
-                );
-
-            return (
-                result.models,
-                result.startCursor  ?? context.Pagination?.StartCursor,
-                result.endCursor    ?? context.Pagination?.EndCursor,
-                result.totalCount,
-                result.totalPageRecords);
-        }
-        catch (Exception ex)
-        {
-            if (tx is not null)
+        await connection.QueryAsync(
+            ctx.SelectSql,
+            splitTypes,
+            (object[] row) =>
             {
-                try
-                {
-                    await tx.RollbackAsync(CancellationToken.None);
-                }
-                catch (InvalidOperationException)
-                {
-                }
-                catch (Exception rollbackEx)
-                {
-                    _logger.LogWarning(rollbackEx, "Rollback attempt failed");
-                }
-            }
+                result.Add(row);
+                return 0;
+            },
+            splitOn: splitOn);
 
-            _logger.LogError(ex, "ProcessQuery failed");
-            return ([], 0, 0, 0, 0);
-        }
-    }
-
-    public virtual (List<M> models,
-                    int? startCursor,
-                    int? endCursor,
-                    int? totalCount,
-                    int? totalPageRecords)
-        MappingConfiguration(
-            SqlCompilationContext context,
-            List<object[]>                  rowMatrix,
-            List<Type>                      types)
-    {
-        throw new NotImplementedException();
+        return result;
     }
 }

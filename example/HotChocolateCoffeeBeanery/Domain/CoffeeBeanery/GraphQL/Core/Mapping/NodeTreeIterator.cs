@@ -52,11 +52,11 @@ public static class NodeTreeIterator
 
         var node = new NodeTree
         {
-            Id       = id,
+            // Id       = id,
             Name     = currentAlias,
-            Children = new List<LinkKey>(),
-            Mapping  = nodeMap.FieldMaps,
-            Schema   = nodeMap.Schema
+            Children = new List<NodeTree>(),
+            // FieldMaps  = nodeMap.FieldMaps,
+            // Schema   = nodeMap.Schema
         };
 
         var allChildren = Enumerable.Empty<LinkKey>();
@@ -94,15 +94,15 @@ public static class NodeTreeIterator
                 nodeTrees, childMap, childAlias, currentAlias, rootAlias,
                 nodeIds, visitedAliases, visitedMaps, ref counter);
 
-            if (childNode != null && !node.Children.Any(c => c.To == childAlias))
-                node.Children.Add(new LinkKey
-                {
-                    From       = currentAlias,
-                    FromColumn = childLink.FromColumn,
-                    To         = childAlias,
-                    AliasTo    = childAlias,
-                    ToColumn   = childLink.ToColumn
-                });
+            // if (childNode != null && !node.Children.Any(c => c.To == childAlias))
+            //     node.Children.Add(new LinkKey
+            //     {
+            //         From       = currentAlias,
+            //         FromColumn = childLink.FromColumn,
+            //         To         = childAlias,
+            //         AliasTo    = childAlias,
+            //         ToColumn   = childLink.ToColumn
+            //     });
         }
 
         nodeTrees[currentAlias] = node;

@@ -14,6 +14,8 @@ namespace CoffeeBeanery.GraphQL.Core.Sql
 
         public TotalRecordCount TotalRecordCount { get; set; } = new();
         public TotalPageRecords TotalPageRecords { get; set; } = new();
+        
+        public bool RequiresTotalCount { get; set; }
     }
 
     public class TotalRecordCount

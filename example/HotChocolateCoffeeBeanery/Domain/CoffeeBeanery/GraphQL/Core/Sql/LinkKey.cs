@@ -1,12 +1,12 @@
 ﻿namespace CoffeeBeanery.GraphQL.Core.Sql
 {
-    public sealed class LinkKey
+    public class LinkKey
     {
-        public string From { get; set; } = "";
-        public string AliasFrom { get; set; } = "";
-        public string FromColumn { get; set; }
-        public string To { get; set; } = "";
-        public string AliasTo { get; set; } = "";
-        public string ToColumn { get; set; }
+        public string From;
+        public string To;
+        public string FromColumn;
+        public string ToColumn;
+        public string AliasFrom;
+        public string AliasTo;
     }
 }
