@@ -24,12 +24,6 @@ public static class SqlHelper
 
         var cteParentAliases = CollectCteParentAliases(
             entityTrees, sqlUpsertStatementNodes, aliasesToProcess);
-        
-        Console.WriteLine("=== aliasesToProcess ===");
-        foreach (var a in aliasesToProcess) Console.WriteLine($"  {a}");
-
-        Console.WriteLine("=== cteParentAliases ===");
-        foreach (var a in cteParentAliases) Console.WriteLine($"  {a}");
 
         var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var queue   = new Queue<NodeTree>();
