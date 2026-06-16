@@ -45,8 +45,6 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                 statements,
                 selectStatements);
 
-            statements.Reverse();
-
             context.UpsertSql =
                 string.Join(";\n",
                     statements

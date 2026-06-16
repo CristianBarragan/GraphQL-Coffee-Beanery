@@ -39,7 +39,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                 visitedEntities, SqlNodeRegistry.ModelNames, modelSqlNodes, true);
 
             SqlSelectBuilder.GetFields(SqlNodeRegistry.ModelTrees, SqlNodeRegistry.EntityTrees, rootSelection.SyntaxNode.GetNodes()
-                    .ToList().Last(a => a.Kind == SyntaxKind.SelectionSet).GetNodes().First(a => a.ToString().StartsWith("nodes")), SqlNodeRegistry.EntityNodes,
+                    .ToList().Last(a => a.Kind == SyntaxKind.SelectionSet).GetNodes().FirstOrDefault(a => a.ToString().StartsWith("nodes")), SqlNodeRegistry.EntityNodes,
                 SqlNodeRegistry.ModelNodes, statementNodes, rootTree, visitedModels, visitedEntities,
                 SqlNodeRegistry.ModelNames, modelSqlNodes, false);
             

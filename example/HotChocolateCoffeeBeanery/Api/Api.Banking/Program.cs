@@ -5,6 +5,8 @@ using Api.Banking.Query;
 using Domain.Shared.Extension;
 using HotChocolate.AspNetCore;
 using HotChocolate.Types.Pagination;
+using Microsoft.Extensions.Logging.Console;
+using Microsoft.Extensions.Options;
 using Npgsql;
 
 namespace Api.Banking;
@@ -56,8 +58,18 @@ public class Program
         }
         else
         {
-            builder.Services.AddNpgsqlDataSource(connectionString!);
+            builder.Services.AddNpgsqlDataSource(connectionString!, ds =>
+            {
+                var loggerFactory = LoggerFactory.Create(builder =>
+                {
+                    builder.ClearProviders();
+                    builder.SetMinimumLevel(LogLevel.None);
+                });
+                ds.UseLoggerFactory(loggerFactory);
+            });
         }
+        
+        builder.Logging.SetMinimumLevel(LogLevel.Information);
         
         builder.Services.AddScoped<Func<NpgsqlConnection>>(sp => () =>
         {
