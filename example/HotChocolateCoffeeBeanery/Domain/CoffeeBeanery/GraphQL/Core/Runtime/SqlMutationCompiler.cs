@@ -10,26 +10,27 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
         public static void Compile(
             SqlCompilationContext context,
             ISelection rootSelection,
-            NodeTree rootTree,
+            EntityNodeTree rootTree,
             Dictionary<string, string> sqlWhereStatement,
-            Dictionary<string, NodeTree> modelTrees,
-            Dictionary<string, NodeTree> entityTrees,
-            Dictionary<string, SqlNode> modelSqlNodes,
-            Dictionary<string, SqlNode> entitySqlNodes,
+            Dictionary<string, ModelNodeTree> modelTrees,
+            Dictionary<string, EntityNodeTree> entityTrees,
+            Dictionary<string, ModelNode> modelEntityNodes,
+            Dictionary<string, EntityNode> entityEntityNodes,
             List<string> models,
             List<string> entities)
         {
             var sqlUpsertStatementNodes =
-                new Dictionary<string, SqlNode>(StringComparer.OrdinalIgnoreCase);
+                new Dictionary<string, EntityNode>(StringComparer.OrdinalIgnoreCase);
 
             var statements = new List<string>();
             var selectStatements = new List<string>();
 
             SqlSelectBuilder.GetMutations(
                 modelTrees,
+                entityTrees,
                 rootSelection.SyntaxNode,
-                modelSqlNodes,
-                entitySqlNodes,
+                modelEntityNodes,
+                entityEntityNodes,
                 sqlUpsertStatementNodes,
                 rootTree,
                 string.Empty,
@@ -53,25 +54,25 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
         }
 
         private static void ProcessMutation(
-            NodeTree rootTree,
+            EntityNodeTree rootTree,
             Dictionary<string, string> sqlWhereStatement,
-            Dictionary<string, NodeTree> modelTrees,
-            Dictionary<string, NodeTree> entityTrees,
-            Dictionary<string, SqlNode> sqlUpsertStatementNodes,
+            Dictionary<string, ModelNodeTree> modelTrees,
+            Dictionary<string, EntityNodeTree> entityTrees,
+            Dictionary<string, EntityNode> sqlUpsertStatementNodes,
             List<string> entities,
             List<string> statements,
             List<string> selectStatements)
         {
-            SqlHelper.GenerateUpsertStatements(
-                modelTrees,
-                entityTrees,
-                sqlUpsertStatementNodes,
-                rootTree,
-                entities,
-                sqlWhereStatement,
-                new List<string>(),
-                statements,
-                selectStatements);
+            // SqlHelper.GenerateUpsertStatements(
+            //     modelTrees,
+            //     entityTrees,
+            //     sqlUpsertStatementNodes,
+            //     rootTree,
+            //     entities,
+            //     sqlWhereStatement,
+            //     new List<string>(),
+            //     statements,
+            //     selectStatements);
         }
 
         private static ISyntaxNode GetMutationArgument(

@@ -12,19 +12,19 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
         public static void Compile(
             SqlCompilationContext context,
             ISelection rootSelection,
-            NodeTree rootTree,
+            EntityNodeTree rootTree,
             IFasterKV<string, string> cache,
             string cacheKey)
         {
             var sqlWhereStatement = new Dictionary<string, string>();
-            var statementNodes = new Dictionary<string, SqlNode>(StringComparer.OrdinalIgnoreCase);
+            var statementNodes = new Dictionary<string, EntityNode>(StringComparer.OrdinalIgnoreCase);
             var visitedModels = new List<string>();
             var visitedEntities = new List<string>();
             var hasSorting = false;
             var hasPagination = false;
             context.Pagination = new Pagination();
-            context.EntityTrees = SqlNodeRegistry.EntityTrees;
-            var modelSqlNodes = new Dictionary<string, SqlNode>(StringComparer.OrdinalIgnoreCase);
+            context.EntityTrees = NodeRegistry.EntityTrees;
+            var modelEntityNodes = new Dictionary<string, EntityNode>(StringComparer.OrdinalIgnoreCase);
             context.HasTotalCount = rootSelection.SyntaxNode.GetNodes()
                 .ToList().Last(a => a.Kind == SyntaxKind.SelectionSet).GetNodes().ToList()
                 .Any(a => a.ToString().Contains("totalCount"));
@@ -32,22 +32,24 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
             context.HasPagination = rootSelection.SyntaxNode.GetNodes()
                 .ToList().Last(a => a.Kind == SyntaxKind.SelectionSet).GetNodes().ToList()
                 .Any(a => a.ToString().Contains("pageInfo"));
-            
-            SqlSelectBuilder.GetFields(SqlNodeRegistry.ModelTrees, SqlNodeRegistry.EntityTrees, rootSelection.SyntaxNode.GetNodes()
-                    .ToList().Last(a => a.Kind == SyntaxKind.SelectionSet).GetNodes().ToList().FirstOrDefault(a => a.ToString().Contains("edges")), 
-                SqlNodeRegistry.EntityNodes, SqlNodeRegistry.ModelNodes, statementNodes, rootTree, visitedModels, 
-                visitedEntities, SqlNodeRegistry.ModelNames, modelSqlNodes, true);
 
-            SqlSelectBuilder.GetFields(SqlNodeRegistry.ModelTrees, SqlNodeRegistry.EntityTrees, rootSelection.SyntaxNode.GetNodes()
-                    .ToList().Last(a => a.Kind == SyntaxKind.SelectionSet).GetNodes().FirstOrDefault(a => a.ToString().StartsWith("nodes")), SqlNodeRegistry.EntityNodes,
-                SqlNodeRegistry.ModelNodes, statementNodes, rootTree, visitedModels, visitedEntities,
-                SqlNodeRegistry.ModelNames, modelSqlNodes, false);
+            var modelNames = NodeRegistry.ModelTrees.Select(a => a.Value.Name).ToList();
             
-            SqlWhereCompiler.Compile(context, modelSqlNodes, statementNodes, rootSelection, rootTree, 
-                rootTree.Name, sqlWhereStatement);
+            SqlSelectBuilder.GetFields(NodeRegistry.ModelTrees, NodeRegistry.EntityTrees, rootSelection.SyntaxNode.GetNodes()
+                    .ToList().Last(a => a.Kind == SyntaxKind.SelectionSet).GetNodes().ToList().FirstOrDefault(a => a.ToString().Contains("edges")), 
+                NodeRegistry.EntityNodes, NodeRegistry.ModelNodes, statementNodes, rootTree, visitedModels, 
+                visitedEntities, modelNames, modelEntityNodes, true);
+
+            SqlSelectBuilder.GetFields(NodeRegistry.ModelTrees, NodeRegistry.EntityTrees, rootSelection.SyntaxNode.GetNodes()
+                    .ToList().Last(a => a.Kind == SyntaxKind.SelectionSet).GetNodes().FirstOrDefault(a => a.ToString().StartsWith("nodes")), NodeRegistry.EntityNodes,
+                NodeRegistry.ModelNodes, statementNodes, rootTree, visitedModels, visitedEntities,
+                modelNames, modelEntityNodes, false);
             
-            SqlSelectBuilder.HandleGraphQL(context, SqlNodeRegistry.EntityNodes, statementNodes, 
-                SqlNodeRegistry.EntityTrees, rootTree, cache, cacheKey);
+            // SqlWhereCompiler.Compile(context, modelEntityNodes, statementNodes, rootSelection, rootTree, 
+            //     rootTree.Name, sqlWhereStatement);
+            
+            SqlSelectBuilder.HandleGraphQL(context, NodeRegistry.EntityNodes, statementNodes, 
+                NodeRegistry.EntityTrees, rootTree, cache, cacheKey);
 
             foreach (var argument in rootSelection.SyntaxNode.Arguments
                          .Where(a => !a.Name.Value.Matches("where")))
@@ -83,8 +85,8 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                 if (argument.Name.ToString().Contains("order"))
                 {
                     hasSorting = true;
-                    SqlOrderCompiler.Compile(context, SqlNodeRegistry.ModelTrees, argument,
-                        rootTree, SqlNodeRegistry.ModelNodes, SqlNodeRegistry.EntityTrees);
+                    SqlOrderCompiler.Compile(context, NodeRegistry.ModelTrees, argument,
+                        rootTree, NodeRegistry.ModelNodes, NodeRegistry.EntityTrees);
                 }
             }
             
@@ -94,7 +96,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                 SqlPagingCompiler.GetPagination(rootTree, context, rootSelection);
             }
             
-            context.SqlNodesApplied = statementNodes;
+            context.EntityNodesApplied = statementNodes;
         }
     }
 

@@ -10,7 +10,7 @@ public class ContactPoint : Process
         Schema = Entity.Schema.Banking;
     }
     
-    public int? Id { get; set; }
+    public int Id { get; set; }
     
     public Guid ContactPointKey { get; set; }
 

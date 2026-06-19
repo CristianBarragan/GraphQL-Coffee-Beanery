@@ -19,14 +19,14 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
 
         public Pagination Pagination { get; set; } = new Pagination();
         
-        public Dictionary<string, SqlNode> SqlNodesApplied { get; set; }
+        public Dictionary<string, EntityNode> EntityNodesApplied { get; set; }
         
         public Dictionary<string, Type> SplitOnDapper { get; set; } = new Dictionary<string, Type>(StringComparer.InvariantCultureIgnoreCase);
 
-        public Dictionary<string, NodeTree> EntityTrees { get; set; } = new Dictionary<string, NodeTree>(StringComparer.InvariantCultureIgnoreCase);
+        public Dictionary<string, EntityNodeTree> EntityTrees { get; set; } = new Dictionary<string, EntityNodeTree>(StringComparer.InvariantCultureIgnoreCase);
         
-        public Dictionary<string, NodeTree> ModelTrees { get; set; } = new Dictionary<string, NodeTree>(StringComparer.InvariantCultureIgnoreCase);
+        public Dictionary<string, ModelNodeTree> ModelTrees { get; set; } = new Dictionary<string, ModelNodeTree>(StringComparer.InvariantCultureIgnoreCase);
         
-        public NodeTree RelativeTree { get; set; }
+        public ModelNodeTree RelativeTree { get; set; }
     }
 }

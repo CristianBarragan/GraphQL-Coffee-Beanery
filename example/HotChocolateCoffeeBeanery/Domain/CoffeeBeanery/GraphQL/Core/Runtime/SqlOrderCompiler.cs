@@ -9,11 +9,11 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
     {
         public static void Compile(
             SqlCompilationContext context,
-            Dictionary<string, NodeTree> trees,
+            Dictionary<string, ModelNodeTree> trees,
             ISyntaxNode orderNode,
-            NodeTree entity,
-            Dictionary<string, SqlNode> modelNodes,
-            Dictionary<string, NodeTree> entityTrees) 
+            EntityNodeTree entity,
+            Dictionary<string, ModelNode> modelNodes,
+            Dictionary<string, EntityNodeTree> entityTrees) 
         {
             var sqlOrderStatement = new Dictionary<string, string>();
             
@@ -23,11 +23,11 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
         }
 
         private static void GetFieldsOrdering(
-            Dictionary<string, NodeTree> modelTrees,
+            Dictionary<string, ModelNodeTree> modelTrees,
             ISyntaxNode orderNode,
-            NodeTree currentEntityTree,
-            Dictionary<string, SqlNode> modelNodes,
-            Dictionary<string, NodeTree> entityTrees,
+            EntityNodeTree currentEntityTree,
+            Dictionary<string, ModelNode> modelNodes,
+            Dictionary<string, EntityNodeTree> entityTrees,
             Dictionary<string, string> sqlOrderStatement)
         {
             foreach (var oNode in orderNode.GetNodes())
@@ -45,7 +45,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                         t.Alias.Equals(entityName.Replace("_", ""), StringComparison.OrdinalIgnoreCase));
 
                     if (matched != null)
-                        activeEntityTree = matched;
+                        activeEntityTree = entityTrees[matched.Alias];
                 }
 
                 if (!oNodeStr.Contains("{") && oNodeStr.Contains(":"))
@@ -72,13 +72,13 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
         }
 
         private static KeyValuePair<string, string> HandleSort(
-            NodeTree nodeTree,
+            EntityNodeTree EntityNodeTree,
             string field,
             string sortClause,
-            Dictionary<string, SqlNode> modelNodes,
-            Dictionary<string, NodeTree> entityTrees)
+            Dictionary<string, ModelNode> modelNodes,
+            Dictionary<string, EntityNodeTree> entityTrees)
         {
-            var linkKeys = nodeTree.ModelToEntityLinks.Where(x =>
+            var linkKeys = EntityNodeTree.ModelToEntity.Where(x =>
                 entityTrees[x.AliasTo].Mapping.Any(a => a.DestinationName.Matches(field)));
 
             if (linkKeys.GetEnumerator().Current == null)
@@ -86,7 +86,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                 return new KeyValuePair<string, string>();
             }
 
-            NodeTree entityTree;
+            EntityNodeTree entityTree;
 
             foreach (var linkKey in linkKeys)
             {
@@ -94,15 +94,15 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                 return new KeyValuePair<string, string>(entityTree.Alias, $"~*~.\"{field.ToUpperCamelCase().ToSnakeCase(entityTree.Id)}\" {sortClause.Trim()}");
             }
 
-            if (!entityTrees.ContainsKey(nodeTree.Alias))
+            if (!entityTrees.ContainsKey(EntityNodeTree.Alias))
             {
                 return new KeyValuePair<string, string>();
             }
 
-            entityTree = entityTrees[nodeTree.Alias];
+            entityTree = entityTrees[EntityNodeTree.Alias];
             
             var match = modelNodes.FirstOrDefault(kvp =>
-                kvp.Key.StartsWith(nodeTree.Alias, StringComparison.OrdinalIgnoreCase) &&
+                kvp.Key.StartsWith(EntityNodeTree.Alias, StringComparison.OrdinalIgnoreCase) &&
                 kvp.Key.EndsWith($"~{field}", StringComparison.OrdinalIgnoreCase));
 
             if (match.Value != null)

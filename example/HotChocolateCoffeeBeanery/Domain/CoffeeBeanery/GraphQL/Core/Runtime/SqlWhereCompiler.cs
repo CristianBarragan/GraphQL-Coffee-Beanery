@@ -10,48 +10,46 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
     {
         public static void Compile(
             SqlCompilationContext context,
-            Dictionary<string, SqlNode> modelsSqlNodes,
-            Dictionary<string, SqlNode> entitiesSqlNodes,
+            Dictionary<string, EntityNodeTree> entityTrees,
             ISelection selection,
-            NodeTree rootTree,
+            EntityNodeTree rootTree,
             string wrapperEntityName,
             Dictionary<string, string> sqlWhereStatement)
         {
-            GetFieldsWhere(
-                rootTree,
-                modelsSqlNodes,
-                entitiesSqlNodes,
-                sqlWhereStatement,
-                selection.SyntaxNode.Arguments.FirstOrDefault(a => a.Name.Value.Matches("where")),
-                SqlNodeRegistry.ModelTrees.Last().Value.Name,
-                wrapperEntityName,
-                string.Empty,
-                Entity.ClauseTypes,
-                default);
+            var whereArg = selection.SyntaxNode.Arguments
+                .FirstOrDefault(a => a.Name.Value.Matches("where"));
+
+            if (whereArg?.Value is ObjectValueNode obj)
+            {
+                GetFieldsWhere(
+                    entityTrees,
+                    sqlWhereStatement,
+                    obj,
+                    rootTree,
+                    wrapperEntityName,
+                    string.Empty,
+                    Entity.ClauseTypes,
+                    null);
+            }
 
             context.SqlWhereStatement = sqlWhereStatement;
         }
 
         public static void GetFieldsWhere(
-            NodeTree rootTree,
-            Dictionary<string, SqlNode> modelsSqlNodes,
-            Dictionary<string, SqlNode> entitiesSqlNodes,
+            Dictionary<string, EntityNodeTree> entityTrees,
             Dictionary<string, string> sqlWhereStatement,
-            ISyntaxNode whereNode,
-            string rootEntityName,
+            ObjectValueNode whereNode,
+            EntityNodeTree rootNode,
             string wrapperEntityName,
             string clauseCondition,
             List<string> clauseType,
             Dictionary<string, List<string>> permission = null)
         {
             GetFieldsWhereRecursive(
-                rootTree,
-                modelsSqlNodes,
-                entitiesSqlNodes,
+                entityTrees,
                 sqlWhereStatement,
                 whereNode,
-                rootEntityName,
-                rootEntityName,
+                rootNode,
                 wrapperEntityName,
                 clauseCondition,
                 clauseType,
@@ -59,64 +57,38 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
         }
 
         private static void GetFieldsWhereRecursive(
-            NodeTree rootTree,
-            Dictionary<string, SqlNode> modelsSqlNodes,
-            Dictionary<string, SqlNode> entitiesSqlNodes,
+            Dictionary<string, EntityNodeTree> entityTrees,
             Dictionary<string, string> sqlWhereStatement,
-            ISyntaxNode whereNode,
-            string entityName,
-            string currentEntityAlias,
+            ObjectValueNode whereNode,
+            EntityNodeTree currentNode,
             string wrapperEntityName,
             string clauseCondition,
             List<string> clauseType,
             Dictionary<string, List<string>> permission)
         {
-            if (whereNode == null || string.IsNullOrWhiteSpace(entityName))
-                return;
-
-            foreach (var wNode in whereNode.GetNodes())
+            foreach (var field in whereNode.Fields)
             {
-                if (wrapperEntityName.Matches(entityName))
-                    entityName = rootTree.Name;
+                var fieldName = field.Name.Value;
+                var value = field.Value;
 
-                if (whereNode.ToString().TrimStart(' ').StartsWith("and:") ||
-                    whereNode.ToString().TrimStart(' ').StartsWith("or:"))
+                // ----------------------------
+                // NAVIGATION OBJECT
+                // ----------------------------
+                if (value is ObjectValueNode nestedObj &&
+                    fieldName != "eq" &&
+                    fieldName != "neq" &&
+                    fieldName != "in")
                 {
-                    clauseCondition = whereNode.ToString()
-                        .Split("{")[0]
-                        .Replace(":", "")
-                        .ToUpper();
+                    var childNode = ResolveChildEntityNode(entityTrees, currentNode, fieldName);
 
-                    clauseCondition = clauseCondition.Matches("AND")
-                        ? "@"
-                        : "$";
-                }
+                    if (childNode is null)
+                        continue;
 
-                var wNodeChildren = wNode.GetNodes().ToList();
-
-                if (wNodeChildren.Count < 2)
-                    goto recurse;
-
-                var nodeName = wNodeChildren[0].ToString().Trim();
-                var nodeBody = wNodeChildren[1];
-                var nodeBodyChildren = nodeBody.GetNodes().ToList();
-
-                bool isCollectionOperator =
-                    nodeName.Matches("some") ||
-                    nodeName.Matches("all") ||
-                    nodeName.Matches("none") ||
-                    nodeName.Matches("any");
-
-                if (isCollectionOperator)
-                {
                     GetFieldsWhereRecursive(
-                        rootTree,
-                        modelsSqlNodes,
-                        entitiesSqlNodes,
+                        entityTrees,
                         sqlWhereStatement,
-                        nodeBody,
-                        entityName,
-                        currentEntityAlias,
+                        nestedObj,
+                        childNode,
                         wrapperEntityName,
                         clauseCondition,
                         clauseType,
@@ -125,201 +97,103 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
                     continue;
                 }
 
-                bool isFlatField =
-                    nodeBodyChildren.Count == 1 &&
-                    !nodeBodyChildren[0].ToString().Contains("{") &&
-                    nodeBodyChildren[0].ToString().Split(":").Length == 2;
-
-                bool isNestedObject =
-                    nodeBodyChildren.Count >= 1 &&
-                    nodeBodyChildren.Any(c => c.ToString().Contains("{"));
-
-                if (isFlatField)
+                // ----------------------------
+                // COLLECTION OPS
+                // ----------------------------
+                if (fieldName is "some" or "all" or "any" or "none")
                 {
-                    var operatorNode = nodeBodyChildren[0].ToString();
-                    var operatorParts = operatorNode
-                        .Split(":")
-                        .Select(a => a.CleanJsonString())
-                        .ToList();
+                    if (value is ObjectValueNode inner)
+                    {
+                        GetFieldsWhereRecursive(
+                            entityTrees,
+                            sqlWhereStatement,
+                            inner,
+                            currentNode,
+                            wrapperEntityName,
+                            clauseCondition,
+                            clauseType,
+                            permission);
+                    }
 
-                    if (operatorParts.Count < 2)
-                        goto recurse;
+                    continue;
+                }
 
-                    var op = operatorParts[0].Trim();
-                    var clauseValue = operatorParts[1].Trim();
+                // ----------------------------
+                // OPERATOR NODE
+                // ----------------------------
+                if (value is not ObjectValueNode opObj)
+                    continue;
+
+                var fieldMap = currentNode.Mapping
+                    .FirstOrDefault(m => m.SourceName.Matches(fieldName));
+
+                if (fieldMap is null)
+                    continue;
+
+                foreach (var opField in opObj.Fields)
+                {
+                    var op = opField.Name.Value;
 
                     if (!clauseType.Contains(op))
-                        goto recurse;
+                        continue;
 
-                    var matchingNode = modelsSqlNodes
-                        .FirstOrDefault(kvp =>
-                            kvp.Key.StartsWith(
-                                currentEntityAlias + "~",
-                                StringComparison.OrdinalIgnoreCase) &&
-                            kvp.Key.EndsWith(
-                                $"~{nodeName}",
-                                StringComparison.OrdinalIgnoreCase));
-
-                    if (matchingNode.Value == null)
+                    var clauseValue = opField.Value switch
                     {
-                        matchingNode = modelsSqlNodes
-                            .FirstOrDefault(kvp =>
-                                kvp.Key.EndsWith(
-                                    $"~{nodeName}",
-                                    StringComparison.OrdinalIgnoreCase));
-                    }
+                        StringValueNode s => s.Value,
+                        IntValueNode i => i.Value.ToString(),
+                        NullValueNode => "null",
+                        _ => opField.Value.ToString()
+                    };
 
-                    if (matchingNode.Value == null)
-                        goto recurse;
-
-                    var currentKeyValueNode = matchingNode.Value;
-
-                    var enumeration = string.Empty;
-
-                    var enumValue = currentKeyValueNode.FromEnumeration
-                        .FirstOrDefault(a => a.Key.Matches(clauseValue));
-
-                    if (!string.IsNullOrEmpty(enumValue.Key))
-                    {
-                        var toEnum = currentKeyValueNode.ToEnumeration
-                            .FirstOrDefault(e => e.Key.Matches(enumValue.Key))
-                            .Value;
-
-                        enumeration = toEnum.ToString() ?? string.Empty;
-                    }
-
-                    var resolvedValue =
-                        string.IsNullOrEmpty(enumeration)
-                            ? clauseValue
-                            : enumeration;
+                    var column = fieldMap.DestinationName;
 
                     string condition = op switch
                     {
-                        "eq" => clauseValue.Matches("null")
-                            ? $" ( ~.\"{currentKeyValueNode.Column}\" IS NULL "
-                            : $" ( ~.\"{currentKeyValueNode.Column}\" = '{resolvedValue}' ",
+                        "eq" => clauseValue == "null"
+                            ? $" (~.\"{column}\" IS NULL "
+                            : $" (~.\"{column}\" = '{clauseValue}' ",
 
-                        "neq" => clauseValue.Matches("null")
-                            ? $" ( ~.\"{currentKeyValueNode.Column}\" IS NOT NULL "
-                            : $" ( ~.\"{currentKeyValueNode.Column}\" <> '{resolvedValue}' ",
+                        "neq" => clauseValue == "null"
+                            ? $" (~.\"{column}\" IS NOT NULL "
+                            : $" (~.\"{column}\" <> '{clauseValue}' ",
 
-                        "in" => BuildInCondition(
-                            clauseValue,
-                            currentKeyValueNode,
-                            enumeration),
+                        "in" => $" (~.\"{column}\" IN ('{clauseValue}') ",
 
-                        _ => string.Empty
+                        _ => ""
                     };
 
-                    if (string.IsNullOrEmpty(condition))
-                        goto recurse;
-
-                    ApplyCondition(
-                        sqlWhereStatement,
-                        entitiesSqlNodes,
-                        currentKeyValueNode,
-                        condition,
-                        currentEntityAlias);
+                    if (!string.IsNullOrEmpty(condition))
+                    {
+                        AddOrAppend(sqlWhereStatement, currentNode.Alias, condition);
+                    }
                 }
-                else if (isNestedObject)
-                {
-                    var resolvedAlias = ResolveEntityAlias(
-                        nodeName,
-                        currentEntityAlias,
-                        modelsSqlNodes,
-                        entitiesSqlNodes);
-
-                    GetFieldsWhereRecursive(
-                        rootTree,
-                        modelsSqlNodes,
-                        entitiesSqlNodes,
-                        sqlWhereStatement,
-                        nodeBody,
-                        entityName,
-                        resolvedAlias,
-                        wrapperEntityName,
-                        clauseCondition,
-                        clauseType,
-                        permission);
-
-                    continue;
-                }
-
-            recurse:
-                GetFieldsWhereRecursive(
-                    rootTree,
-                    modelsSqlNodes,
-                    entitiesSqlNodes,
-                    sqlWhereStatement,
-                    wNode,
-                    entityName,
-                    currentEntityAlias,
-                    wrapperEntityName,
-                    clauseCondition,
-                    clauseType,
-                    permission);
             }
         }
 
-        private static void ApplyCondition(
-            Dictionary<string, string> sqlWhereStatement,
-            Dictionary<string, SqlNode> entitiesSqlNodes,
-            SqlNode currentKeyValueNode,
-            string condition,
-            string currentEntityAlias)
+        // ----------------------------
+        // Resolve a nested where-field (e.g. "innerCustomer") to the
+        // EntityNodeTree it navigates to, via EntityKey.AliasProperty.
+        // Checks both EntityChildren (collection navs) and EntityChildrenRelated
+        // (single-reference navs, e.g. dependent-side FKs like InnerCustomer/OuterCustomer).
+        // ----------------------------
+        private static EntityNodeTree ResolveChildEntityNode(
+            Dictionary<string, EntityNodeTree> entityTrees,
+            EntityNodeTree currentNode,
+            string fieldName)
         {
-            var processedAliases =
-                new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var key = currentNode.EntityChildren
+                .FirstOrDefault(k => k.AliasProperty.Matches(fieldName));
 
-            var targetAliases =
-                string.IsNullOrEmpty(currentEntityAlias)
-                    ? currentKeyValueNode.LinkKeys.Select(lk => lk.AliasTo)
-                    : currentKeyValueNode.LinkKeys
-                        .Where(lk =>
-                            lk.AliasTo.Equals(
-                                currentEntityAlias,
-                                StringComparison.OrdinalIgnoreCase))
-                        .Select(lk => lk.AliasTo);
+            key ??= currentNode.EntityChildrenRelated
+                .FirstOrDefault(k => k.AliasProperty.Matches(fieldName));
 
-            if (!targetAliases.Any() &&
-                !string.IsNullOrEmpty(currentEntityAlias))
-            {
-                var columnExistsInAlias = entitiesSqlNodes.Any(a =>
-                    a.Value.Alias.Equals(
-                        currentEntityAlias,
-                        StringComparison.OrdinalIgnoreCase) &&
-                    a.Value.Column.Equals(
-                        currentKeyValueNode.Column,
-                        StringComparison.OrdinalIgnoreCase));
+            if (key is null)
+                return null;
 
-                if (columnExistsInAlias)
-                {
-                    AddOrAppend(
-                        sqlWhereStatement,
-                        currentEntityAlias,
-                        condition);
-                }
-
-                return;
-            }
-
-            foreach (var alias in targetAliases)
-            {
-                if (!processedAliases.Add(alias))
-                    continue;
-
-                var columnMatches = entitiesSqlNodes.Any(a =>
-                    a.Value.Alias.Matches(alias) &&
-                    a.Value.Column.Matches(currentKeyValueNode.Column));
-
-                if (!columnMatches)
-                    continue;
-
-                AddOrAppend(
-                    sqlWhereStatement,
-                    alias,
-                    condition);
-            }
+            return entityTrees.Values.FirstOrDefault(t =>
+                t.Alias.Matches(key.AliasTo)) ??
+                entityTrees.Values.FirstOrDefault(t =>
+                    t.Name.Matches(key.To));
         }
 
         private static void AddOrAppend(
@@ -336,73 +210,6 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
             {
                 sqlWhereStatement.Add(alias, $"{condition} ) ");
             }
-        }
-
-        private static string ResolveEntityAlias(
-            string relationName,
-            string currentEntityAlias,
-            Dictionary<string, SqlNode> modelsSqlNodes,
-            Dictionary<string, SqlNode> entitiesSqlNodes)
-        {
-            var knownAliases = modelsSqlNodes.Keys
-                .Select(k => k.Split('~')[0])
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToList();
-
-            var match = knownAliases.FirstOrDefault(alias =>
-                alias.StartsWith(
-                    relationName,
-                    StringComparison.OrdinalIgnoreCase));
-
-            if (!string.IsNullOrEmpty(match))
-                return match;
-
-            var linkMatch = modelsSqlNodes.Values
-                .SelectMany(n => n.LinkKeys)
-                .FirstOrDefault(lk =>
-                    lk.FromColumn.Equals(
-                        relationName,
-                        StringComparison.OrdinalIgnoreCase) &&
-                    !lk.AliasTo.Equals(
-                        currentEntityAlias,
-                        StringComparison.OrdinalIgnoreCase));
-
-            if (linkMatch != null &&
-                !string.IsNullOrEmpty(linkMatch.AliasTo))
-            {
-                return linkMatch.AliasTo;
-            }
-
-            return relationName;
-        }
-
-        private static string BuildInCondition(
-            string clauseValue,
-            SqlNode node,
-            string enumeration)
-        {
-            var inValues = string.Empty;
-
-            var cleanedClauseValue = clauseValue
-                .Trim()
-                .TrimStart('[')
-                .TrimEnd(']');
-
-            foreach (var val in cleanedClauseValue.Split(','))
-            {
-                var valAux = val.Sanitize()
-                    .Replace("(", "")
-                    .Replace(")", "")
-                    .Replace("[", "")
-                    .Replace("]", "")
-                    .ToUpperCamelCase();
-
-                inValues +=
-                    $"'{(string.IsNullOrEmpty(enumeration) ? valAux : enumeration)}',";
-            }
-
-            return
-                $" ( ~.\"{node.Column}\" in ({inValues.TrimEnd(',')})";
         }
     }
 

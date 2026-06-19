@@ -1,11 +1,11 @@
-using CoffeeBeanery.CQRS;
-using CoffeeBeanery.GraphQL.Core.GraphQL;
-using CoffeeBeanery.GraphQL.Core.Sql;
-using Npgsql;
 using System.Collections;
 using System.Reflection;
+using CoffeeBeanery.CQRS;
+using CoffeeBeanery.GraphQL.Core.GraphQL;
 using CoffeeBeanery.GraphQL.Core.Runtime;
+using CoffeeBeanery.GraphQL.Core.Sql;
 using CoffeeBeanery.GraphQL.Helper;
+using Npgsql;
 
 namespace CoffeeBeanery.Service
 {
@@ -32,59 +32,50 @@ namespace CoffeeBeanery.Service
                          int? totalPageRecords)
         MappingConfiguration(
             SqlCompilationContext context,
-            List<object[]> rowMatrix,
+            List<string> aliasOrder,
+            List<object?[]> rowMatrix,
             List<Type> types)
         {
+            var modelTrees  = context.ModelTrees;
+            var entityTrees = context.EntityTrees;
+
             int totalCount  = 0;
             int pageRecords = 0;
 
-            var aliasIndex     = BuildAliasIndex(context.SplitOnDapper);
-            var rootModelTree  = GetRootFromWrapper<M>(context.ModelTrees);
-            var rootAliasIndex = 0;
-            string rootAlias   = rootModelTree.Alias;
+            var rootModelTree  = GetRootFromWrapper<M>(modelTrees);
+            var rootAlias      = rootModelTree.Alias;
+            var rootAliasIndex = aliasOrder.FindIndex(a => a.Equals(rootAlias, StringComparison.OrdinalIgnoreCase));
 
-            foreach (var kv in aliasIndex)
-            {
-                if (kv.Value.Equals(rootAlias, StringComparison.OrdinalIgnoreCase))
-                {
-                    rootAliasIndex = kv.Key;
-                    break;
-                }
-            }
+            if (rootAliasIndex < 0)
+                throw new InvalidOperationException(
+                    $"Root alias '{rootAlias}' (resolved from {typeof(M).Name}'s List<T> property) " +
+                    $"is not present in this query's alias order [{string.Join(", ", aliasOrder)}].");
 
-            var rowsByRootKey = new Dictionary<Guid, List<object[]>>();
-            var rootKeyOrder  = new List<Guid>();
-            var seenCounts    = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            // Group rows by the root's actual upsert key (whatever entity property that is for
+            // this mapping) instead of guessing from a "*Key"-suffixed Guid property - a row whose
+            // key doesn't happen to match that naming convention used to be silently dropped.
+            var rowsByRootKey = new Dictionary<string, List<object?[]>>(StringComparer.Ordinal);
+            var rootKeyOrder  = new List<string>();
 
             foreach (var row in rowMatrix)
             {
                 if (row[rootAliasIndex] is TotalPageRecords tp) { pageRecords = tp.PageRecords; continue; }
-                if (row[rootAliasIndex] is TotalRecordCount tr) { totalCount  = tr.RecordCount; continue; }
+                if (row[rootAliasIndex] is TotalRecordCount tr) { totalCount  = tr.RecordCount;  continue; }
 
                 var rootEntity = row[rootAliasIndex];
-                var rootKey    = Guid.Empty;
+                if (rootEntity is null) continue;
 
-                if (rootEntity != null)
+                var rootKey = ResolveUpsertKeyValue(rootAlias, rootEntity, entityTrees, modelTrees);
+                if (rootKey is null) continue; // no key resolvable for this alias - can't group safely
+
+                if (!rowsByRootKey.TryGetValue(rootKey, out var bucket))
                 {
-                    var keyProp = rootEntity.GetType()
-                        .GetProperties(BindingFlags.Public | BindingFlags.Instance)
-                        .FirstOrDefault(p =>
-                            (p.PropertyType == typeof(Guid) || p.PropertyType == typeof(Guid?)) &&
-                            p.Name.EndsWith("Key", StringComparison.OrdinalIgnoreCase));
-
-                    if (keyProp?.GetValue(rootEntity) is Guid g)
-                        rootKey = g;
-                }
-
-                if (rootKey == Guid.Empty) continue;
-
-                if (!rowsByRootKey.ContainsKey(rootKey))
-                {
-                    rowsByRootKey[rootKey] = new List<object[]>();
+                    bucket = new List<object?[]>();
+                    rowsByRootKey[rootKey] = bucket;
                     rootKeyOrder.Add(rootKey);
                 }
 
-                rowsByRootKey[rootKey].Add(row);
+                bucket.Add(row);
             }
 
             var wrappers = new List<M>();
@@ -93,51 +84,52 @@ namespace CoffeeBeanery.Service
             {
                 var groupRows  = rowsByRootKey[rootKey];
                 var rawByAlias = new Dictionary<string, List<object>>(StringComparer.OrdinalIgnoreCase);
-                seenCounts.Clear();
+
+                // Persists across every row in this root's group - disambiguates repeated entity
+                // types appearing at indices with no direct alias match. Must NOT be reset per-row
+                // (resetting here used to defeat its own purpose).
+                var seenCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 
                 foreach (var row in groupRows)
                 {
-                    seenCounts.Clear();
-
-                    for (int i = 0; i < row.Length; i++)
+                    for (var i = 0; i < row.Length && i < aliasOrder.Count; i++)
                     {
-                        if (row[i] == null) continue;
+                        if (row[i] is null) continue;
                         if (row[i] is TotalPageRecords || row[i] is TotalRecordCount) continue;
 
-                        var alias = aliasIndex.TryGetValue(i, out var a) ? a : row[i].GetType().Name;
+                        var alias = aliasOrder[i];
 
-                        NodeTree entityTree;
+                        EntityNodeTree? entityTree;
 
-                        if (context.EntityTrees.TryGetValue(alias, out var byAlias))
+                        if (entityTrees.TryGetValue(alias, out var byAlias))
                         {
                             entityTree = byAlias;
                         }
                         else
                         {
-                            var entityType = row[i].GetType();
-                            var seen       = seenCounts.GetValueOrDefault(entityType.Name, 0);
+                            var entityType = row[i]!.GetType();
+                            var seen = seenCounts.GetValueOrDefault(entityType.Name, 0);
                             seenCounts[entityType.Name] = seen + 1;
-                            entityTree = ResolveEntityTree(alias, entityType,
-                                types.ElementAtOrDefault(i), seen, context.EntityTrees);
+                            entityTree = ResolveEntityTree(alias, entityType, types.ElementAtOrDefault(i), seen, entityTrees);
                         }
 
-                        if (entityTree == null) continue;
+                        if (entityTree is null) continue;
 
-                        if (!rawByAlias.TryGetValue(entityTree.Alias, out var bucket))
+                        if (!rawByAlias.TryGetValue(entityTree.Alias, out var rawBucket))
                         {
-                            bucket = new List<object>();
-                            rawByAlias[entityTree.Alias] = bucket;
+                            rawBucket = new List<object>();
+                            rawByAlias[entityTree.Alias] = rawBucket;
                         }
 
-                        bucket.Add(row[i]);
+                        rawBucket.Add(row[i]!);
                     }
                 }
 
                 var dedupedRaw = new Dictionary<string, List<object>>(StringComparer.OrdinalIgnoreCase);
                 foreach (var (alias, bucket) in rawByAlias)
-                    dedupedRaw[alias] = DeduplicateByKey(bucket);
+                    dedupedRaw[alias] = DeduplicateByKey(alias, bucket, entityTrees, modelTrees);
 
-                var rootObject = Activator.CreateInstance<M>();
+                var rootObject = Activator.CreateInstance<M>()!;
 
                 var nodeResult = new NodeResult
                 {
@@ -149,23 +141,25 @@ namespace CoffeeBeanery.Service
                     AllObjects    = new Dictionary<string, List<object>>(StringComparer.OrdinalIgnoreCase),
                 };
 
-                Build(rootModelTree, context.ModelTrees, context.EntityTrees, nodeResult);
+                Build(rootModelTree, modelTrees, entityTrees, nodeResult, visiting: new HashSet<string>(StringComparer.OrdinalIgnoreCase));
 
                 var wrapperObj = (M)nodeResult.RootObject;
 
                 if (nodeResult.Objects.TryGetValue(rootModelTree.Alias, out var rootObj))
-                    Attach(wrapperObj, rootObj, nodeResult);
+                    Attach(wrapperObj, rootObj, nodeResult, entityTrees, modelTrees, childAlias: rootModelTree.Alias);
 
                 wrappers.Add(wrapperObj);
             }
 
             return (
-                wrappers.OfType<M>().ToList(),
+                wrappers,
                 context.Pagination?.StartCursor,
                 context.Pagination?.EndCursor,
                 totalCount,
                 pageRecords);
         }
+
+        // ---------------------------------------------------------------- alias -> model
 
         private List<object> MapAlias(string alias, NodeResult nodeResult)
         {
@@ -191,112 +185,147 @@ namespace CoffeeBeanery.Service
             return mapped;
         }
 
+        // ---------------------------------------------------------------- recursive build
+
         private void Build(
-            NodeTree modelTree,
-            Dictionary<string, NodeTree> modelTrees,
-            Dictionary<string, NodeTree> entityTrees,
-            NodeResult nodeResult)
+            ModelNodeTree modelTree,
+            Dictionary<string, ModelNodeTree> modelTrees,
+            Dictionary<string, EntityNodeTree> entityTrees,
+            NodeResult nodeResult,
+            HashSet<string> visiting)
         {
-            if (!nodeResult.Objects.TryGetValue(modelTree.Alias, out var currentModel))
+            // Cycle guard - CustomerCustomerEdge's Customer<->Customer shape (and anything similar)
+            // would otherwise recurse forever the moment a child alias loops back to an ancestor.
+            if (!visiting.Add(modelTree.Alias))
+                return;
+
+            try
             {
-                var mappedList = MapAlias(modelTree.Alias, nodeResult);
+                if (!nodeResult.Objects.TryGetValue(modelTree.Alias, out var currentModel))
+                {
+                    var mappedList = MapAlias(modelTree.Alias, nodeResult);
 
-                if (mappedList.Count > 0)
-                {
-                    currentModel = mappedList[0];
-                    nodeResult.Objects[modelTree.Alias]    = currentModel;
-                    nodeResult.AllObjects[modelTree.Alias] = mappedList;
+                    if (mappedList.Count > 0)
+                    {
+                        currentModel = mappedList[0];
+                        nodeResult.Objects[modelTree.Alias]    = currentModel;
+                        nodeResult.AllObjects[modelTree.Alias] = mappedList;
+                    }
+                    else
+                    {
+                        currentModel = Activator.CreateInstance(modelTree.ModelType)!;
+                        nodeResult.Objects[modelTree.Alias] = currentModel;
+                    }
                 }
-                else
+
+                nodeResult.CurrentObject = currentModel!;
+
+                foreach (var linkKey in modelTree.ModelChildren ?? Enumerable.Empty<ModelKey>())
                 {
-                    currentModel = Activator.CreateInstance(modelTree.ModelType)!;
-                    nodeResult.Objects[modelTree.Alias] = currentModel;
+                    // ModelKey.To is a Model *type name* (see NodeBuilder.InferModelChildren), not
+                    // necessarily an alias - only resolve by alias as a secondary guess.
+                    var childModelTree = ResolveModelTreeByNameOrAlias(linkKey.To, modelTrees);
+                    if (childModelTree is null) continue;
+
+                    Build(childModelTree, modelTrees, entityTrees, nodeResult, visiting);
+
+                    if (nodeResult.Objects.TryGetValue(childModelTree.Alias, out var childObj))
+                        Attach(currentModel, childObj, nodeResult, entityTrees, modelTrees,
+                            prefix: childModelTree.Prefix, childAlias: childModelTree.Alias);
                 }
+
+                if (!modelTree.IsEntity) return;
+
+                var entityTree = entityTrees.TryGetValue(modelTree.Alias, out var et)
+                    ? et
+                    : entityTrees.Values.FirstOrDefault(t => t.ModelType == modelTree.ModelType && t.IsEntity);
+
+                if (entityTree is null) return;
+
+                foreach (var childLink in entityTree.EntityChildren.Concat(entityTree.EntityChildrenRelated))
+                {
+                    var childAlias = !string.IsNullOrWhiteSpace(childLink.AliasTo) ? childLink.AliasTo : childLink.To;
+
+                    // Only follow links into aliases this query actually fetched - entityTrees may
+                    // contain registrations for mappings outside this particular query's row matrix.
+                    if (!nodeResult.RawObjects.ContainsKey(childAlias) && !modelTrees.ContainsKey(childAlias))
+                        continue;
+
+                    var childEntTree = ResolveChildEntityTree(childAlias, entityTrees);
+                    if (childEntTree is null) continue;
+
+                    var childModelTree = ResolveModelTreeForEntity(childEntTree, childAlias, modelTrees);
+                    if (childModelTree is null) continue;
+
+                    Build(childModelTree, modelTrees, entityTrees, nodeResult, visiting);
+
+                    if (nodeResult.Objects.TryGetValue(childModelTree.Alias, out var childObj))
+                        Attach(currentModel, childObj, nodeResult, entityTrees, modelTrees,
+                            prefix: childModelTree.Prefix, childAlias: childModelTree.Alias);
+                }
+
+                ProjectAggregates(nodeResult, modelTrees);
             }
-
-            nodeResult.CurrentObject = currentModel!;
-
-            foreach (var linkKey in modelTree.ModelChildren ?? Enumerable.Empty<LinkKey>())
+            finally
             {
-                var childAlias = !string.IsNullOrWhiteSpace(linkKey.AliasTo)
-                    ? linkKey.AliasTo
-                    : linkKey.To;
-
-                NodeTree childModelTree = null;
-
-                if (modelTrees.TryGetValue(childAlias, out var directModel))
-                {
-                    childModelTree = directModel;
-                }
-                else
-                {
-                    var childEntityTree = ResolveChildEntityTree(childAlias, entityTrees);
-                    if (childEntityTree != null)
-                        childModelTree = ResolveModelTreeForEntity(childEntityTree, childAlias, modelTrees);
-                }
-
-                if (childModelTree == null) continue;
-
-                Build(childModelTree, modelTrees, entityTrees, nodeResult);
-
-                if (nodeResult.Objects.TryGetValue(childModelTree.Alias, out var childObj))
-                    Attach(currentModel, childObj, nodeResult, childModelTree.Prefix, childModelTree.Alias);
+                visiting.Remove(modelTree.Alias);
             }
-
-            if (!modelTree.IsEntity) return;
-
-            var entityTree = entityTrees.TryGetValue(modelTree.Alias, out var et)
-                ? et
-                : entityTrees.Values.FirstOrDefault(t =>
-                    t.ModelType == modelTree.ModelType && t.IsEntity);
-
-            if (entityTree == null) return;
-
-            foreach (var childLink in entityTree.Children.Concat(entityTree.RelatedChildren))
-            {
-                var childAlias   = !string.IsNullOrWhiteSpace(childLink.AliasTo) ? childLink.AliasTo : childLink.To;
-                var childEntTree = ResolveChildEntityTree(childAlias, entityTrees);
-                if (childEntTree == null) continue;
-
-                var childModelTree = ResolveModelTreeForEntity(childEntTree, childAlias, modelTrees);
-                if (childModelTree == null) continue;
-
-                Build(childModelTree, modelTrees, entityTrees, nodeResult);
-
-                if (nodeResult.Objects.TryGetValue(childModelTree.Alias, out var childObj))
-                    Attach(currentModel, childObj, nodeResult, childModelTree.Prefix, childModelTree.Alias);
-            }
-
-            ProjectAggregates(nodeResult, modelTrees);
         }
 
-        private static List<object> DeduplicateByKey(List<object> items)
+        // ---------------------------------------------------------------- dedup (generic key)
+
+        // Reads the alias's declared UpsertKeys ("Entity~KeyProperty") instead of guessing from a
+        // "*Key"-suffixed Guid property - works for any key shape (Guid, int, string, composite-via-
+        // first-segment), and no longer silently drops rows whose key doesn't fit that convention.
+        private static string? ResolveUpsertKeyValue(
+            string alias, object instance,
+            Dictionary<string, EntityNodeTree> entityTrees,
+            Dictionary<string, ModelNodeTree> modelTrees)
+        {
+            List<string>? upsertKeys =
+                entityTrees.TryGetValue(alias, out var et) ? et.UpsertKeys :
+                modelTrees.TryGetValue(alias, out var mt) ? mt.UpsertKeys :
+                null;
+
+            var spec = upsertKeys?.FirstOrDefault();
+            if (spec is null) return null;
+
+            var parts = spec.Split('~');
+            var keyPropName = parts.Length == 2 ? parts[1] : spec;
+
+            var prop = instance.GetType().GetProperty(keyPropName, BindingFlags.Public | BindingFlags.Instance);
+            var value = prop?.GetValue(instance);
+
+            return value?.ToString();
+        }
+
+        private static List<object> DeduplicateByKey(
+            string alias, List<object> items,
+            Dictionary<string, EntityNodeTree> entityTrees,
+            Dictionary<string, ModelNodeTree> modelTrees)
         {
             if (items.Count == 0) return items;
 
-            var keyProp = items[0].GetType()
-                .GetProperties(BindingFlags.Public | BindingFlags.Instance)
-                .FirstOrDefault(p =>
-                    (p.PropertyType == typeof(Guid) || p.PropertyType == typeof(Guid?)) &&
-                    p.Name.EndsWith("Key", StringComparison.OrdinalIgnoreCase));
-
-            if (keyProp == null) return items;
-
-            var seen   = new HashSet<Guid>();
+            var seen   = new HashSet<string>(StringComparer.Ordinal);
             var result = new List<object>(items.Count);
 
             foreach (var item in items)
             {
-                if (keyProp.GetValue(item) is Guid g && g != Guid.Empty && seen.Add(g))
+                var key = ResolveUpsertKeyValue(alias, item, entityTrees, modelTrees);
+                if (key is null) { result.Add(item); continue; } // no key metadata - can't dedupe, keep as-is
+
+                if (seen.Add(key))
                     result.Add(item);
             }
 
             return result;
         }
 
+        // ---------------------------------------------------------------- aggregate projection
+
         private static void ProjectAggregates(
             NodeResult nodeResult,
-            Dictionary<string, NodeTree> modelTrees)
+            Dictionary<string, ModelNodeTree> modelTrees)
         {
             foreach (var modelTree in modelTrees.Values.Where(t => t.IsModel))
             {
@@ -313,98 +342,33 @@ namespace CoffeeBeanery.Service
                     var sourceProp = sourceObj.GetType().GetProperty(field.DestinationName.Split('.').Last());
                     var targetProp = targetType.GetProperty(field.SourceName);
 
-                    if (sourceProp == null || targetProp == null) continue;
+                    if (sourceProp is null || targetProp is null) continue;
 
                     SafeSet(targetProp, targetModel, sourceProp.GetValue(sourceObj));
                 }
             }
         }
 
-        private static void Attach(
-            object parent, object child, NodeResult nodeResult,
-            string prefix = "", string childAlias = "")
+        private static void SafeSet(PropertyInfo prop, object instance, object? value)
         {
-            if (parent == null || child == null) return;
-
-            var childType = child.GetType();
-            var prop      = ResolveNavigationProperty(parent.GetType(), childType, prefix, childAlias);
-            if (prop == null) return;
-
-            if (typeof(IList).IsAssignableFrom(prop.PropertyType))
-            {
-                var list = prop.GetValue(parent) as IList;
-                if (list == null)
-                {
-                    list = (IList)Activator.CreateInstance(prop.PropertyType)!;
-                    prop.SetValue(parent, list);
-                }
-
-                IEnumerable<object> candidates =
-                    !string.IsNullOrWhiteSpace(childAlias) &&
-                    nodeResult.AllObjects.TryGetValue(childAlias, out var bucket)
-                        ? bucket
-                        : new[] { child };
-
-                var keyProp = childType
-                    .GetProperties(BindingFlags.Public | BindingFlags.Instance)
-                    .FirstOrDefault(p =>
-                        (p.PropertyType == typeof(Guid) || p.PropertyType == typeof(Guid?)) &&
-                        p.Name.EndsWith("Key", StringComparison.OrdinalIgnoreCase));
-
-                foreach (var item in candidates)
-                {
-                    if (item == null) continue;
-
-                    if (keyProp != null)
-                    {
-                        var newKey = keyProp.GetValue(item);
-                        if (newKey != null)
-                        {
-                            bool found = false;
-                            for (int j = 0; j < list.Count; j++)
-                            {
-                                if (Equals(keyProp.GetValue(list[j]!), newKey))
-                                {
-                                    list[j] = item; found = true; break;
-                                }
-                            }
-                            if (found) continue;
-                        }
-                    }
-
-                    if (!list.Contains(item)) list.Add(item);
-                }
-            }
-            else
-            {
-                if (prop.GetValue(parent) == null)
-                    prop.SetValue(parent, child);
-            }
-
-            if (!string.IsNullOrWhiteSpace(childAlias))
-                nodeResult.Objects[childAlias] = child;
-        }
-
-        private static void SafeSet(PropertyInfo prop, object instance, object value)
-        {
-            if (prop == null || value == null) return;
+            if (value is null) return;
             var targetType = prop.PropertyType;
 
             if (targetType.IsGenericType && typeof(IEnumerable).IsAssignableFrom(targetType))
             {
                 var elementType = targetType.GetGenericArguments()[0];
                 var existing    = prop.GetValue(instance);
-                if (existing == null)
+                if (existing is null)
                 {
                     existing = Activator.CreateInstance(targetType);
                     prop.SetValue(instance, existing);
                 }
-                var list = (IList)existing;
+                var list = (IList)existing!;
 
                 if (value is IEnumerable enumerable && value is not string)
                 {
                     foreach (var v in enumerable)
-                        if (v != null && elementType.IsAssignableFrom(v.GetType()) && !list.Contains(v))
+                        if (v is not null && elementType.IsAssignableFrom(v.GetType()) && !list.Contains(v))
                             list.Add(v);
                 }
                 else if (elementType.IsAssignableFrom(value.GetType()) && !list.Contains(value))
@@ -420,63 +384,72 @@ namespace CoffeeBeanery.Service
                 return;
             }
 
-            if (targetType == typeof(Guid) || targetType == typeof(Guid?))
+            // Generic fallback for "target wants a scalar, source is a whole object" cases (e.g.
+            // a model's CustomerKey field sourced from a nested Customer object): look for a
+            // same-named property on the source object rather than a hardcoded property name.
+            var matchingSourceProp = value.GetType().GetProperty(prop.Name);
+            if (matchingSourceProp is not null && targetType.IsAssignableFrom(matchingSourceProp.PropertyType))
+                prop.SetValue(instance, matchingSourceProp.GetValue(value));
+        }
+
+        // ---------------------------------------------------------------- attach / nesting
+
+        private static void Attach(
+            object? parent, object? child, NodeResult nodeResult,
+            Dictionary<string, EntityNodeTree> entityTrees,
+            Dictionary<string, ModelNodeTree> modelTrees,
+            string prefix = "", string childAlias = "")
+        {
+            if (parent is null || child is null) return;
+
+            var childType = child.GetType();
+            var prop = ResolveNavigationProperty(parent.GetType(), childType, prefix, childAlias);
+            if (prop is null) return;
+
+            if (typeof(IList).IsAssignableFrom(prop.PropertyType))
             {
-                prop.SetValue(instance, value.GetType().GetProperty("CustomerKey")?.GetValue(value));
+                var list = prop.GetValue(parent) as IList;
+                if (list is null)
+                {
+                    list = (IList)Activator.CreateInstance(prop.PropertyType)!;
+                    prop.SetValue(parent, list);
+                }
+
+                IEnumerable<object> candidates =
+                    !string.IsNullOrWhiteSpace(childAlias) && nodeResult.AllObjects.TryGetValue(childAlias, out var bucket)
+                        ? bucket
+                        : new[] { child };
+
+                foreach (var item in candidates)
+                {
+                    if (item is null) continue;
+
+                    var newKey = !string.IsNullOrWhiteSpace(childAlias)
+                        ? ResolveUpsertKeyValue(childAlias, item, entityTrees, modelTrees)
+                        : null;
+
+                    if (newKey is not null)
+                    {
+                        var foundIndex = -1;
+                        for (var j = 0; j < list.Count; j++)
+                        {
+                            var existingKey = ResolveUpsertKeyValue(childAlias, list[j]!, entityTrees, modelTrees);
+                            if (existingKey == newKey) { foundIndex = j; break; }
+                        }
+
+                        if (foundIndex >= 0) { list[foundIndex] = item; continue; }
+                    }
+
+                    if (!list.Contains(item)) list.Add(item);
+                }
             }
-        }
-
-        private static NodeTree? ResolveChildEntityTree(
-            string childAlias, Dictionary<string, NodeTree> entityTrees)
-        {
-            if (entityTrees.TryGetValue(childAlias, out var direct)) return direct;
-
-            var fallback = entityTrees.Values.FirstOrDefault(t =>
-                t.Alias.Equals(childAlias, StringComparison.OrdinalIgnoreCase));
-
-            if (fallback == null)
+            else if (prop.GetValue(parent) is null)
             {
-                Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.WriteLine($"[WARN] Child entity tree '{childAlias}' not found. Skipping.");
-                Console.ResetColor();
+                prop.SetValue(parent, child);
             }
 
-            return fallback;
-        }
-
-        private static NodeTree? ResolveModelTreeForEntity(
-            NodeTree entityTree,
-            string childAlias,
-            Dictionary<string, NodeTree> modelTrees)
-        {
-            var result =
-                modelTrees.Values.FirstOrDefault(t =>
-                    t.Alias.Equals(childAlias,
-                        StringComparison.OrdinalIgnoreCase))
-                ?? modelTrees.Values.FirstOrDefault(t =>
-                    t.ModelType == entityTree.ModelType);
-
-            return result;
-        }
-
-        private static NodeTree GetRootFromWrapper<TWrapper>(
-            Dictionary<string, NodeTree> modelTrees)
-        {
-            var wrapperType  = typeof(TWrapper);
-            var rootListProp = wrapperType
-                .GetProperties(BindingFlags.Public | BindingFlags.Instance)
-                .FirstOrDefault(p =>
-                    p.PropertyType.IsGenericType &&
-                    p.PropertyType.GetGenericTypeDefinition() == typeof(List<>));
-
-            if (rootListProp == null)
-                throw new InvalidOperationException($"{wrapperType.Name} has no List<T> root property");
-
-            var rootModelType = rootListProp.PropertyType.GetGenericArguments()[0];
-
-            return modelTrees.Values.FirstOrDefault(t => t.ModelType == rootModelType)
-                   ?? throw new InvalidOperationException(
-                       $"No NodeTree found for root model type '{rootModelType.Name}'");
+            if (!string.IsNullOrWhiteSpace(childAlias))
+                nodeResult.Objects[childAlias] = child;
         }
 
         private static PropertyInfo? ResolveNavigationProperty(
@@ -486,14 +459,13 @@ namespace CoffeeBeanery.Service
             {
                 var aliasProp = parentType.GetProperty(
                     childAlias, BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
-                if (aliasProp != null) return aliasProp;
+                if (aliasProp is not null) return aliasProp;
             }
 
             return parentType
                 .GetProperties(BindingFlags.Public | BindingFlags.Instance)
                 .OrderByDescending(a =>
-                    a.Name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) &&
-                    a.Name.Matches(prefix))
+                    !string.IsNullOrEmpty(prefix) && a.Name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
                 .FirstOrDefault(p =>
                 {
                     if (p.PropertyType == childType) return true;
@@ -503,9 +475,61 @@ namespace CoffeeBeanery.Service
                 });
         }
 
-        private static NodeTree? ResolveEntityTree(
+        // ---------------------------------------------------------------- tree resolution helpers
+
+        private static EntityNodeTree? ResolveChildEntityTree(
+            string childAlias, Dictionary<string, EntityNodeTree> entityTrees)
+        {
+            if (entityTrees.TryGetValue(childAlias, out var direct)) return direct;
+
+            var fallback = entityTrees.Values.FirstOrDefault(t =>
+                t.Alias.Equals(childAlias, StringComparison.OrdinalIgnoreCase));
+
+            if (fallback is null)
+            {
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine($"[WARN] Child entity tree '{childAlias}' not found. Skipping.");
+                Console.ResetColor();
+            }
+
+            return fallback;
+        }
+
+        private static ModelNodeTree? ResolveModelTreeForEntity(
+            EntityNodeTree entityTree, string childAlias, Dictionary<string, ModelNodeTree> modelTrees) =>
+            modelTrees.Values.FirstOrDefault(t => t.Alias.Equals(childAlias, StringComparison.OrdinalIgnoreCase))
+            ?? modelTrees.Values.FirstOrDefault(t => t.ModelType == entityTree.ModelType);
+
+        // ModelKey.To is a *type name* by construction (NodeBuilder.InferModelChildren /
+        // manually-declared `new ModelKey { To = nameof(SomeType) }`) - alias is only a fallback
+        // for mappings where alias happens to equal the type name (empty Prefix).
+        private static ModelNodeTree? ResolveModelTreeByNameOrAlias(
+            string name, Dictionary<string, ModelNodeTree> modelTrees) =>
+            modelTrees.Values.FirstOrDefault(t => t.ModelType.Name.Equals(name, StringComparison.OrdinalIgnoreCase))
+            ?? modelTrees.Values.FirstOrDefault(t => t.Alias.Equals(name, StringComparison.OrdinalIgnoreCase));
+
+        private static ModelNodeTree GetRootFromWrapper<TWrapper>(Dictionary<string, ModelNodeTree> modelTrees)
+        {
+            var wrapperType  = typeof(TWrapper);
+            var rootListProp = wrapperType
+                .GetProperties(BindingFlags.Public | BindingFlags.Instance)
+                .FirstOrDefault(p =>
+                    p.PropertyType.IsGenericType &&
+                    p.PropertyType.GetGenericTypeDefinition() == typeof(List<>));
+
+            if (rootListProp is null)
+                throw new InvalidOperationException($"{wrapperType.Name} has no List<T> root property");
+
+            var rootModelType = rootListProp.PropertyType.GetGenericArguments()[0];
+
+            return modelTrees.Values.FirstOrDefault(t => t.ModelType == rootModelType)
+                ?? throw new InvalidOperationException(
+                    $"No ModelNodeTree found for root model type '{rootModelType.Name}'");
+        }
+
+        private static EntityNodeTree? ResolveEntityTree(
             string? alias, Type entityType, Type? modelType, int seen,
-            Dictionary<string, NodeTree> entityTrees)
+            Dictionary<string, EntityNodeTree> entityTrees)
         {
             if (!string.IsNullOrEmpty(alias) && entityTrees.TryGetValue(alias, out var byAlias))
                 return byAlias;
@@ -514,56 +538,34 @@ namespace CoffeeBeanery.Service
             {
                 var caseMatch = entityTrees.Values.FirstOrDefault(t =>
                     t.Alias.Equals(alias, StringComparison.OrdinalIgnoreCase));
-                if (caseMatch != null) return caseMatch;
+                if (caseMatch is not null) return caseMatch;
             }
 
             var candidates = entityTrees.Values
-                .Where(t => t.EntityType == entityType &&
-                            (modelType == null || t.ModelType == modelType))
+                .Where(t => t.EntityType == entityType && (modelType is null || t.ModelType == modelType))
                 .OrderBy(t => t.Id)
                 .ToList();
 
-            if (!candidates.Any())
+            if (candidates.Count == 0)
                 candidates = entityTrees.Values
-                    .Where(t => t.EntityType?.Name.Equals(
-                        entityType.Name, StringComparison.OrdinalIgnoreCase) == true)
+                    .Where(t => t.EntityType?.Name.Equals(entityType.Name, StringComparison.OrdinalIgnoreCase) == true)
                     .OrderBy(t => t.Id)
                     .ToList();
 
             return seen < candidates.Count ? candidates[seen] : candidates.FirstOrDefault();
         }
-
-        private static Dictionary<int, string> BuildAliasIndex(
-            Dictionary<string, Type> splitOnDapper)
-        {
-            var dict = new Dictionary<int, string>();
-            int i = 0;
-            foreach (var kv in splitOnDapper)
-            {
-                var alias = kv.Key.Contains('~') 
-                    ? kv.Key.Split('~')[0] 
-                    : kv.Value?.Name ?? kv.Key;
-                dict[i++] = alias;
-            }
-            return dict;
-        }
     }
 
     public class NodeResult
     {
-        public object RootObject    { get; set; }
-        public object CurrentObject { get; set; }
+        public object RootObject    { get; set; } = null!;
+        public object CurrentObject { get; set; } = null!;
 
-        public Dictionary<string, List<object>> RawObjects { get; set; }
-            = new(StringComparer.OrdinalIgnoreCase);
+        public Dictionary<string, List<object>> RawObjects { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+        public Dictionary<string, object> Objects { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+        public Dictionary<string, List<object>> AllObjects { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
-        public Dictionary<string, object> Objects { get; set; }
-            = new(StringComparer.OrdinalIgnoreCase);
-
-        public Dictionary<string, List<object>> AllObjects { get; set; }
-            = new(StringComparer.OrdinalIgnoreCase);
-
-        public List<Type>     ModelTypes     { get; set; }
-        public List<NodeTree> ModelNodeTrees { get; set; }
+        public List<Type> ModelTypes { get; set; } = new();
+        public List<EntityNodeTree> ModelEntityNodeTrees { get; set; } = new();
     }
 }

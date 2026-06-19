@@ -8,7 +8,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
 {
     internal static class SqlPagingCompiler
     {
-        public static void GetPagination(NodeTree rootTree, SqlCompilationContext ctx, ISelection rootSelection)
+        public static void GetPagination(EntityNodeTree rootTree, SqlCompilationContext ctx, ISelection rootSelection)
         {
             var hasPagination = false;
             
@@ -49,7 +49,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
             }
         }
         
-        private static void HandleQueryClause(NodeTree rootTree, SqlCompilationContext ctx)
+        private static void HandleQueryClause(EntityNodeTree rootTree, SqlCompilationContext ctx)
         {
             var sqlQuery = new StringBuilder();
             sqlQuery.AppendLine(ctx.SelectSql);
@@ -111,7 +111,7 @@ namespace CoffeeBeanery.GraphQL.Core.Runtime
             var sql = $"WITH {rootTree.Schema}s AS (SELECT * FROM (SELECT * FROM (" + sqlQuery + $") {rootTree.Name} ) ";
             
             var orderBy = ctx.SqlOrderStatements.Count == 0
-                ? $"\"{"Id".ToString().ToSnakeCase(ctx.EntityTrees[rootTree.ModelToEntityLinks[0].AliasTo].Id)}\""
+                ? $"\"{"Id".ToString().ToSnakeCase(ctx.EntityTrees[rootTree.ModelToEntity[0].AliasTo].Id)}\""
                 : string.Join(",",  ctx.SqlOrderStatements.Select(a => a.Value)).Replace("~*~", $"{rootTree.Schema}s");
             
             var totalCount = hasPagination && ctx.HasTotalCount

@@ -11,9 +11,9 @@ public class CustomerCustomerRelationship : Process
         Schema = Entity.Schema.Banking;
     }
     
-    public int? Id { get; set; }
+    public int Id { get; set; }
     
-    public Guid CustomerCustomerRelationshipKey { get; set; }
+    public Guid? CustomerCustomerRelationshipKey { get; set; }
     
     public Guid? OuterCustomerKey { get; set; }
     
