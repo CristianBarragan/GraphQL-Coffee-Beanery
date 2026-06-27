@@ -213,7 +213,7 @@ namespace Database.Entity.Banking.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<Guid>("CustomerCustomerRelationshipKey")
+                    b.Property<Guid?>("CustomerCustomerRelationshipKey")
                         .HasColumnType("uuid");
 
                     b.Property<int?>("CustomerCustomerRelationshipType")

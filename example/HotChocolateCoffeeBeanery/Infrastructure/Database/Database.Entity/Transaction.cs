@@ -10,7 +10,7 @@ public class Transaction : Process
         Schema = Entity.Schema.Lending;
     }
 
-    public int? Id { get; set; }
+    public int Id { get; set; }
     
     public Guid TransactionKey { get; set; }
 

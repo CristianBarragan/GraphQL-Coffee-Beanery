@@ -7,7 +7,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Database.Entity.Banking.Migrations
 {
     /// <inheritdoc />
-    public partial class AddInitial : Migration
+    public partial class Initial : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -112,7 +112,7 @@ namespace Database.Entity.Banking.Migrations
                 {
                     Id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    CustomerCustomerRelationshipKey = table.Column<Guid>(type: "uuid", nullable: false),
+                    CustomerCustomerRelationshipKey = table.Column<Guid>(type: "uuid", nullable: true),
                     OuterCustomerKey = table.Column<Guid>(type: "uuid", nullable: true),
                     OuterCustomerId = table.Column<int>(type: "integer", nullable: true),
                     InnerCustomerKey = table.Column<Guid>(type: "uuid", nullable: true),

@@ -11,7 +11,7 @@ public class Contract : Process
         Schema = Entity.Schema.Lending;
     }
     
-    public int? Id { get; set; }
+    public int Id { get; set; }
     
     public Guid ContractKey { get; set; }
 

@@ -1,9 +1,9 @@
 ﻿using CoffeeBeanery.GraphQL.Core.Mapping;
 using CoffeeBeanery.GraphQL.Core.Sql;
 
-namespace CoffeeBeanery.GraphQL.Core.GraphQL
+namespace CoffeeBeanery.GraphQL.Core.Sql
 {
-    public sealed class NodeTree
+    public sealed class EntityNodeTree
     {
         
         public string Alias { get; set; } = "";
@@ -15,20 +15,12 @@ namespace CoffeeBeanery.GraphQL.Core.GraphQL
         public string Prefix { get; set; }
 
         public NodeMap NodeMap { get; set; }
-
-        public List<LinkKey> Parents { get; set; } = new();
         
-        public List<LinkKey> RelatedParents { get; set; } = new();
+        public List<EntityKey> EntityChildren { get; set; } = new();
         
-        public List<LinkKey> RelatedChildren { get; set; } = new();
+        public List<EntityKey> EntityChildrenRelated { get; set; } = new();
         
-        public List<LinkKey> Children { get; set; } = new();
-
-        public List<LinkKey> ModelToEntityLinks { get; set; } = new();
-        
-        public List<LinkKey> ModelChildren { get; set; } = new();
-        
-        public List<LinkKey> ModelParents { get; set; } = new();
+        public List<EntityKey> ModelToEntity { get; set; } = new();
 
         public List<FieldMap> Mapping { get; set; } = new();
         

@@ -11,7 +11,7 @@ public class Account : Process
         Schema = Entity.Schema.Account;
     }
     
-    public int? Id { get; set; }
+    public int Id { get; set; }
     
     public Guid AccountKey { get; set; }
 
