@@ -10,12 +10,41 @@ public static class GraphMutationPlanBuilder
         var plan = new ExecutionPlan();
         var nextId = 0;
 
-        var root = NewNode(plan, ref nextId, rootAlias, parentId: null, fieldName: null);
+        var (resolvedAlias, innerNode) = ResolveWrapperRoot(rootAlias, node);
+
+        var root = NewNode(plan, ref nextId, resolvedAlias, parentId: null, fieldName: null);
         plan.RootNodeId = root.Id;
 
-        WalkNode(plan, ref nextId, root, node);
+        WalkNode(plan, ref nextId, root, innerNode);
 
         return plan;
+    }
+
+    // Mirrors GraphQueryPlanBuilder.ResolveWrapperRoot: skips past a model-only wrapper
+    // argument (e.g. Wrapper, where exactly one field is populated per mutation - signaled
+    // by a sibling enum/discriminator argument, not by the shape of this value itself) so
+    // plan.RootNodeId always lands on the real entity being written, with that one populated
+    // field's value becoming the node to walk from.
+    private static (string Alias, IValueNode Node) ResolveWrapperRoot(string rootAlias, IValueNode node)
+    {
+        if (NodeRegistry.FrozenEntityTrees.ContainsKey(rootAlias))
+            return (rootAlias, node);
+
+        if (node is not ObjectValueNode obj)
+            return (rootAlias, node);
+
+        foreach (var f in obj.Fields)
+        {
+            var name = f.Name.Value;
+
+            if (f.Value is NullValueNode)
+                continue;
+
+            if (NodeRegistry.FrozenEdgeByAliasAndField.TryGetValue((rootAlias, name), out var edge))
+                return ResolveWrapperRoot(edge.ToAlias, f.Value);
+        }
+
+        return (rootAlias, node);
     }
 
     private static ExecutionNode NewNode(ExecutionPlan plan, ref int nextId, string alias, int? parentId, string? fieldName)

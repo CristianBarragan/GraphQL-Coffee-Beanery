@@ -31,10 +31,6 @@ namespace CoffeeBeanery.Service.Materialization
 
             var trees = nodeIdOrder.ToDictionary(id => id, id => ResolveTree(plan.Nodes[id].Alias, modelTrees, entityTrees));
 
-            // childByParentNodeId[parentNodeId] -> set of child NodeIds, derived straight from
-            // the plan's own edges (NodeId -> NodeId), not from a re-scan of EntityKey.AliasTo
-            // against an alias list - that re-scan is exactly what couldn't distinguish two
-            // same-alias instances (the self-join case) in the first place.
             var childNodeIdsByParent = new Dictionary<int, List<int>>();
             foreach (var nodeId in nodeIdOrder)
             {
@@ -121,7 +117,7 @@ namespace CoffeeBeanery.Service.Materialization
                 return new Tree(alias, et.ModelType, et.EntityType);
 
             if (modelTrees.TryGetValue(alias, out var mt))
-                return new Tree(alias, mt.ModelType, null);
+                return new Tree(alias, mt.ModelType, mt.EntityType);
 
             throw new InvalidOperationException(
                 $"No EntityNodeTree or ModelNodeTree registered for alias '{alias}'. " +

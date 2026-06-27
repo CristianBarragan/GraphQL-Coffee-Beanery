@@ -10,32 +10,6 @@ using CoffeeBeanery.GraphQL.Core.Mapping.Generators.Parsing;
 
 namespace CoffeeBeanery.GraphQL.Core.Mapping.Generators
 {
-    /// <summary>
-    /// Replaces NodeBuilder's five reflective passes (InferModelChildren,
-    /// GenerateReflectedFieldMaps, ResolveFieldMapAliases, BuildTree, BuildModel)
-    /// with a compile-time pipeline over Roslyn symbols. Output: a generated
-    /// partial class per BaseModelMappingRegistration&lt;T&gt; subtype overriding
-    /// Register() with literal NodeRegistry population - no reflection, fully
-    /// trim/Native AOT safe.
-    ///
-    /// REQUIRED changes to hand-written code:
-    ///   1. Mapping classes (e.g. ProductMapping) must be declared `partial`.
-    ///   2. BaseModelMappingRegistration&lt;T&gt;.Register() must be `virtual`
-    ///      (the generated partial provides the `override`).
-    ///   3. BaseModelMappingRegistration&lt;T&gt; must expose the constructor's
-    ///      alias/model strings as `protected string Alias` / `protected string ModelName`
-    ///      (or equivalent names - update NodeTreeEmitter if named differently).
-    ///
-    /// NOTE: per-class parsing alone can't tell whether a navigation target is a
-    /// Wrapper-rooted, globally-aliased model (e.g. CustomerCustomerEdge, registered once
-    /// under a bare alias) or a role-scoped child that should inherit the navigating
-    /// mapping's alias prefix (e.g. Customer under InnerCustomer/OuterCustomer) - that
-    /// requires (a) parsing Wrapper itself, and (b) seeing every other mapping's
-    /// ModelType/EntityType to bridge a navigation's RelatedEntityType back to its owning
-    /// model. Both are computed once per compilation below and threaded into navigation
-    /// resolution as `rootEntityTypes`, instead of being decided inside
-    /// EntityNavigationConvention/NodeTreeEmitter from a single mapping's own data.
-    /// </summary>
     [Generator(LanguageNames.CSharp)]
     public sealed class MappingNodeGenerator : IIncrementalGenerator
     {
@@ -53,13 +27,8 @@ namespace CoffeeBeanery.GraphQL.Core.Mapping.Generators
                 .Where(static info => info is not null)
                 .Select(static (info, _) => info!);
 
-            // All parsed mappings, collected once per compilation - needed to bridge a
-            // navigation's RelatedEntityType (an entity symbol) back to the model type that
-            // owns it, since Wrapper only ever names model types, not entity types.
             var allMappings = mappingClasses.Collect();
 
-            // Wrapper's own root model types (e.g. { CustomerCustomerEdge }), resolved once
-            // per compilation rather than re-parsing Wrapper for every mapping class.
             var rootModelTypes = context.CompilationProvider
                 .Select(static (compilation, ct) => WrapperRootModelResolver.Resolve(compilation, ct));
 
@@ -110,7 +79,6 @@ namespace CoffeeBeanery.GraphQL.Core.Mapping.Generators
             if (info.Diagnostics.Any(x => x.Severity == DiagnosticSeverity.Error))
                 return;
 
-            // order now irrelevant for aliasing (safe)
             ModelChildrenInference.Apply(info);
             FieldMapGeneration.Apply(info, spc);
 
@@ -126,13 +94,6 @@ namespace CoffeeBeanery.GraphQL.Core.Mapping.Generators
             spc.AddSource($"{info.ClassName}.MappingRegistration.g.cs", source);
         }
 
-        /// <summary>
-        /// Bridges Wrapper's root MODEL types to the ENTITY types navigations actually
-        /// target: for every parsed mapping whose ModelType is one of Wrapper's root
-        /// properties, its EntityType (if any) is a "root entity type" - any navigation
-        /// landing on that entity type targets a globally-aliased mapping and must not be
-        /// prefixed by the navigating mapping's own Prefix.
-        /// </summary>
         private static ImmutableHashSet<INamedTypeSymbol> ResolveRootEntityTypes(
             ImmutableArray<MappingClassInfo> allMappings,
             ImmutableHashSet<INamedTypeSymbol> rootModelTypes)

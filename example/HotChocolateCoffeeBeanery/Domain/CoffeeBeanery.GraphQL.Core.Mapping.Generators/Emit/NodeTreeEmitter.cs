@@ -184,15 +184,8 @@ namespace CoffeeBeanery.GraphQL.Core.Mapping.Generators.Emit
         // HELPERS
         // ------------------------------------------------------------
 
-        private static string AliasFor(
-            MappingClassInfo info,
-            string seed,
-            bool targetIsRoot)
+        private static string AliasFor(MappingClassInfo info, string seed, bool targetIsRoot)
         {
-            if (info.EntityType != null &&
-                seed.Equals(info.EntityType.Name, System.StringComparison.OrdinalIgnoreCase))
-                return "alias";
-
             if (targetIsRoot)
                 return $"\"{seed}\"";
 

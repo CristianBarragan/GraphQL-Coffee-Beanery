@@ -53,11 +53,11 @@ public static class NodeRegistry
 
     public static void Register(Graph graph)
     {
-        // ...existing registration...
         Graph = graph;
         EdgeByAliasAndField = graph.Edges
             .Where(e => e.Kind == GraphEdgeKind.ModelToEntity)
-            .ToDictionary(e => (e.FromAlias, e.FieldName), e => e);
+            .GroupBy(e => (e.FromAlias, e.FieldName))
+            .ToDictionary(g => g.Key, g => g.Last());
     }
 
     public static void Freeze()
@@ -74,14 +74,6 @@ public static class NodeRegistry
         FrozenEdgeByAliasAndField = EdgeByAliasAndField.ToFrozenDictionary();
     }
 
-    /// <summary>
-    /// Resolves a (alias, GraphQL field name) leaf to the real (EntityAlias, EntityColumn)
-    /// pairs it maps onto - this is the same data ColumnByField already carries, just under
-    /// the name every walker (QueryGraphWalker, MutationGraphWalker, GraphQueryPlanBuilder,
-    /// GraphMutationPlanBuilder) was calling it by. Empty result (not an exception) when the
-    /// field isn't a registered scalar mapping, since callers treat "no leaf" as "not a
-    /// scalar - try it as a navigation instead".
-    /// </summary>
     public static IReadOnlyList<(string EntityAlias, string EntityColumn)> ResolveLeaf(string alias, string field)
         => FrozenColumnByField.TryGetValue((alias, field), out var cols)
             ? cols

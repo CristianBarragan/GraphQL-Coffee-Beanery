@@ -45,12 +45,6 @@ public class ProcessService<M> : IProcessService<M>
 
         var entityTree = NodeRegistry.EntityTrees.First(x => x.Value.Alias == rootTree.Alias).Value;
 
-        // SqlQueryCompiler.Compile(context, selection, entityTree, _cache, cacheKey);
-        //
-        // context.ModelTrees = NodeRegistry.ModelTrees;
-        // context.EntityTrees = NodeRegistry.EntityTrees;
-        // context.RelativeTree = rootTree;
-
         var parameters = new ProcessQueryParameters
         {
             Context = context,
@@ -72,71 +66,69 @@ public class ProcessService<M> : IProcessService<M>
     }
 
     public async Task<QueryResult<M>> MutationProcessAsync(
-    string cacheKey,
-    ISelection selection,
-    string modelName,
-    CancellationToken cancellationToken)
-{
-    var rootTree = NodeRegistry.ModelTrees.First(x => x.Value.ModelName == modelName).Value;
-    var entityTree = NodeRegistry.EntityTrees.First(x => x.Value.ModelName == rootTree.ModelName).Value;
-
-    var mutationArgument = selection.SyntaxNode.Arguments
-        .FirstOrDefault(a => a.Name.Value != "where" && a.Name.Value != "order");
-
-    ExecutionPlan? mutationPlan = null;
-
-    if (mutationArgument?.Value is ObjectValueNode obj)
+        string cacheKey,
+        ISelection selection,
+        string modelName,
+        CancellationToken cancellationToken)
     {
-        var rootField = obj.Fields.FirstOrDefault(f => f.Value is ObjectValueNode or ListValueNode);
-        if (rootField != null)
-            mutationPlan = GraphMutationPlanBuilder.Build(entityTree.Alias, rootField.Value);
+        var rootTree = NodeRegistry.ModelTrees.First(x => x.Value.ModelName == modelName).Value;
+        var entityTree = NodeRegistry.EntityTrees.First(x => x.Value.ModelName == rootTree.ModelName).Value;
+
+        var mutationArgument = selection.SyntaxNode.Arguments
+            .FirstOrDefault(a => a.Name.Value != "where" && a.Name.Value != "order");
+
+        ExecutionPlan? mutationPlan = null;
+
+        if (mutationArgument?.Value is ObjectValueNode obj)
+        {
+            mutationPlan = GraphMutationPlanBuilder.Build(rootTree.Alias, obj);
+        }
+
+        mutationPlan ??= GraphMutationPlanBuilder.Build(rootTree.Alias, new NullValueNode(null));
+
+        var statements = new List<string>();
+        var mergeStatements = new List<string>();
+
+        SqlHelper.GenerateUpsertStatements(
+            NodeRegistry.EntityTrees,
+            mutationPlan,
+            entityTree,
+            new Dictionary<string, string>(),
+            statements,
+            mergeStatements);
+
+        var selectionSet = selection.SyntaxNode.SelectionSet;
+
+        var queryPlan = GraphQueryPlanBuilder.Build(rootTree.Alias, selectionSet);
+
+        var select = SqlSelectStatementBuilder.Build(
+            NodeRegistry.EntityTrees,
+            queryPlan,
+            entityTree,
+            new Dictionary<string, string>(),
+            new Dictionary<string, string>());
+
+        var batchSql = string.Join("\n", statements.Concat(mergeStatements)) + "\n" + select.Sql;
+
+        using var connection = await AgeConnectionFactory.OpenAsync(_dataSource);
+
+        using var grid = await connection.QueryMultipleAsync(
+            new CommandDefinition(batchSql, cancellationToken: cancellationToken));
+
+        var rawRows = grid.Read(select.Types.ToArray(), objs => objs, splitOn: select.SplitOn);
+
+        var rows = rawRows.Select(x => (object?[])x).ToList();
+
+        var models = DynamicGraphMaterializer.Materialize<M>(
+            queryPlan,
+            select.NodeIdOrder,
+            rows);
+
+        return new QueryResult<M>
+        {
+            Models = models,
+            TotalCount = models.Count,
+            TotalPageRecords = models.Count
+        };
     }
-
-    mutationPlan ??= GraphMutationPlanBuilder.Build(entityTree.Alias, new NullValueNode(null));
-
-    var statements = new List<string>();
-    var mergeStatements = new List<string>();
-
-    SqlHelper.GenerateUpsertStatements(
-        NodeRegistry.EntityTrees,
-        mutationPlan,
-        entityTree,
-        new Dictionary<string, string>(),
-        statements,
-        mergeStatements);
-
-    var selectionSet = selection.SyntaxNode.SelectionSet;
-
-    var queryPlan = GraphQueryPlanBuilder.Build(rootTree.Alias, selectionSet);
-
-    var select = SqlSelectStatementBuilder.Build(
-        NodeRegistry.EntityTrees,
-        queryPlan,
-        entityTree,
-        new Dictionary<string, string>(),
-        new Dictionary<string, string>());
-
-    var batchSql = string.Join("\n", statements.Concat(mergeStatements)) + "\n" + select.Sql;
-
-    using var connection = await AgeConnectionFactory.OpenAsync(_dataSource);
-
-    using var grid = await connection.QueryMultipleAsync(
-        new CommandDefinition(batchSql, cancellationToken: cancellationToken));
-
-    var rawRows = grid.Read(select.Types.ToArray(), objs => objs, splitOn: select.SplitOn);
-
-    var rows = rawRows.Select(x => (object?[])x).ToList();
-
-    var models = DynamicGraphMaterializer.Materialize<M>(
-        queryPlan,
-        select.NodeIdOrder,
-        rows);
-
-    return new QueryResult<M>
-    {
-        Models = models,
-        TotalCount = models.Count,
-        TotalPageRecords = models.Count
-    };
-}
 }

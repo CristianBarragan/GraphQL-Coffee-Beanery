@@ -10,21 +10,66 @@ public static class GraphQueryPlanBuilder
 
     private static readonly HashSet<string> ConnectionMetaFields =
         new(StringComparer.OrdinalIgnoreCase) { "pageInfo", "totalCount" };
-    
+
     public static ExecutionPlan Build(string rootAlias, SelectionSetNode? set)
     {
         var plan = new ExecutionPlan();
         var nextId = 0;
 
-        var root = NewNode(plan, ref nextId, rootAlias, parentId: null, fieldName: null);
+        var (resolvedAlias, innerSet) = ResolveWrapperRoot(rootAlias, set);
+
+        var root = NewNode(plan, ref nextId, resolvedAlias, parentId: null, fieldName: null);
         plan.RootNodeId = root.Id;
 
         SeedPrimaryKey(root);
 
-        if (set != null)
-            WalkSet(plan, ref nextId, root, set);
+        if (innerSet != null)
+            WalkSet(plan, ref nextId, root, innerSet);
 
         return plan;
+    }
+
+    private static (string Alias, SelectionSetNode? Set) ResolveWrapperRoot(string rootAlias, SelectionSetNode? set)
+    {
+        if (set is null)
+            return (rootAlias, set);
+
+        if (NodeRegistry.FrozenEntityTrees.ContainsKey(rootAlias))
+            return (rootAlias, set);
+
+        foreach (var s in set.Selections)
+        {
+            if (s is not FieldNode f) continue;
+
+            var name = f.Name.Value;
+
+            if (ConnectionMetaFields.Contains(name))
+                continue;
+
+            if (ConnectionWrapperFields.Contains(name))
+            {
+                if (f.SelectionSet != null)
+                    return ResolveWrapperRoot(rootAlias, f.SelectionSet);
+                continue;
+            }
+
+            if (NodeRegistry.FrozenEdgeByAliasAndField.TryGetValue((rootAlias, name), out var edge)
+                && f.SelectionSet != null)
+            {
+                var targetAlias = edge.ToAlias;
+
+                if (NodeRegistry.FrozenModelTrees.TryGetValue(targetAlias, out var targetModel)
+                    && targetModel.EntityType is not null
+                    && NodeRegistry.FrozenEntityTrees.ContainsKey(targetModel.EntityType.Name))
+                {
+                    return (targetModel.EntityType.Name, f.SelectionSet);
+                }
+
+                return ResolveWrapperRoot(targetAlias, f.SelectionSet);
+            }
+        }
+
+        return (rootAlias, set);
     }
 
     private static ExecutionNode NewNode(ExecutionPlan plan, ref int nextId, string alias, int? parentId, string? fieldName)
@@ -53,71 +98,71 @@ public static class GraphQueryPlanBuilder
             node.Columns.Add("Id");
     }
 
-private static void WalkSet(ExecutionPlan plan, ref int nextId, ExecutionNode current, SelectionSetNode set)
-{
-    foreach (var s in set.Selections)
+    private static void WalkSet(ExecutionPlan plan, ref int nextId, ExecutionNode current, SelectionSetNode set)
     {
-        if (s is not FieldNode f) continue;
-
-        var name = f.Name.Value;
-
-        if (ConnectionMetaFields.Contains(name))
-            continue;
-
-        if (ConnectionWrapperFields.Contains(name))
+        foreach (var s in set.Selections)
         {
-            if (f.SelectionSet != null)
-                WalkSet(plan, ref nextId, current, f.SelectionSet);
-            continue;
-        }
+            if (s is not FieldNode f) continue;
 
-        if (NodeRegistry.FrozenEdgeByAliasAndField.TryGetValue((current.Alias, name), out var edge))
-        {
-            var child = NewNode(plan, ref nextId, edge.ToAlias, current.Id, name);
+            var name = f.Name.Value;
 
-            if (child.IsEntity)
-                SeedPrimaryKey(child);
+            if (ConnectionMetaFields.Contains(name))
+                continue;
 
-            plan.Edges[current.Id].Add(new ExecutionEdge
+            if (ConnectionWrapperFields.Contains(name))
             {
-                From = current.Id,
-                To = child.Id,
-                FieldName = name,
-                Kind = edge.Kind,
-                FromColumn = edge.FromColumn,
-                ToColumn = edge.ToColumn
-            });
-
-            if (f.SelectionSet != null)
-                WalkSet(plan, ref nextId, child, f.SelectionSet);
-
-            continue;
-        }
-
-        var leaf = NodeRegistry.ResolveLeaf(current.Alias, name);
-        if (leaf.Count > 0)
-        {
-            foreach (var (ea, col) in leaf)
-            {
-                var target = string.Equals(ea, current.Alias, StringComparison.OrdinalIgnoreCase)
-                    ? current
-                    : FindAncestorByAlias(plan, current, ea) ?? current;
-
-                if (!target.Columns.Contains(col))
-                    target.Columns.Add(col);
+                if (f.SelectionSet != null)
+                    WalkSet(plan, ref nextId, current, f.SelectionSet);
+                continue;
             }
 
-            if (f.SelectionSet != null)
-                WalkSet(plan, ref nextId, current, f.SelectionSet);
+            if (NodeRegistry.FrozenEdgeByAliasAndField.TryGetValue((current.Alias, name), out var edge))
+            {
+                var child = NewNode(plan, ref nextId, edge.ToAlias, current.Id, name);
 
-            continue;
+                if (child.IsEntity)
+                    SeedPrimaryKey(child);
+
+                plan.Edges[current.Id].Add(new ExecutionEdge
+                {
+                    From = current.Id,
+                    To = child.Id,
+                    FieldName = name,
+                    Kind = edge.Kind,
+                    FromColumn = edge.FromColumn,
+                    ToColumn = edge.ToColumn
+                });
+
+                if (f.SelectionSet != null)
+                    WalkSet(plan, ref nextId, child, f.SelectionSet);
+
+                continue;
+            }
+
+            var leaf = NodeRegistry.ResolveLeaf(current.Alias, name);
+            if (leaf.Count > 0)
+            {
+                foreach (var (ea, col) in leaf)
+                {
+                    var target = string.Equals(ea, current.Alias, StringComparison.OrdinalIgnoreCase)
+                        ? current
+                        : FindAncestorByAlias(plan, current, ea) ?? current;
+
+                    if (!target.Columns.Contains(col))
+                        target.Columns.Add(col);
+                }
+
+                if (f.SelectionSet != null)
+                    WalkSet(plan, ref nextId, current, f.SelectionSet);
+
+                continue;
+            }
+
+            // throw new InvalidOperationException(
+            //     $"Field '{name}' on alias '{current.Alias}' is not a registered navigation edge or scalar leaf. " +
+            //     "Check NodeRegistry.FrozenEdgeByAliasAndField / FrozenColumnByField registration.");
         }
-
-        throw new InvalidOperationException(
-            $"Field '{name}' on alias '{current.Alias}' is not a registered navigation edge or scalar leaf. " +
-            "Check NodeRegistry.FrozenEdgeByAliasAndField / FrozenColumnByField registration.");
     }
-}
 
     private static ExecutionNode? FindAncestorByAlias(ExecutionPlan plan, ExecutionNode start, string alias)
     {
