@@ -1,7 +1,7 @@
 ﻿using CoffeeBeanery.GraphQL.Core.Mapping;
 using CoffeeBeanery.GraphQL.Core.Sql;
 
-namespace CoffeeBeanery.GraphQL.Core.GraphQL
+namespace CoffeeBeanery.GraphQL.Core.Sql
 {
     public sealed class EntityNodeTree
     {

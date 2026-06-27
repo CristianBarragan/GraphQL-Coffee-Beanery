@@ -1,5 +1,5 @@
 ﻿using System.Collections.Frozen;
-using CoffeeBeanery.GraphQL.Core.GraphQL;
+using CoffeeBeanery.GraphQL.Core.Runtime;
 using CoffeeBeanery.GraphQL.Core.Sql;
 
 namespace CoffeeBeanery.Service.Materialization
@@ -7,101 +7,110 @@ namespace CoffeeBeanery.Service.Materialization
     public static class DynamicGraphMaterializer
     {
         public static List<M> Materialize<M>(
-            string rootAlias,                     // alias the caller walked the query/mutation from - same
-                                                    // entityTree.Alias ProcessService already has on hand
-            IReadOnlyList<string> aliasOrder,
+            ExecutionPlan plan,
+            IReadOnlyList<int> nodeIdOrder,
             IReadOnlyList<object?[]> rowMatrix)
             where M : class
         {
-            if (aliasOrder.Count == 0 || rowMatrix.Count == 0)
+            if (nodeIdOrder.Count == 0 || rowMatrix.Count == 0)
                 return new List<M>();
 
-            if (!aliasOrder.Contains(rootAlias, StringComparer.OrdinalIgnoreCase))
+            if (!nodeIdOrder.Contains(plan.RootNodeId))
                 throw new InvalidOperationException(
-                    $"rootAlias '{rootAlias}' is not present in aliasOrder [{string.Join(", ", aliasOrder)}]. " +
-                    "The root alias must always be requested/selected (QueryGraphWalker seeds its PK automatically).");
+                    $"RootNodeId '{plan.RootNodeId}' is not present in nodeIdOrder [{string.Join(", ", nodeIdOrder)}]. " +
+                    "The root node must always be requested/selected (GraphQueryPlanBuilder seeds its PK automatically).");
 
             NodeRegistry.Freeze();
 
             var modelTrees = NodeRegistry.FrozenModelTrees;
             var entityTrees = NodeRegistry.FrozenEntityTrees;
-            var factories = NodeRegistry.FrozenModelFactories;
-            var appliers = NodeRegistry.FrozenEntityToModelAppliers;
-            var keyGetters = NodeRegistry.FrozenKeyGetters;
-            var attachers = NodeRegistry.FrozenAttachers;
+            // var factories = NodeRegistry.FrozenModelFactories;
+            // var appliers = NodeRegistry.FrozenEntityToModelAppliers;
+            // var keyGetters = NodeRegistry.FrozenKeyGetters;
+            // var attachers = NodeRegistry.FrozenAttachers;
 
-            var trees = aliasOrder.ToDictionary(a => a, a => ResolveTree(a, modelTrees, entityTrees), StringComparer.OrdinalIgnoreCase);
+            var trees = nodeIdOrder.ToDictionary(id => id, id => ResolveTree(plan.Nodes[id].Alias, modelTrees, entityTrees));
 
-            var modelCache = new Dictionary<string, Dictionary<string, object>>(StringComparer.OrdinalIgnoreCase);
-            var modelOrder = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
-            var attached = new Dictionary<(object Parent, string ChildAlias), HashSet<string>>();
-
-            foreach (var alias in aliasOrder)
+            // childByParentNodeId[parentNodeId] -> set of child NodeIds, derived straight from
+            // the plan's own edges (NodeId -> NodeId), not from a re-scan of EntityKey.AliasTo
+            // against an alias list - that re-scan is exactly what couldn't distinguish two
+            // same-alias instances (the self-join case) in the first place.
+            var childNodeIdsByParent = new Dictionary<int, List<int>>();
+            foreach (var nodeId in nodeIdOrder)
             {
-                modelCache[alias] = new Dictionary<string, object>(StringComparer.Ordinal);
-                modelOrder[alias] = new List<string>();
+                if (!plan.Edges.TryGetValue(nodeId, out var edges)) continue;
+                childNodeIdsByParent[nodeId] = edges
+                    .Where(e => nodeIdOrder.Contains(e.To))
+                    .Select(e => e.To)
+                    .ToList();
+            }
+
+            var modelCache = new Dictionary<int, Dictionary<string, object>>();
+            var modelOrder = new Dictionary<int, List<string>>();
+            var attached = new Dictionary<(object Parent, int ChildNodeId), HashSet<string>>();
+
+            foreach (var nodeId in nodeIdOrder)
+            {
+                modelCache[nodeId] = new Dictionary<string, object>(StringComparer.Ordinal);
+                modelOrder[nodeId] = new List<string>();
             }
 
             foreach (var row in rowMatrix)
             {
-                var rowModels = new Dictionary<string, (object Model, string Key)>(StringComparer.OrdinalIgnoreCase);
+                var rowModels = new Dictionary<int, (object Model, string Key)>();
 
-                for (var i = 0; i < aliasOrder.Count && i < row.Length; i++)
+                for (var i = 0; i < nodeIdOrder.Count && i < row.Length; i++)
                 {
-                    var alias = aliasOrder[i];
+                    var nodeId = nodeIdOrder[i];
                     var entityInstance = row[i];
                     if (entityInstance is null) continue;
 
-                    if (!keyGetters.TryGetValue(alias, out var keyGetter))
-                        continue;
+                    // if (!keyGetters.TryGetValue(plan.Nodes[nodeId].Alias, out var keyGetter))
+                    //     continue;
 
-                    var pk = keyGetter(entityInstance);
-                    if (pk is null) continue;
-
-                    if (!modelCache[alias].TryGetValue(pk, out var modelInstance))
-                    {
-                        modelInstance = CreateModelFromEntity(alias, entityInstance, factories, appliers);
-                        modelCache[alias][pk] = modelInstance;
-                        modelOrder[alias].Add(pk);
-                    }
-
-                    rowModels[alias] = (modelInstance, pk);
+                    // var pk = keyGetter(entityInstance);
+                    // if (pk is null) continue;
+                    //
+                    // if (!modelCache[nodeId].TryGetValue(pk, out var modelInstance))
+                    // {
+                    //     // modelInstance = CreateModelFromEntity(plan.Nodes[nodeId].Alias, entityInstance, factories, appliers);
+                    //     modelCache[nodeId][pk] = modelInstance;
+                    //     modelOrder[nodeId].Add(pk);
+                    // }
+                    //
+                    // rowModels[nodeId] = (modelInstance, pk);
                 }
 
-                foreach (var alias in aliasOrder)
+                foreach (var nodeId in nodeIdOrder)
                 {
-                    if (!rowModels.TryGetValue(alias, out var parent)) continue;
-                    var tree = trees[alias];
+                    if (!rowModels.TryGetValue(nodeId, out var parent)) continue;
+                    if (!childNodeIdsByParent.TryGetValue(nodeId, out var childIds)) continue;
 
-                    foreach (var childKey in tree.Children)
+                    foreach (var childNodeId in childIds)
                     {
-                        var childAlias = aliasOrder.FirstOrDefault(a =>
-                            string.Equals(a, childKey.AliasTo, StringComparison.OrdinalIgnoreCase));
-
-                        if (childAlias is null || !rowModels.TryGetValue(childAlias, out var child))
+                        if (!rowModels.TryGetValue(childNodeId, out var child))
                             continue;
 
-                        if (!attachers.TryGetValue((alias, childAlias), out var attach))
-                            continue;
-
-                        var trackKey = (parent.Model, childAlias);
-                        if (!attached.TryGetValue(trackKey, out var seen))
-                            attached[trackKey] = seen = new HashSet<string>(StringComparer.Ordinal);
-
-                        if (seen.Add(child.Key))
-                            attach(parent.Model, child.Model);
+                        // if (!attachers.TryGetValue((plan.Nodes[nodeId].Alias, plan.Nodes[childNodeId].Alias), out var attach))
+                        //     continue;
+                        //
+                        // var trackKey = (parent.Model, childNodeId);
+                        // if (!attached.TryGetValue(trackKey, out var seen))
+                        //     attached[trackKey] = seen = new HashSet<string>(StringComparer.Ordinal);
+                        //
+                        // if (seen.Add(child.Key))
+                        //     attach(parent.Model, child.Model);
                     }
                 }
             }
 
-            return modelOrder[rootAlias].Select(k => (M)modelCache[rootAlias][k]).ToList();
+            return modelOrder[plan.RootNodeId].Select(k => (M)modelCache[plan.RootNodeId][k]).ToList();
         }
 
         private sealed record Tree(
             string Alias,
             Type ModelType,
-            Type? EntityType,
-            List<EntityKey> Children);        // EntityChildren + EntityChildrenRelated
+            Type? EntityType);
 
         private static Tree ResolveTree(
             string alias,
@@ -109,22 +118,10 @@ namespace CoffeeBeanery.Service.Materialization
             FrozenDictionary<string, EntityNodeTree> entityTrees)
         {
             if (entityTrees.TryGetValue(alias, out var et))
-            {
-                return new Tree(
-                    alias,
-                    et.ModelType,
-                    et.EntityType,
-                    et.EntityChildren.Concat(et.EntityChildrenRelated).ToList());
-            }
+                return new Tree(alias, et.ModelType, et.EntityType);
 
             if (modelTrees.TryGetValue(alias, out var mt))
-            {
-                return new Tree(
-                    alias,
-                    mt.ModelType,
-                    mt.EntityType,
-                    new List<EntityKey>()); // model-only nodes (Product, Wrapper) carry no entity join graph
-            }
+                return new Tree(alias, mt.ModelType, null);
 
             throw new InvalidOperationException(
                 $"No EntityNodeTree or ModelNodeTree registered for alias '{alias}'. " +

@@ -6,33 +6,20 @@
 // using CustomerCustomerEdge = Database.Graph.CustomerCustomerEdge;
 // using DataEntity = Database.Entity;
 //
-// public class CustomerCustomerRelationshipMappingSet : IMappingSet<CustomerMappingType, Domain.Model.Model>
+// public class CustomerCustomerRelationshipMappingSet
+//     : IMappingSet
 // {
-//     public void Register(CustomerMappingType type, Domain.Model.Model model)
+//     public void Register()
 //     {
-//         new CustomerCustomerRelationshipMapping("", model.ToString()).Register();
+//         new CustomerCustomerRelationshipMapping().Register();
 //     }
 // }
 //
-// public partial class CustomerCustomerRelationshipMapping
-//     : BaseMappingRegistration<Domain.Model.CustomerCustomerEdge, DataEntity.CustomerCustomerRelationship>
+// public sealed partial class CustomerCustomerRelationshipMapping
+//     : BaseMappingRegistration<CustomerCustomerRelationship>
 // {
-//     public CustomerCustomerRelationshipMapping(string alias, string model) : base(alias, model) { }
-//
 //     protected override NodeMap BuildMap()
 //     {
-//         // FIX: ModelName must be set explicitly here, same as CustomerCustomerEdgeMapping
-//         // does. Previously this was left unset and BaseMappingRegistration.Register()'s
-//         // fallback kicked in:
-//         //     if (string.IsNullOrEmpty(map.ModelName))
-//         //         map.ModelName = string.IsNullOrEmpty(Prefix) ? Model : Prefix;
-//         // `Model` here is `model.ToString()` from the constructor call
-//         // `new CustomerCustomerRelationshipMapping("", model.ToString())`, where `model` is
-//         // a Domain.Model.Model enum value that can stringify to "CustomerCustomerRelationship"
-//         // (the backing entity's name) - NOT this mapping's actual model name,
-//         // "CustomerCustomerEdge". That mismatch was silently breaking any downstream lookup
-//         // that compares ModelName against the model type (e.g. ProcessService's
-//         // entityTree.ModelName.Matches(rootTree.ModelName)).
 //         var map = new NodeMap
 //         {
 //             ModelName = nameof(Domain.Model.CustomerCustomerEdge),

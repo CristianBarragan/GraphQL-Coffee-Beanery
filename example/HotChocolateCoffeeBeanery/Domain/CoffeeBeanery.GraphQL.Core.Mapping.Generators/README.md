@@ -22,7 +22,7 @@ first if something doesn't compile.
 
 2. **`BaseModelMappingRegistration<T>.Register()` must be `virtual`.**
    The generated partial provides `public override void Register()`, which
-   builds `ModelNodeTree` / `EntityNodeTree` / `ModelNode` / `EntityNode`
+   builds `ModelNodeTree` / `CoffeeBeanery.GraphQL.Core.Sql.EntityNodeTree` / `ModelNode` / `EntityNode`
    directly and calls `NodeRegistry.RegisterNode(...)` — it never calls
    `BuildMap()` or touches `NodeBuilder` at runtime. `BuildMap()` itself stays
    in your hand-written file purely as the *source of truth the generator

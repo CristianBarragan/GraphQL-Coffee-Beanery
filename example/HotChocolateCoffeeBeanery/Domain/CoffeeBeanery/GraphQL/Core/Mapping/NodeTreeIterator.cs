@@ -1,11 +1,10 @@
-﻿using CoffeeBeanery.GraphQL.Core.GraphQL;
-using CoffeeBeanery.GraphQL.Core.Mapping;
+﻿using CoffeeBeanery.GraphQL.Core.Mapping;
 using CoffeeBeanery.GraphQL.Core.Sql;
 
 public static class EntityNodeTreeIterator
 {
     public static EntityNodeTree GenerateTree<M>(
-        Dictionary<string, EntityNodeTree> EntityNodeTrees,
+        Dictionary<string, EntityNodeTree> entityNodeTrees,
         M rootInstance,
         string rootAlias,
         List<KeyValuePair<string, int>> nodeIds,
@@ -21,12 +20,12 @@ public static class EntityNodeTreeIterator
         if (rootMap == null)
         {
             throw new InvalidOperationException(
-                $"[EntityNodeTreeIterator] No NodeMap registered for root alias '{rootAlias}'. " +
+                $"[CoffeeBeanery.GraphQL.Core.Sql.EntityNodeTreeIterator] No NodeMap registered for root alias '{rootAlias}'. " +
                 $"Registered keys: [{string.Join(", ", MappingRegistry.Registry.Keys)}]");
         }
 
         return IterateTree(
-            EntityNodeTrees,
+            entityNodeTrees,
             rootMap,
             rootAlias,
             string.Empty,
@@ -37,8 +36,8 @@ public static class EntityNodeTreeIterator
             ref counter)!;
     }
 
-    private static EntityNodeTree? IterateTree(
-        Dictionary<string, EntityNodeTree> EntityNodeTrees,
+    private static CoffeeBeanery.GraphQL.Core.Sql.EntityNodeTree? IterateTree(
+        Dictionary<string, CoffeeBeanery.GraphQL.Core.Sql.EntityNodeTree> entityNodeTrees,
         NodeMap nodeMap,
         string currentAlias,
         string parentAlias,
@@ -64,7 +63,7 @@ public static class EntityNodeTreeIterator
         nodeMap.Id = id;
         nodeMap.Alias = currentAlias;
 
-        var node = new EntityNodeTree
+        var node = new CoffeeBeanery.GraphQL.Core.Sql.EntityNodeTree
         {
             Id = id,
             Name = currentAlias,
@@ -113,7 +112,7 @@ public static class EntityNodeTreeIterator
                 continue;
 
             var childNode = IterateTree(
-                EntityNodeTrees,
+                entityNodeTrees,
                 childMap,
                 childAlias,
                 currentAlias,
@@ -137,7 +136,7 @@ public static class EntityNodeTreeIterator
             }
         }
 
-        EntityNodeTrees[currentAlias] = node;
+        entityNodeTrees[currentAlias] = node;
 
         return node;
     }

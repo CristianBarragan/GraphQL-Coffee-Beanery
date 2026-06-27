@@ -75,16 +75,16 @@ namespace CoffeeBeanery.GraphQL.Core.Mapping.Generators.Parsing
             // FIX: info.EntityType/IsEntity were never set anywhere in this parser, even
             // though ParseAddModelToEntity already captures the entity type symbol into
             // info.ModelToEntityTypes for every `map.AddModelToEntity<TModel, TEntity>(...)`
-            // call found above. NodeTreeEmitter.EmitEntityNodeTree gates on
+            // call found above. NodeTreeEmitter.EmitCoffeeBeanery.GraphQL.Core.Sql.EntityNodeTree gates on
             // `info.IsEntity && info.EntityType is not null` - without this inference, no
             // mapping using BaseModelMappingRegistration<T> could ever produce an
-            // EntityNodeTree, regardless of how many AddModelToEntity links it had.
+            // CoffeeBeanery.GraphQL.Core.Sql.EntityNodeTree, regardless of how many AddModelToEntity links it had.
             //
             // Rule (matches the project's own convention, mirrored from
             // BaseMappingRegistration<TModel,TEntity> which hardcodes IsEntity = true for the
             // single-entity case): exactly ONE AddModelToEntity link means this model has a
             // real single backing entity (e.g. CustomerCustomerEdge -> CustomerCustomerRelationship)
-            // and should get both a ModelNodeTree and an EntityNodeTree. Zero or multiple links
+            // and should get both a ModelNodeTree and an CoffeeBeanery.GraphQL.Core.Sql.EntityNodeTree. Zero or multiple links
             // means a genuine model-only or multi-entity aggregate (e.g. Product, GraphModel) -
             // IsEntity stays false, EntityType stays null, and only a ModelNodeTree is emitted.
             if (info.ModelToEntityTypes.Count == 1)

@@ -1,5 +1,4 @@
-﻿using CoffeeBeanery.GraphQL.Core.GraphQL;
-using CoffeeBeanery.GraphQL.Core.Helper;
+﻿using CoffeeBeanery.GraphQL.Core.Helper;
 using CoffeeBeanery.GraphQL.Core.Mapping;
 
 namespace CoffeeBeanery.GraphQL.Core.Warmup;
@@ -8,7 +7,7 @@ public static class MappingWarmup
 {
     public static void Warmup(IReadOnlyDictionary<string, NodeMap> mapping)
     {
-        var entityNodeTrees = new Dictionary<string, EntityNodeTree>();
+        var entityNodeTrees = new Dictionary<string, CoffeeBeanery.GraphQL.Core.Sql.EntityNodeTree>();
         var nodeIds = new List<KeyValuePair<string, int>>();
         var counter = 0;
 

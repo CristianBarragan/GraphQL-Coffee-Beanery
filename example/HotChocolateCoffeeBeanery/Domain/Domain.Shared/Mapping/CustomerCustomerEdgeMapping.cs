@@ -83,6 +83,17 @@ public sealed partial class CustomerCustomerEdgeMapping
                 }
             }
         });
+        
+        map.GraphMap = new GraphMap
+        {
+            GraphName     = G(nameof(CustomerCustomerEdge)),
+            EdgeLabel     = nameof(CustomerCustomerEdge),
+            EdgeKeyColumn = nameof(Domain.Model.CustomerCustomerEdge.CustomerCustomerRelationshipKey),
+            FromVertex = new GraphVertex { Label = nameof(Customer), KeyColumn = nameof(Domain.Model.CustomerCustomerEdge.InnerCustomerKey), AliasTo = A(nameof(Customer)) },
+            ToVertex   = new GraphVertex { Label = nameof(Customer), KeyColumn = nameof(Domain.Model.CustomerCustomerEdge.OuterCustomerKey), AliasTo = A(nameof(Customer)) },
+            FromJoinColumn = nameof(Customer.CustomerKey),
+            ToJoinColumn   = nameof(Customer.CustomerKey)
+        };
 
         return map;
     }

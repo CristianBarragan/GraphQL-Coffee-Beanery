@@ -1,30 +1,42 @@
 ﻿using System.Text;
-using CoffeeBeanery.GraphQL.Core.GraphQL;
 using CoffeeBeanery.GraphQL.Core.Sql;
 using CoffeeBeanery.GraphQL.Helper;
 
 namespace CoffeeBeanery.GraphQL.Core.Runtime;
 
-/// <summary>
-/// Builds upsert/CTE SQL directly from a MutationGraphWalker.Result - i.e. straight from
-/// (alias -> List&lt;(Column, Value)&gt;), with no RelationshipKey string-splitting and no
-/// re-filtering of a flat node dictionary per alias per call. The previous version called
-/// `sqlUpsertStatementNodes.Where(k => k.Key.Split('~')[0] == alias)` for every alias, every
-/// FK link, every recursion step - here that's a single dictionary lookup since the walker
-/// already grouped everything by alias up front.
-/// </summary>
 public static class SqlHelper
 {
     public static void GenerateUpsertStatements(
         Dictionary<string, EntityNodeTree> entityTrees,
-        MutationGraphWalker.Result mutationData,
+        ExecutionPlan mutationPlan,
         EntityNodeTree rootTree,
         Dictionary<string, string> sqlWhereStatement,
         List<string> statements,
         List<string> selectStatements)
     {
-        var columnsByAlias = mutationData.ColumnsByAlias;
-        var aliasesToProcess = new HashSet<string>(mutationData.AliasOrder, StringComparer.OrdinalIgnoreCase);
+        var columnsByAlias = new Dictionary<string, List<(string Column, string Value)>>(StringComparer.OrdinalIgnoreCase);
+        var aliasOrder = new List<string>();
+
+        ExecutionEngine.Traverse(mutationPlan, (node, edge) =>
+        {
+            if (node.Values.Count == 0) return;
+
+            if (!columnsByAlias.TryGetValue(node.Alias, out var list))
+            {
+                list = new List<(string Column, string Value)>();
+                columnsByAlias[node.Alias] = list;
+                aliasOrder.Add(node.Alias);
+            }
+
+            foreach (var v in node.Values)
+            {
+                var idx = list.FindIndex(c => c.Column == v.Column);
+                if (idx >= 0) list[idx] = v;
+                else list.Add(v);
+            }
+        });
+
+        var aliasesToProcess = new HashSet<string>(aliasOrder, StringComparer.OrdinalIgnoreCase);
 
         var parentLinksByAlias = BuildParentLinksByAlias(entityTrees);
 
@@ -34,10 +46,6 @@ public static class SqlHelper
         var entitiesProcessed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var queue = new Queue<EntityNodeTree>();
 
-        // The root itself may be the node with data to generate (e.g. a graph-edge entity like
-        // CustomerCustomerEdge, which has no FK-based parent/child link into entityTrees - it's
-        // connected via GraphMap, not a relational FK - so it can only ever be discovered by
-        // seeding it directly here, never via ModelToEntity or parentLinksByAlias).
         queue.Enqueue(rootTree);
 
         foreach (var link in rootTree.ModelToEntity)
@@ -156,10 +164,6 @@ public static class SqlHelper
 
         foreach (var alias in aliasesToProcess)
         {
-            // entityTrees is keyed by alias already - use a direct lookup instead of the
-            // previous fuzzy Name.Matches(alias) scan, which broke down whenever an entity's
-            // table Name (e.g. "CustomerCustomerRelationship") didn't equal its role alias
-            // (e.g. "CustomerCustomerRelationshipKey").
             if (!entityTrees.TryGetValue(alias, out var tree))
                 continue;
 
@@ -185,12 +189,6 @@ public static class SqlHelper
     {
         var result = new List<FkLink>();
 
-        // Must key off Alias, not Name: parentLinksByAlias is indexed by link.From, which is
-        // the dependent's role alias (e.g. "CustomerCustomerRelationshipKey"), not its
-        // underlying table Name (e.g. "CustomerCustomerRelationship"). Looking this up by
-        // currentTree.Name silently missed every time the alias and table name diverged,
-        // which made fkLinks come back empty and fell through to the plain GenerateUpsert
-        // (DO NOTHING) path instead of building the parent CTEs.
         if (!parentLinksByAlias.TryGetValue(currentTree.Alias, out var incomingLinks))
             return result;
 
@@ -207,23 +205,10 @@ public static class SqlHelper
         EntityNodeTree currentTree,
         List<FkLink> result)
     {
-        // Customer's EF navigations are returned for BOTH InnerCustomerCustomer and
-        // OuterCustomerCustomer (GetNavigations doesn't know which role-alias is asking, since
-        // both aliases share the same underlying EF entity type), so each role-specific parent
-        // sees both the InnerCustomerId and OuterCustomerId FK links. Filter to only the link
-        // whose FK column actually matches this parent's role (ModelName), e.g. parentTree
-        // "InnerCustomer" should only ever produce the "InnerCustomerId" link, never
-        // "OuterCustomerId" too. NOTE: this is a naming-convention filter, not a structural
-        // one - the structurally correct fix is to populate EntityKey.AliasProperty from the
-        // AddModelToEntity/navigation call and filter on that instead, once it's wired through.
         if (!string.IsNullOrEmpty(parentTree.ModelName) &&
             !link.ToColumn.Contains(parentTree.ModelName, StringComparison.OrdinalIgnoreCase))
             return;
 
-        // columnsByAlias is keyed by role alias (e.g. "InnerCustomerCustomer"), not by the
-        // underlying table Name (e.g. "Customer") - both InnerCustomer and OuterCustomer share
-        // the same Name, so looking this up by Name would only ever resolve to one shared
-        // bucket (or none at all) instead of each role's own column values.
         if (!columnsByAlias.TryGetValue(parentTree.Alias, out var parentColumns) || parentColumns.Count == 0)
             return;
 
@@ -231,10 +216,6 @@ public static class SqlHelper
             ParentTree: parentTree,
             FkColumn: link.ToColumn,
             PkColumn: link.FromColumn,
-            // Keyed by Alias, not Name, so InnerCustomer and OuterCustomer each get their own
-            // distinct CTE name (cte_InnerCustomerCustomer / cte_OuterCustomerCustomer) instead
-            // of colliding on a shared cte_Customer, which Postgres would reject as a duplicate
-            // CTE name in the same WITH clause.
             CteName: $"cte_{parentTree.Alias}",
             ParentColumns: parentColumns,
             OnConflictCols: currentTree.UpsertKeys));
@@ -255,12 +236,6 @@ public static class SqlHelper
             var cols = string.Join(", ", fk.ParentColumns.Select(c => $"\"{c.Column}\""));
             var vals = string.Join(", ", fk.ParentColumns.Select(c => $"'{EscapeValue(c.Value)}'"));
 
-            // FIX: this CTE inserts into fk.ParentTree (e.g. Customer), so its ON CONFLICT
-            // target must be the PARENT's own upsert keys (Customer.CustomerKey) - NOT
-            // fk.OnConflictCols, which is currentTree.UpsertKeys (the DEPENDENT/child's keys,
-            // e.g. CustomerCustomerRelationship.CustomerCustomerRelationshipKey). Those two were
-            // previously conflated: fk.OnConflictCols is correctly reused further below for the
-            // final INSERT INTO currentTree's own ON CONFLICT clause - that part stays as-is.
             var conflict = string.Join(", ", fk.ParentTree.UpsertKeys.Select(c => $"\"{c}\""));
             var set = string.Join(", ", fk.ParentColumns.Select(c => $"\"{c.Column}\" = EXCLUDED.\"{c.Column}\""));
 

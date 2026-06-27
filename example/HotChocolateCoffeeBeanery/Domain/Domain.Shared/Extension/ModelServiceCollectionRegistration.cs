@@ -24,11 +24,11 @@ namespace Domain.Shared.Extension
 
             services = AddCache(services);
 
-            services.AddScoped<
-                IQuery<
-                    ProcessQueryParameters,
-                    (List<Wrapper>, int?, int?, int?, int?)>,
-                QueryHandler<Wrapper>>();
+            // services.AddScoped<
+            //     IQuery<
+            //         ProcessQueryParameters,
+            //         (List<Wrapper>, int?, int?, int?, int?)>,
+            //     QueryHandler<Wrapper>>();
 
             services.Init<
                 IMappingSet>(

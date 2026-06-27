@@ -81,5 +81,8 @@
     <ItemGroup>
       <ProjectReference Include="..\CoffeeBeanery.GraphQL.Core.Mapping.Generators\CoffeeBeanery.GraphQL.Core.Mapping.Generators.csproj" />
     </ItemGroup>
-    
+
+    <ItemGroup>
+      <Folder Include="GraphQL\Core\GraphQL\" />
+    </ItemGroup>    
 </Project>
